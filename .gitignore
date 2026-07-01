@@ -1,12 +1,14 @@
 # Claude Code
 **/.claude/settings.local.json
-
+./.claude
 # IDE
 .idea/
 *.iml
 
 # OMC internal state
 .omc/
+# OMX internal state
+.omx/
 
 # OS
 .DS_Store
