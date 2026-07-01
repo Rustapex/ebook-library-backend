@@ -39,7 +39,16 @@ out/
 # Claude Code
 **/.claude/settings.local.json
 ./.claude
+.claude/
+**/.claude/
 CLAUDE.md
+
+# Codex
+.codex/
+**/.codex/
+AGENTS.md
+
+
 
 # OMC internal state
 .omc/
