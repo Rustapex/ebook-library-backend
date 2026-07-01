@@ -1,0 +1,13 @@
+# Claude Code
+**/.claude/settings.local.json
+
+# IDE
+.idea/
+*.iml
+
+# OMC internal state
+.omc/
+
+# OS
+.DS_Store
+Thumbs.db
