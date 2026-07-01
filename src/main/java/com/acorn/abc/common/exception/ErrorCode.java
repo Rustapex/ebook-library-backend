@@ -4,6 +4,21 @@ import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 
+/**
+ * 프로젝트 전체 에러 코드 관리 enum.
+ * 새로운 예외가 필요할 때 반드시 여기에 먼저 추가한다.
+ *
+ * [명명 규칙]
+ * 도메인_상황 형식의 대문자 스네이크 케이스
+ * 예: MEMBER_NOT_FOUND, BOOK_STOCK_EMPTY
+ *
+ * [추가 방법]
+ * 아래 기존 항목을 참고해서 도메인 그룹에 맞게 추가한다.
+ * BOOK_STOCK_EMPTY(HttpStatus.CONFLICT, "BOOK_STOCK_EMPTY", "재고가 없습니다."),
+ *
+ * [사용법]
+ * throw new BusinessException(ErrorCode.MEMBER_NOT_FOUND);
+ */
 @Getter
 @RequiredArgsConstructor
 public enum ErrorCode {
