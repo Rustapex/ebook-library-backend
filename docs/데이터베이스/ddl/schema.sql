@@ -9,7 +9,7 @@ CREATE TABLE member_grade (
   min_payment_amount INT NOT NULL DEFAULT 0,
   grade_period_months INT UNSIGNED NOT NULL,
   maintain_payment_rate DECIMAL(5,2) NOT NULL DEFAULT 10.00,
-  description TEXT NULL,
+  grade_description TEXT NULL,
   CONSTRAINT pk_member_grade PRIMARY KEY (grade_id),
   CONSTRAINT uk_member_grade_grade_name UNIQUE (grade_name),
   CONSTRAINT uk_member_grade_grade_level UNIQUE (grade_level)
@@ -18,21 +18,21 @@ CREATE TABLE member_grade (
 CREATE TABLE publisher (
   publisher_id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
   publisher_name VARCHAR(100) NOT NULL,
-  status VARCHAR(20) NOT NULL,
+  publisher_status VARCHAR(20) NOT NULL,
   created_at DATETIME NOT NULL,
   CONSTRAINT pk_publisher PRIMARY KEY (publisher_id),
   CONSTRAINT uk_publisher_publisher_name UNIQUE (publisher_name),
-  CONSTRAINT chk_publisher_status CHECK (status IN ('ACTIVE', 'INACTIVE'))
+  CONSTRAINT chk_publisher_status CHECK (publisher_status IN ('ACTIVE', 'INACTIVE'))
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 CREATE TABLE author (
   author_id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
   author_name VARCHAR(100) NOT NULL,
   author_intro TEXT NULL,
-  status VARCHAR(20) NOT NULL,
+  author_status VARCHAR(20) NOT NULL,
   created_at DATETIME NOT NULL,
   CONSTRAINT pk_author PRIMARY KEY (author_id),
-  CONSTRAINT chk_author_status CHECK (status IN ('ACTIVE', 'INACTIVE'))
+  CONSTRAINT chk_author_status CHECK (author_status IN ('ACTIVE', 'INACTIVE'))
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 CREATE TABLE category (
@@ -40,21 +40,21 @@ CREATE TABLE category (
   parent_category_id BIGINT UNSIGNED NULL,
   category_name VARCHAR(100) NOT NULL,
   display_order INT UNSIGNED NOT NULL DEFAULT 0,
-  status VARCHAR(20) NOT NULL,
+  category_status VARCHAR(20) NOT NULL,
   CONSTRAINT pk_category PRIMARY KEY (category_id),
-  CONSTRAINT chk_category_status CHECK (status IN ('ACTIVE', 'INACTIVE'))
+  CONSTRAINT chk_category_status CHECK (category_status IN ('ACTIVE', 'INACTIVE'))
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 CREATE TABLE book_keyword (
   keyword_id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
   keyword_name VARCHAR(100) NOT NULL,
   keyword_type VARCHAR(20) NOT NULL,
-  status VARCHAR(20) NOT NULL,
+  keyword_status VARCHAR(20) NOT NULL,
   created_at DATETIME NOT NULL,
   CONSTRAINT pk_book_keyword PRIMARY KEY (keyword_id),
   CONSTRAINT uk_book_keyword_keyword_name UNIQUE (keyword_name),
   CONSTRAINT chk_book_keyword_keyword_type CHECK (keyword_type IN ('GENRE_KEYWORD', 'HASHTAG')),
-  CONSTRAINT chk_book_keyword_status CHECK (status IN ('ACTIVE', 'INACTIVE'))
+  CONSTRAINT chk_book_keyword_status CHECK (keyword_status IN ('ACTIVE', 'INACTIVE'))
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 CREATE TABLE coupon (
@@ -64,11 +64,11 @@ CREATE TABLE coupon (
   benefit_value INT NOT NULL DEFAULT 0,
   benefit_unit VARCHAR(20) NOT NULL,
   valid_days INT UNSIGNED NOT NULL DEFAULT 14,
-  status VARCHAR(20) NOT NULL,
+  coupon_status VARCHAR(20) NOT NULL,
   created_at DATETIME NOT NULL,
   CONSTRAINT pk_coupon PRIMARY KEY (coupon_id),
   CONSTRAINT chk_coupon_benefit_unit CHECK (benefit_unit IN ('AMOUNT', 'PERCENT')),
-  CONSTRAINT chk_coupon_status CHECK (status IN ('ACTIVE', 'INACTIVE'))
+  CONSTRAINT chk_coupon_status CHECK (coupon_status IN ('ACTIVE', 'INACTIVE'))
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 CREATE TABLE challenge (
@@ -77,11 +77,11 @@ CREATE TABLE challenge (
   challenge_type VARCHAR(20) NOT NULL,
   target_action VARCHAR(50) NOT NULL,
   target_count INT UNSIGNED NOT NULL,
-  status VARCHAR(20) NOT NULL,
+  challenge_status VARCHAR(20) NOT NULL,
   created_at DATETIME NOT NULL,
   CONSTRAINT pk_challenge PRIMARY KEY (challenge_id),
   CONSTRAINT chk_challenge_challenge_type CHECK (challenge_type IN ('DAILY', 'TOTAL')),
-  CONSTRAINT chk_challenge_status CHECK (status IN ('ACTIVE', 'INACTIVE'))
+  CONSTRAINT chk_challenge_status CHECK (challenge_status IN ('ACTIVE', 'INACTIVE'))
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 CREATE TABLE book_request_candidate (
@@ -99,29 +99,29 @@ CREATE TABLE book_request_candidate (
 CREATE TABLE library (
   library_id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
   library_name VARCHAR(100) NOT NULL,
-  address VARCHAR(255) NOT NULL,
-  latitude DECIMAL(10,7) NULL,
-  longitude DECIMAL(10,7) NULL,
-  status VARCHAR(20) NOT NULL,
+  library_address VARCHAR(255) NOT NULL,
+  library_latitude DECIMAL(10,7) NULL,
+  library_longitude DECIMAL(10,7) NULL,
+  library_status VARCHAR(20) NOT NULL,
   CONSTRAINT pk_library PRIMARY KEY (library_id),
-  CONSTRAINT chk_library_status CHECK (status IN ('ACTIVE', 'INACTIVE'))
+  CONSTRAINT chk_library_status CHECK (library_status IN ('ACTIVE', 'INACTIVE'))
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 CREATE TABLE member (
   member_id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
   login_id VARCHAR(50) NOT NULL,
   password_hash VARCHAR(255) NOT NULL,
-  name VARCHAR(50) NOT NULL,
-  email VARCHAR(255) NOT NULL,
+  member_name VARCHAR(50) NOT NULL,
+  member_email VARCHAR(255) NOT NULL,
   phone VARCHAR(20) NULL,
   birth_date DATE NOT NULL,
   gender VARCHAR(20) NULL,
-  role VARCHAR(20) NOT NULL,
+  member_role VARCHAR(20) NOT NULL,
   grade_id BIGINT UNSIGNED NOT NULL,
   grade_expires_at DATETIME NULL,
   grade_payment_started_at DATETIME NULL,
   point_balance INT NOT NULL DEFAULT 0,
-  status VARCHAR(20) NOT NULL,
+  member_status VARCHAR(20) NOT NULL,
   withdrawn_at DATETIME NULL,
   deactivated_at DATETIME NULL,
   anonymized_at DATETIME NULL,
@@ -130,18 +130,18 @@ CREATE TABLE member (
   updated_at DATETIME NULL,
   CONSTRAINT pk_member PRIMARY KEY (member_id),
   CONSTRAINT uk_member_login_id UNIQUE (login_id),
-  CONSTRAINT uk_member_email UNIQUE (email),
-  CONSTRAINT chk_member_role CHECK (role IN ('USER', 'ADMIN')),
+  CONSTRAINT uk_member_email UNIQUE (member_email),
+  CONSTRAINT chk_member_role CHECK (member_role IN ('USER', 'ADMIN')),
   CONSTRAINT chk_member_point_balance CHECK (point_balance >= 0),
-  CONSTRAINT chk_member_status CHECK (status IN ('JOINED', 'SANCTIONED', 'WITHDRAWN', 'DEACTIVATED'))
+  CONSTRAINT chk_member_status CHECK (member_status IN ('JOINED', 'SANCTIONED', 'WITHDRAWN', 'DEACTIVATED'))
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 CREATE TABLE password_reset_code (
   password_reset_code_id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
   member_id BIGINT UNSIGNED NOT NULL,
-  email VARCHAR(255) NOT NULL,
+  reset_email VARCHAR(255) NOT NULL,
   code_hash VARCHAR(255) NOT NULL,
-  status VARCHAR(20) NOT NULL,
+  reset_code_status VARCHAR(20) NOT NULL,
   fail_count INT UNSIGNED NOT NULL DEFAULT 0,
   expires_at DATETIME NOT NULL,
   verified_at DATETIME NULL,
@@ -149,7 +149,7 @@ CREATE TABLE password_reset_code (
   created_at DATETIME NOT NULL,
   updated_at DATETIME NULL,
   CONSTRAINT pk_password_reset_code PRIMARY KEY (password_reset_code_id),
-  CONSTRAINT chk_password_reset_code_status CHECK (status IN ('ISSUED', 'VERIFIED', 'USED', 'EXPIRED', 'FAILED'))
+  CONSTRAINT chk_password_reset_code_status CHECK (reset_code_status IN ('ISSUED', 'VERIFIED', 'USED', 'EXPIRED', 'FAILED'))
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 CREATE TABLE attendance (
@@ -167,7 +167,7 @@ CREATE TABLE point_history (
   payment_id BIGINT UNSIGNED NULL,
   point_type VARCHAR(30) NOT NULL,
   point_amount INT NOT NULL,
-  description VARCHAR(255) NULL,
+  point_description VARCHAR(255) NULL,
   created_at DATETIME NOT NULL,
   CONSTRAINT pk_point_history PRIMARY KEY (point_history_id),
   CONSTRAINT chk_point_history_point_type CHECK (point_type IN ('challenge_reward', 'REVIEW_REWARD', 'PAYBACK', 'EVENT_REWARD', 'PAYMENT_USE', 'ADMIN_ADJUST'))
@@ -176,8 +176,8 @@ CREATE TABLE point_history (
 CREATE TABLE book (
   book_id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
   publisher_id BIGINT UNSIGNED NULL,
-  title VARCHAR(255) NOT NULL,
-  isbn CHAR(13) NULL,
+  book_title VARCHAR(255) NOT NULL,
+  book_isbn CHAR(13) NULL,
   cover_image_url VARCHAR(500) NULL,
   rental_type VARCHAR(20) NOT NULL,
   rental_price INT NOT NULL DEFAULT 0,
@@ -186,13 +186,13 @@ CREATE TABLE book (
   rental_count INT UNSIGNED NOT NULL DEFAULT 0,
   average_rating DECIMAL(3,2) NOT NULL DEFAULT 0.00,
   review_count INT UNSIGNED NOT NULL DEFAULT 0,
-  status VARCHAR(20) NOT NULL,
+  book_status VARCHAR(20) NOT NULL,
   created_at DATETIME NOT NULL,
   updated_at DATETIME NULL,
   CONSTRAINT pk_book PRIMARY KEY (book_id),
-  CONSTRAINT uk_book_isbn UNIQUE (isbn),
+  CONSTRAINT uk_book_isbn UNIQUE (book_isbn),
   CONSTRAINT chk_book_rental_type CHECK (rental_type IN ('FREE', 'PAID')),
-  CONSTRAINT chk_book_status CHECK (status IN ('AVAILABLE', 'HIDDEN', 'INACTIVE'))
+  CONSTRAINT chk_book_status CHECK (book_status IN ('AVAILABLE', 'HIDDEN', 'INACTIVE'))
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 CREATE TABLE book_author (
@@ -205,7 +205,7 @@ CREATE TABLE book_author (
 CREATE TABLE book_detail (
   book_detail_id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
   book_id BIGINT UNSIGNED NOT NULL,
-  description TEXT NULL,
+  book_description TEXT NULL,
   table_of_contents TEXT NULL,
   publisher_review TEXT NULL,
   detail_content TEXT NULL,
@@ -285,13 +285,13 @@ CREATE TABLE review (
   review_id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
   member_id BIGINT UNSIGNED NOT NULL,
   book_id BIGINT UNSIGNED NOT NULL,
-  content TEXT NOT NULL,
-  status VARCHAR(20) NOT NULL,
+  review_content TEXT NOT NULL,
+  review_status VARCHAR(20) NOT NULL,
   created_at DATETIME NOT NULL,
   updated_at DATETIME NULL,
   CONSTRAINT pk_review PRIMARY KEY (review_id),
   CONSTRAINT uk_review_member_id_book_id UNIQUE (member_id, book_id),
-  CONSTRAINT chk_review_status CHECK (status IN ('ACTIVE', 'HIDDEN', 'DELETED'))
+  CONSTRAINT chk_review_status CHECK (review_status IN ('ACTIVE', 'HIDDEN', 'DELETED'))
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 CREATE TABLE rating (
@@ -310,13 +310,13 @@ CREATE TABLE book_report (
   reporter_id BIGINT UNSIGNED NOT NULL,
   book_id BIGINT UNSIGNED NOT NULL,
   report_type VARCHAR(30) NOT NULL,
-  content TEXT NOT NULL,
-  status VARCHAR(20) NOT NULL,
+  book_report_content TEXT NOT NULL,
+  report_status VARCHAR(20) NOT NULL,
   processed_at DATETIME NULL,
   process_result TEXT NULL,
   created_at DATETIME NOT NULL,
   CONSTRAINT pk_book_report PRIMARY KEY (book_report_id),
-  CONSTRAINT chk_book_report_status CHECK (status IN ('WAITING', 'PROCESSING', 'DONE', 'REJECTED'))
+  CONSTRAINT chk_book_report_status CHECK (report_status IN ('WAITING', 'PROCESSING', 'DONE', 'REJECTED'))
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 CREATE TABLE review_report (
@@ -324,13 +324,13 @@ CREATE TABLE review_report (
   reporter_id BIGINT UNSIGNED NOT NULL,
   review_id BIGINT UNSIGNED NOT NULL,
   report_type VARCHAR(30) NOT NULL,
-  content TEXT NOT NULL,
-  status VARCHAR(20) NOT NULL,
+  review_report_content TEXT NOT NULL,
+  report_status VARCHAR(20) NOT NULL,
   processed_at DATETIME NULL,
   process_result TEXT NULL,
   created_at DATETIME NOT NULL,
   CONSTRAINT pk_review_report PRIMARY KEY (review_report_id),
-  CONSTRAINT chk_review_report_status CHECK (status IN ('WAITING', 'PROCESSING', 'DONE', 'REJECTED'))
+  CONSTRAINT chk_review_report_status CHECK (report_status IN ('WAITING', 'PROCESSING', 'DONE', 'REJECTED'))
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 CREATE TABLE sanction_history (
@@ -338,7 +338,7 @@ CREATE TABLE sanction_history (
   member_id BIGINT UNSIGNED NOT NULL,
   review_report_id BIGINT UNSIGNED NULL,
   sanction_type VARCHAR(30) NOT NULL,
-  reason TEXT NULL,
+  sanction_reason TEXT NULL,
   started_at DATETIME NOT NULL,
   ended_at DATETIME NULL,
   created_at DATETIME NOT NULL,
@@ -352,14 +352,14 @@ CREATE TABLE payment (
   rental_id BIGINT UNSIGNED NOT NULL,
   payment_type VARCHAR(20) NOT NULL,
   original_amount INT NOT NULL DEFAULT 0,
-  amount INT NOT NULL DEFAULT 0,
+  payment_amount INT NOT NULL DEFAULT 0,
   payment_method VARCHAR(20) NOT NULL,
   payment_status VARCHAR(20) NOT NULL,
   paid_at DATETIME NOT NULL,
   created_at DATETIME NOT NULL,
   CONSTRAINT pk_payment PRIMARY KEY (payment_id),
   CONSTRAINT chk_payment_payment_type CHECK (payment_type IN ('RENTAL')),
-  CONSTRAINT chk_payment_amount CHECK (amount >= 0),
+  CONSTRAINT chk_payment_amount CHECK (payment_amount >= 0),
   CONSTRAINT chk_payment_payment_method CHECK (payment_method IN ('CARD')),
   CONSTRAINT chk_payment_payment_status CHECK (payment_status IN ('PAID'))
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
@@ -424,7 +424,7 @@ CREATE TABLE book_request (
   normalized_title VARCHAR(255) NOT NULL,
   normalized_author VARCHAR(100) NOT NULL,
   normalized_publisher VARCHAR(100) NOT NULL,
-  reason TEXT NOT NULL,
+  request_reason TEXT NOT NULL,
   request_status VARCHAR(20) NOT NULL,
   processed_at DATETIME NULL,
   reject_reason TEXT NULL,
@@ -448,18 +448,18 @@ CREATE TABLE library_book (
 CREATE TABLE collection (
   collection_id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
   created_by BIGINT UNSIGNED NULL,
-  name VARCHAR(100) NOT NULL,
+  collection_name VARCHAR(100) NOT NULL,
   collection_type VARCHAR(20) NOT NULL,
   discount_rate DECIMAL(5,2) NULL,
-  description TEXT NULL,
+  collection_description TEXT NULL,
   start_date DATE NULL,
   end_date DATE NULL,
-  status VARCHAR(20) NOT NULL,
+  collection_status VARCHAR(20) NOT NULL,
   created_at DATETIME NOT NULL,
   updated_at DATETIME NULL,
   CONSTRAINT pk_collection PRIMARY KEY (collection_id),
   CONSTRAINT chk_collection_collection_type CHECK (collection_type IN ('SERIES', 'EVENT')),
-  CONSTRAINT chk_collection_status CHECK (status IN ('ACTIVE', 'HIDDEN', 'ENDED'))
+  CONSTRAINT chk_collection_status CHECK (collection_status IN ('ACTIVE', 'HIDDEN', 'ENDED'))
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 CREATE TABLE collection_book (
@@ -476,7 +476,7 @@ CREATE TABLE notification (
   notification_id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
   member_id BIGINT UNSIGNED NOT NULL,
   notification_type VARCHAR(30) NOT NULL,
-  title VARCHAR(100) NOT NULL,
+  notification_title VARCHAR(100) NOT NULL,
   target_type VARCHAR(30) NULL,
   target_id BIGINT UNSIGNED NULL,
   read_yn TINYINT(1) NOT NULL DEFAULT 0,
@@ -488,8 +488,8 @@ CREATE TABLE notification (
 
 CREATE TABLE notice (
   notice_id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
-  title VARCHAR(100) NOT NULL,
-  content TEXT NOT NULL,
+  notice_title VARCHAR(100) NOT NULL,
+  notice_content TEXT NOT NULL,
   notice_status VARCHAR(20) NOT NULL,
   notify_yn TINYINT(1) NOT NULL DEFAULT 0,
   created_at DATETIME NOT NULL,
@@ -605,29 +605,29 @@ ALTER TABLE user_reading_statistic ADD CONSTRAINT fk_user_reading_statistic_memb
 ALTER TABLE admin_audit_log ADD CONSTRAINT fk_admin_audit_log_member FOREIGN KEY (admin_member_id) REFERENCES member(member_id);
 
 CREATE INDEX idx_member_grade_id ON member (grade_id);
-CREATE INDEX idx_member_status ON member (status);
-CREATE INDEX idx_password_reset_code_member_id_status_expires_at ON password_reset_code (member_id, status, expires_at);
+CREATE INDEX idx_member_member_status ON member (member_status);
+CREATE INDEX idx_password_reset_code_member_id_status_expires_at ON password_reset_code (member_id, reset_code_status, expires_at);
 CREATE INDEX idx_password_reset_code_member_id_created_at ON password_reset_code (member_id, created_at);
-CREATE INDEX idx_password_reset_code_status_created_at ON password_reset_code (status, created_at);
+CREATE INDEX idx_password_reset_code_reset_code_status_created_at ON password_reset_code (reset_code_status, created_at);
 CREATE INDEX idx_password_reset_code_created_at ON password_reset_code (created_at);
 CREATE INDEX idx_point_history_member_id ON point_history (member_id);
 CREATE INDEX idx_point_history_payment_id ON point_history (payment_id);
 CREATE INDEX idx_point_history_point_type ON point_history (point_type);
 CREATE INDEX idx_point_history_created_at ON point_history (created_at);
-CREATE INDEX idx_publisher_status ON publisher (status);
+CREATE INDEX idx_publisher_publisher_status ON publisher (publisher_status);
 CREATE INDEX idx_author_author_name ON author (author_name);
-CREATE INDEX idx_author_status ON author (status);
-CREATE INDEX idx_book_title ON book (title);
+CREATE INDEX idx_author_author_status ON author (author_status);
+CREATE INDEX idx_book_book_title ON book (book_title);
 CREATE INDEX idx_book_publisher_id ON book (publisher_id);
 CREATE INDEX idx_book_rental_type ON book (rental_type);
-CREATE INDEX idx_book_status ON book (status);
+CREATE INDEX idx_book_book_status ON book (book_status);
 CREATE INDEX idx_book_rental_count ON book (rental_count);
 CREATE INDEX idx_book_average_rating ON book (average_rating);
 CREATE INDEX idx_book_review_count ON book (review_count);
 CREATE INDEX idx_book_author_author_id ON book_author (author_id);
 CREATE INDEX idx_book_category_category_id ON book_category (category_id);
 CREATE INDEX idx_book_keyword_keyword_type ON book_keyword (keyword_type);
-CREATE INDEX idx_book_keyword_status ON book_keyword (status);
+CREATE INDEX idx_book_keyword_keyword_status ON book_keyword (keyword_status);
 CREATE INDEX idx_book_keyword_map_keyword_id ON book_keyword_map (keyword_id);
 CREATE INDEX idx_book_keyword_map_display_order ON book_keyword_map (display_order);
 CREATE INDEX idx_book_rental_member_id ON book_rental (member_id);
@@ -636,15 +636,15 @@ CREATE INDEX idx_book_rental_rental_status ON book_rental (rental_status);
 CREATE INDEX idx_book_rental_rental_end_at ON book_rental (rental_end_at);
 CREATE INDEX idx_reading_progress_completed_yn ON reading_progress (completed_yn);
 CREATE INDEX idx_review_book_id ON review (book_id);
-CREATE INDEX idx_review_status ON review (status);
+CREATE INDEX idx_review_review_status ON review (review_status);
 CREATE INDEX idx_rating_book_id ON rating (book_id);
 CREATE INDEX idx_book_report_reporter_id ON book_report (reporter_id);
 CREATE INDEX idx_book_report_book_id ON book_report (book_id);
-CREATE INDEX idx_book_report_status ON book_report (status);
+CREATE INDEX idx_book_report_report_status ON book_report (report_status);
 CREATE INDEX idx_book_report_created_at ON book_report (created_at);
 CREATE INDEX idx_review_report_reporter_id ON review_report (reporter_id);
 CREATE INDEX idx_review_report_review_id ON review_report (review_id);
-CREATE INDEX idx_review_report_status ON review_report (status);
+CREATE INDEX idx_review_report_report_status ON review_report (report_status);
 CREATE INDEX idx_review_report_created_at ON review_report (created_at);
 CREATE INDEX idx_sanction_history_member_id ON sanction_history (member_id);
 CREATE INDEX idx_sanction_history_review_report_id ON sanction_history (review_report_id);
@@ -666,7 +666,7 @@ CREATE INDEX idx_book_request_created_at ON book_request (created_at);
 CREATE INDEX idx_library_book_book_id ON library_book (book_id);
 CREATE INDEX idx_library_book_holding_status ON library_book (holding_status);
 CREATE INDEX idx_collection_collection_type ON collection (collection_type);
-CREATE INDEX idx_collection_status ON collection (status);
+CREATE INDEX idx_collection_collection_status ON collection (collection_status);
 CREATE INDEX idx_collection_start_date ON collection (start_date);
 CREATE INDEX idx_collection_end_date ON collection (end_date);
 CREATE INDEX idx_collection_created_by ON collection (created_by);
