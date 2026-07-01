@@ -1,6 +1,7 @@
 -- 기준 문서: ebook-rental-erd.md
 -- 대상 DBMS: MySQL 8.x
 -- 목적: 전자책 대여 서비스 DDL
+-- Spring Boot 자동 실행용: CREATE TABLE IF NOT EXISTS 사용 (재실행 시 에러 무시)
 
 -- =====================================================================
 -- 책 데이터 수집 파이프라인 임시 테이블
@@ -8,7 +9,7 @@
 -- status_cd: 0=PENDING(수집중), 1=READY(이관가능), 2=MERGED(이관완료)
 -- naver_res_status / aladin_res_status: 0=미시도, 1=성공(데이터있음), 2=성공(데이터없음), 3=실패(재시도가능), 4=실패(재시도불가)
 -- =====================================================================
-CREATE TABLE book_isbn_temp (
+CREATE TABLE IF NOT EXISTS book_isbn_temp (
   id                  BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
   isbn13              CHAR(13) NOT NULL,
   book_title          VARCHAR(255) NULL,
@@ -27,7 +28,7 @@ CREATE TABLE book_isbn_temp (
   CONSTRAINT uk_book_isbn_temp_isbn13 UNIQUE (isbn13)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
-CREATE TABLE member_grade (
+CREATE TABLE IF NOT EXISTS member_grade (
   grade_id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
   grade_name VARCHAR(50) NOT NULL,
   grade_level INT NOT NULL,
@@ -40,7 +41,7 @@ CREATE TABLE member_grade (
   CONSTRAINT uk_member_grade_grade_level UNIQUE (grade_level)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
-CREATE TABLE publisher (
+CREATE TABLE IF NOT EXISTS publisher (
   publisher_id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
   publisher_name VARCHAR(100) NOT NULL,
   publisher_status VARCHAR(20) NOT NULL,
@@ -51,7 +52,7 @@ CREATE TABLE publisher (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 -- [주의] 외부 API(네이버)에서 저자명 수집 시 author_name 기준으로 중복 체크 후 upsert 처리 필요 (코드 레벨 처리)
-CREATE TABLE author (
+CREATE TABLE IF NOT EXISTS author (
   author_id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
   author_name VARCHAR(100) NOT NULL,
   author_intro TEXT NULL,
@@ -62,7 +63,7 @@ CREATE TABLE author (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 -- [주의] 알라딘 API의 categoryId(숫자 코드)를 category_name으로 매핑하는 파싱 로직 별도 구현 필요
-CREATE TABLE category (
+CREATE TABLE IF NOT EXISTS category (
   category_id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
   parent_category_id BIGINT UNSIGNED NULL,
   category_name VARCHAR(100) NOT NULL,
@@ -72,7 +73,7 @@ CREATE TABLE category (
   CONSTRAINT chk_category_status CHECK (category_status IN ('ACTIVE', 'INACTIVE'))
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
-CREATE TABLE book_keyword (
+CREATE TABLE IF NOT EXISTS book_keyword (
   keyword_id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
   keyword_name VARCHAR(100) NOT NULL,
   keyword_type VARCHAR(20) NOT NULL,
@@ -84,7 +85,7 @@ CREATE TABLE book_keyword (
   CONSTRAINT chk_book_keyword_status CHECK (keyword_status IN ('ACTIVE', 'INACTIVE'))
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
-CREATE TABLE coupon (
+CREATE TABLE IF NOT EXISTS coupon (
   coupon_id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
   coupon_name VARCHAR(100) NOT NULL,
   coupon_type VARCHAR(30) NOT NULL,
@@ -98,7 +99,7 @@ CREATE TABLE coupon (
   CONSTRAINT chk_coupon_status CHECK (coupon_status IN ('ACTIVE', 'INACTIVE'))
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
-CREATE TABLE challenge (
+CREATE TABLE IF NOT EXISTS challenge (
   challenge_id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
   challenge_name VARCHAR(100) NOT NULL,
   challenge_type VARCHAR(20) NOT NULL,
@@ -111,7 +112,7 @@ CREATE TABLE challenge (
   CONSTRAINT chk_challenge_status CHECK (challenge_status IN ('ACTIVE', 'INACTIVE'))
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
-CREATE TABLE book_request_candidate (
+CREATE TABLE IF NOT EXISTS book_request_candidate (
   request_candidate_id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
   normalized_title VARCHAR(255) NOT NULL,
   normalized_author VARCHAR(100) NOT NULL,
@@ -123,7 +124,7 @@ CREATE TABLE book_request_candidate (
   CONSTRAINT chk_book_request_candidate_candidate_status CHECK (candidate_status IN ('REQUESTED', 'IN_REVIEW', 'APPROVED', 'REJECTED'))
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
-CREATE TABLE library (
+CREATE TABLE IF NOT EXISTS library (
   library_id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
   library_name VARCHAR(100) NOT NULL,
   library_address VARCHAR(255) NOT NULL,
@@ -134,7 +135,7 @@ CREATE TABLE library (
   CONSTRAINT chk_library_status CHECK (library_status IN ('ACTIVE', 'INACTIVE'))
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
-CREATE TABLE member (
+CREATE TABLE IF NOT EXISTS member (
   member_id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
   login_id VARCHAR(50) NOT NULL,
   password_hash VARCHAR(255) NOT NULL,
@@ -163,7 +164,7 @@ CREATE TABLE member (
   CONSTRAINT chk_member_status CHECK (member_status IN ('JOINED', 'SANCTIONED', 'WITHDRAWN', 'DEACTIVATED'))
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
-CREATE TABLE password_reset_code (
+CREATE TABLE IF NOT EXISTS password_reset_code (
   password_reset_code_id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
   member_id BIGINT UNSIGNED NOT NULL,
   reset_email VARCHAR(255) NOT NULL,
@@ -179,7 +180,7 @@ CREATE TABLE password_reset_code (
   CONSTRAINT chk_password_reset_code_status CHECK (reset_code_status IN ('ISSUED', 'VERIFIED', 'USED', 'EXPIRED', 'FAILED'))
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
-CREATE TABLE attendance (
+CREATE TABLE IF NOT EXISTS attendance (
   attendance_id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
   member_id BIGINT UNSIGNED NOT NULL,
   attendance_date DATE NOT NULL,
@@ -188,7 +189,7 @@ CREATE TABLE attendance (
   CONSTRAINT uk_attendance_member_id_attendance_date UNIQUE (member_id, attendance_date)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
-CREATE TABLE point_history (
+CREATE TABLE IF NOT EXISTS point_history (
   point_history_id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
   member_id BIGINT UNSIGNED NOT NULL,
   payment_id BIGINT UNSIGNED NULL,
@@ -200,7 +201,7 @@ CREATE TABLE point_history (
   CONSTRAINT chk_point_history_point_type CHECK (point_type IN ('challenge_reward', 'REVIEW_REWARD', 'PAYBACK', 'EVENT_REWARD', 'PAYMENT_USE', 'ADMIN_ADJUST'))
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
-CREATE TABLE book (
+CREATE TABLE IF NOT EXISTS book (
   book_id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
   publisher_id BIGINT UNSIGNED NULL,
   book_title VARCHAR(255) NOT NULL,
@@ -223,14 +224,14 @@ CREATE TABLE book (
   CONSTRAINT chk_book_status CHECK (book_status IN ('AVAILABLE', 'HIDDEN', 'INACTIVE'))
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
-CREATE TABLE book_author (
+CREATE TABLE IF NOT EXISTS book_author (
   book_id BIGINT UNSIGNED NOT NULL,
   author_id BIGINT UNSIGNED NOT NULL,
   author_order INT UNSIGNED NOT NULL DEFAULT 1,
   CONSTRAINT pk_book_author PRIMARY KEY (book_id, author_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
-CREATE TABLE book_detail (
+CREATE TABLE IF NOT EXISTS book_detail (
   book_detail_id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
   book_id BIGINT UNSIGNED NOT NULL,
   book_description TEXT NULL,
@@ -243,7 +244,7 @@ CREATE TABLE book_detail (
   CONSTRAINT uk_book_detail_book_id UNIQUE (book_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
-CREATE TABLE book_page (
+CREATE TABLE IF NOT EXISTS book_page (
   book_page_id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
   book_id BIGINT UNSIGNED NOT NULL,
   page_no INT UNSIGNED NOT NULL,
@@ -254,20 +255,20 @@ CREATE TABLE book_page (
   CONSTRAINT uk_book_page_book_id_page_no UNIQUE (book_id, page_no)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
-CREATE TABLE book_category (
+CREATE TABLE IF NOT EXISTS book_category (
   book_id BIGINT UNSIGNED NOT NULL,
   category_id BIGINT UNSIGNED NOT NULL,
   CONSTRAINT pk_book_category PRIMARY KEY (book_id, category_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
-CREATE TABLE book_keyword_map (
+CREATE TABLE IF NOT EXISTS book_keyword_map (
   book_id BIGINT UNSIGNED NOT NULL,
   keyword_id BIGINT UNSIGNED NOT NULL,
   display_order INT UNSIGNED NOT NULL DEFAULT 0,
   CONSTRAINT pk_book_keyword_map PRIMARY KEY (book_id, keyword_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
-CREATE TABLE book_rental (
+CREATE TABLE IF NOT EXISTS book_rental (
   rental_id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
   member_id BIGINT UNSIGNED NOT NULL,
   book_id BIGINT UNSIGNED NOT NULL,
@@ -279,7 +280,7 @@ CREATE TABLE book_rental (
   CONSTRAINT chk_book_rental_rental_status CHECK (rental_status IN ('READY', 'READING', 'OWNED'))
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
-CREATE TABLE reading_progress (
+CREATE TABLE IF NOT EXISTS reading_progress (
   progress_id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
   rental_id BIGINT UNSIGNED NOT NULL,
   current_page INT UNSIGNED NOT NULL DEFAULT 1,
@@ -291,7 +292,7 @@ CREATE TABLE reading_progress (
   CONSTRAINT uk_reading_progress_rental_id UNIQUE (rental_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
-CREATE TABLE bookmark (
+CREATE TABLE IF NOT EXISTS bookmark (
   bookmark_id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
   rental_id BIGINT UNSIGNED NOT NULL,
   page_no INT UNSIGNED NOT NULL,
@@ -300,7 +301,7 @@ CREATE TABLE bookmark (
   CONSTRAINT uk_bookmark_rental_id_page_no UNIQUE (rental_id, page_no)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
-CREATE TABLE favorite_book (
+CREATE TABLE IF NOT EXISTS favorite_book (
   favorite_id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
   member_id BIGINT UNSIGNED NOT NULL,
   book_id BIGINT UNSIGNED NOT NULL,
@@ -309,7 +310,7 @@ CREATE TABLE favorite_book (
   CONSTRAINT uk_favorite_book_member_id_book_id UNIQUE (member_id, book_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
-CREATE TABLE review (
+CREATE TABLE IF NOT EXISTS review (
   review_id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
   member_id BIGINT UNSIGNED NOT NULL,
   book_id BIGINT UNSIGNED NOT NULL,
@@ -322,7 +323,7 @@ CREATE TABLE review (
   CONSTRAINT chk_review_status CHECK (review_status IN ('ACTIVE', 'HIDDEN', 'DELETED'))
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
-CREATE TABLE rating (
+CREATE TABLE IF NOT EXISTS rating (
   rating_id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
   member_id BIGINT UNSIGNED NOT NULL,
   book_id BIGINT UNSIGNED NOT NULL,
@@ -333,7 +334,7 @@ CREATE TABLE rating (
   CONSTRAINT chk_rating_rating_score CHECK (rating_score BETWEEN 1 AND 5)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
-CREATE TABLE book_report (
+CREATE TABLE IF NOT EXISTS book_report (
   book_report_id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
   reporter_id BIGINT UNSIGNED NOT NULL,
   book_id BIGINT UNSIGNED NOT NULL,
@@ -347,7 +348,7 @@ CREATE TABLE book_report (
   CONSTRAINT chk_book_report_status CHECK (report_status IN ('WAITING', 'PROCESSING', 'DONE', 'REJECTED'))
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
-CREATE TABLE review_report (
+CREATE TABLE IF NOT EXISTS review_report (
   review_report_id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
   reporter_id BIGINT UNSIGNED NOT NULL,
   review_id BIGINT UNSIGNED NOT NULL,
@@ -361,7 +362,7 @@ CREATE TABLE review_report (
   CONSTRAINT chk_review_report_status CHECK (report_status IN ('WAITING', 'PROCESSING', 'DONE', 'REJECTED'))
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
-CREATE TABLE sanction_history (
+CREATE TABLE IF NOT EXISTS sanction_history (
   sanction_history_id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
   member_id BIGINT UNSIGNED NOT NULL,
   review_report_id BIGINT UNSIGNED NULL,
@@ -374,7 +375,7 @@ CREATE TABLE sanction_history (
   CONSTRAINT chk_sanction_history_sanction_type CHECK (sanction_type IN ('RENTAL_BAN', 'REVIEW_BAN', 'ACCOUNT_SUSPENSION'))
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
-CREATE TABLE payment (
+CREATE TABLE IF NOT EXISTS payment (
   payment_id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
   member_id BIGINT UNSIGNED NOT NULL,
   rental_id BIGINT UNSIGNED NOT NULL,
@@ -392,7 +393,7 @@ CREATE TABLE payment (
   CONSTRAINT chk_payment_payment_status CHECK (payment_status IN ('PAID'))
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
-CREATE TABLE member_coupon (
+CREATE TABLE IF NOT EXISTS member_coupon (
   member_coupon_id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
   member_id BIGINT UNSIGNED NOT NULL,
   coupon_id BIGINT UNSIGNED NOT NULL,
@@ -404,7 +405,7 @@ CREATE TABLE member_coupon (
   CONSTRAINT chk_member_coupon_coupon_status CHECK (coupon_status IN ('ISSUED', 'USED', 'EXPIRED'))
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
-CREATE TABLE coupon_usage (
+CREATE TABLE IF NOT EXISTS coupon_usage (
   coupon_usage_id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
   member_coupon_id BIGINT UNSIGNED NOT NULL,
   rental_id BIGINT UNSIGNED NULL,
@@ -417,7 +418,7 @@ CREATE TABLE coupon_usage (
   CONSTRAINT uk_coupon_usage_payment_id UNIQUE (payment_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
-CREATE TABLE challenge_progress (
+CREATE TABLE IF NOT EXISTS challenge_progress (
   challenge_progress_id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
   member_id BIGINT UNSIGNED NOT NULL,
   challenge_id BIGINT UNSIGNED NOT NULL,
@@ -430,7 +431,7 @@ CREATE TABLE challenge_progress (
   CONSTRAINT uk_challenge_progress_member_id_challenge_id_progress_date UNIQUE (member_id, challenge_id, progress_date)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
-CREATE TABLE challenge_reward (
+CREATE TABLE IF NOT EXISTS challenge_reward (
   challenge_reward_id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
   challenge_id BIGINT UNSIGNED NOT NULL,
   reward_type VARCHAR(20) NOT NULL,
@@ -441,7 +442,7 @@ CREATE TABLE challenge_reward (
   CONSTRAINT chk_challenge_reward_reward_type CHECK (reward_type IN ('POINT', 'coupon'))
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
-CREATE TABLE book_request (
+CREATE TABLE IF NOT EXISTS book_request (
   request_id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
   request_candidate_id BIGINT UNSIGNED NOT NULL,
   member_id BIGINT UNSIGNED NOT NULL,
@@ -458,11 +459,11 @@ CREATE TABLE book_request (
   reject_reason TEXT NULL,
   created_at DATETIME NOT NULL,
   CONSTRAINT pk_book_request PRIMARY KEY (request_id),
-  CONSTRAINT uk_book_request_member_id_normalized_title_normalized_author_normalized_publisher UNIQUE (member_id, normalized_title, normalized_author, normalized_publisher),
+  CONSTRAINT uk_book_request_member_normalized UNIQUE (member_id, normalized_title, normalized_author, normalized_publisher),
   CONSTRAINT chk_book_request_request_status CHECK (request_status IN ('REQUESTED', 'APPROVED', 'REJECTED'))
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
-CREATE TABLE library_book (
+CREATE TABLE IF NOT EXISTS library_book (
   library_book_id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
   library_id BIGINT UNSIGNED NOT NULL,
   book_id BIGINT UNSIGNED NOT NULL,
@@ -473,7 +474,7 @@ CREATE TABLE library_book (
   CONSTRAINT chk_library_book_holding_status CHECK (holding_status IN ('AVAILABLE', 'UNAVAILABLE'))
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
-CREATE TABLE collection (
+CREATE TABLE IF NOT EXISTS collection (
   collection_id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
   created_by BIGINT UNSIGNED NULL,
   collection_name VARCHAR(100) NOT NULL,
@@ -490,7 +491,7 @@ CREATE TABLE collection (
   CONSTRAINT chk_collection_status CHECK (collection_status IN ('ACTIVE', 'HIDDEN', 'ENDED'))
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
-CREATE TABLE collection_book (
+CREATE TABLE IF NOT EXISTS collection_book (
   collection_book_id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
   collection_id BIGINT UNSIGNED NOT NULL,
   book_id BIGINT UNSIGNED NOT NULL,
@@ -500,7 +501,7 @@ CREATE TABLE collection_book (
   CONSTRAINT uk_collection_book_collection_id_book_id UNIQUE (collection_id, book_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
-CREATE TABLE notification (
+CREATE TABLE IF NOT EXISTS notification (
   notification_id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
   member_id BIGINT UNSIGNED NOT NULL,
   notification_type VARCHAR(30) NOT NULL,
@@ -514,7 +515,7 @@ CREATE TABLE notification (
   CONSTRAINT chk_notification_notification_type CHECK (notification_type IN ('RENTAL', 'payment', 'notice', 'EVENT', 'REPORT', 'book_request', 'coupon', 'challenge'))
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
-CREATE TABLE notice (
+CREATE TABLE IF NOT EXISTS notice (
   notice_id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
   notice_title VARCHAR(100) NOT NULL,
   notice_content TEXT NOT NULL,
@@ -526,7 +527,7 @@ CREATE TABLE notice (
   CONSTRAINT chk_notice_notice_status CHECK (notice_status IN ('ACTIVE', 'HIDDEN'))
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
-CREATE TABLE user_reading_statistic (
+CREATE TABLE IF NOT EXISTS user_reading_statistic (
   user_stat_id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
   member_id BIGINT UNSIGNED NOT NULL,
   period_type VARCHAR(20) NOT NULL,
@@ -539,11 +540,11 @@ CREATE TABLE user_reading_statistic (
   favorite_count INT UNSIGNED NOT NULL DEFAULT 0,
   updated_at DATETIME NOT NULL,
   CONSTRAINT pk_user_reading_statistic PRIMARY KEY (user_stat_id),
-  CONSTRAINT uk_user_reading_statistic_member_id_period_type_period_start_date UNIQUE (member_id, period_type, period_start_date),
+  CONSTRAINT uk_user_reading_stat_member_period_start UNIQUE (member_id, period_type, period_start_date),
   CONSTRAINT chk_user_reading_statistic_period_type CHECK (period_type IN ('WEEKLY', 'MONTHLY', 'YEARLY', 'TOTAL'))
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
-CREATE TABLE admin_statistic (
+CREATE TABLE IF NOT EXISTS admin_statistic (
   admin_stat_id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
   period_type VARCHAR(20) NOT NULL,
   age_band VARCHAR(20) NOT NULL DEFAULT 'ALL',
@@ -566,7 +567,7 @@ CREATE TABLE admin_statistic (
   CONSTRAINT chk_admin_statistic_age_band CHECK (age_band IN ('ALL', '10S', '20S', '30S', '40S', '50_PLUS'))
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
-CREATE TABLE admin_audit_log (
+CREATE TABLE IF NOT EXISTS admin_audit_log (
   audit_log_id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
   admin_member_id BIGINT UNSIGNED NULL,
   action_type VARCHAR(50) NOT NULL,
@@ -578,6 +579,7 @@ CREATE TABLE admin_audit_log (
   CONSTRAINT pk_admin_audit_log PRIMARY KEY (audit_log_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
+-- FK 제약 (이미 존재하면 continue-on-error=true 로 무시)
 ALTER TABLE member ADD CONSTRAINT fk_member_member_grade FOREIGN KEY (grade_id) REFERENCES member_grade(grade_id);
 ALTER TABLE password_reset_code ADD CONSTRAINT fk_password_reset_code_member FOREIGN KEY (member_id) REFERENCES member(member_id);
 ALTER TABLE attendance ADD CONSTRAINT fk_attendance_member FOREIGN KEY (member_id) REFERENCES member(member_id);
