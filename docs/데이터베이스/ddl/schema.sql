@@ -2,6 +2,31 @@
 -- 대상 DBMS: MySQL 8.x
 -- 목적: 전자책 대여 서비스 DDL
 
+-- =====================================================================
+-- 책 데이터 수집 파이프라인 임시 테이블
+-- 정보나루 → 네이버 → 알라딘 순으로 데이터 보강 후 book 테이블로 이관
+-- status_cd: 0=PENDING(수집중), 1=READY(이관가능), 2=MERGED(이관완료)
+-- naver_res_status / aladin_res_status: 0=미시도, 1=성공(데이터있음), 2=성공(데이터없음), 3=실패(재시도가능), 4=실패(재시도불가)
+-- =====================================================================
+CREATE TABLE book_isbn_temp (
+  id                  BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  isbn13              CHAR(13) NOT NULL,
+  book_title          VARCHAR(255) NULL,
+  publisher           VARCHAR(100) NULL,
+  author              VARCHAR(255) NULL,
+  cover_image_url     VARCHAR(500) NULL,
+  description         TEXT NULL,
+  pub_date            VARCHAR(20) NULL,
+  aladin_category_id  VARCHAR(20) NULL,
+  naver_res_status    TINYINT NOT NULL DEFAULT 0,
+  aladin_res_status   TINYINT NOT NULL DEFAULT 0,
+  status_cd           TINYINT NOT NULL DEFAULT 0,
+  created_at          DATETIME NOT NULL,
+  updated_at          DATETIME NULL,
+  CONSTRAINT pk_book_isbn_temp PRIMARY KEY (id),
+  CONSTRAINT uk_book_isbn_temp_isbn13 UNIQUE (isbn13)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
 CREATE TABLE member_grade (
   grade_id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
   grade_name VARCHAR(50) NOT NULL,
@@ -25,6 +50,7 @@ CREATE TABLE publisher (
   CONSTRAINT chk_publisher_status CHECK (status IN ('ACTIVE', 'INACTIVE'))
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
+-- [주의] 외부 API(네이버)에서 저자명 수집 시 author_name 기준으로 중복 체크 후 upsert 처리 필요 (코드 레벨 처리)
 CREATE TABLE author (
   author_id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
   author_name VARCHAR(100) NOT NULL,
@@ -35,6 +61,7 @@ CREATE TABLE author (
   CONSTRAINT chk_author_status CHECK (status IN ('ACTIVE', 'INACTIVE'))
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
+-- [주의] 알라딘 API의 categoryId(숫자 코드)를 category_name으로 매핑하는 파싱 로직 별도 구현 필요
 CREATE TABLE category (
   category_id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
   parent_category_id BIGINT UNSIGNED NULL,
@@ -179,6 +206,7 @@ CREATE TABLE book (
   title VARCHAR(255) NOT NULL,
   isbn CHAR(13) NULL,
   cover_image_url VARCHAR(500) NULL,
+  pub_date DATE NULL,
   rental_type VARCHAR(20) NOT NULL,
   rental_price INT NOT NULL DEFAULT 0,
   default_rental_days INT UNSIGNED NOT NULL,
