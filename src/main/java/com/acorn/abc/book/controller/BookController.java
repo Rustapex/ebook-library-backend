@@ -85,9 +85,12 @@ public class BookController {
     public ResponseEntity<ApiResponse<BookRecommendationResponse>> getRecommendations(
             @RequestParam(required = false) Long baseBookId,
             @RequestParam(required = false) String type,
-            @RequestParam(required = false) Integer limit
+            @RequestParam(required = false) Integer limit,
+            @AuthenticationPrincipal(expression = ANONYMOUS_IF_NOT_LOGGED_IN) CustomUserDetails userDetails
     ) {
-        return ResponseEntity.ok(ApiResponse.ok(bookService.getRecommendations(baseBookId, type, limit)));
+        return ResponseEntity.ok(ApiResponse.ok(
+                bookService.getRecommendations(baseBookId, type, limit, memberId(userDetails))
+        ));
     }
 
     private Long memberId(CustomUserDetails userDetails) {

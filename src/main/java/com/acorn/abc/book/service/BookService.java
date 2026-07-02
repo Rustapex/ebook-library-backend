@@ -148,7 +148,7 @@ public class BookService {
         );
 
         String myRentalState = memberId == null ? null
-                : bookRentalRepository.findFirstByMember_MemberIdAndBook_BookIdOrderByCreatedAtDesc(memberId, bookId)
+                : bookRentalRepository.findFirstByMember_MemberIdAndBook_BookIdOrderByCreatedAtDescRentalIdDesc(memberId, bookId)
                         .map(BookRental::getRentalStatus)
                         .orElse(null);
         boolean myFavoriteYn = memberId != null
@@ -175,15 +175,16 @@ public class BookService {
         );
     }
 
-    public BookRecommendationResponse getRecommendations(Long baseBookId, String type, Integer limit) {
+    public BookRecommendationResponse getRecommendations(Long baseBookId, String type, Integer limit, Long memberId) {
         // 회원별 "관심 카테고리 중심" 개인화(화면흐름도 02-User-상세화면설계도.md:47, U-001 메인/홈)는
         // "관심 카테고리"를 어떤 데이터로 정의할지(즐겨찾기 기준? 최근 대여 기준?) api-spec/화면흐름도/ERD 어디에도 정의가 없어
-        // 구현하지 않음(2026-07-02_화면흐름도-API명세_4.2_대조검토.md 4-2 참고). 회원/비회원 모두 동일한 추천을 받는다.
+        // 구현하지 않음(2026-07-02_화면흐름도-API명세_4.2_대조검토.md 4-2 참고). 회원/비회원 모두 동일한 추천을 받지만,
+        // favoriteYn은 BookCard 계약대로 로그인 회원 기준으로 계산한다.
         String recommendationType = normalizeRecommendationType(type, baseBookId);
         int normalizedLimit = normalizeRecommendationLimit(limit);
         Pageable pageable = PageRequest.of(0, normalizedLimit);
         List<Book> books = bookRepository.findRecommendations(baseBookId, recommendationType, pageable);
-        return new BookRecommendationResponse(recommendationType, toCardResponses(books, null));
+        return new BookRecommendationResponse(recommendationType, toCardResponses(books, memberId));
     }
 
     public List<BookCardResponse> findCardsByCollectionId(Long collectionId, Integer limit) {
