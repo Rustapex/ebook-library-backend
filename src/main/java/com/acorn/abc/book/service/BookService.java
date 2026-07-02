@@ -112,9 +112,7 @@ public class BookService {
     }
 
     public BookDetailResponse getBookDetail(Long bookId) {
-        Book book = bookRepository.findById(bookId)
-                .filter(candidate -> AVAILABLE.equals(candidate.getStatus()))
-                .orElseThrow(() -> new BusinessException(ErrorCode.BOOK_NOT_FOUND));
+        Book book = getAvailableBookOrThrow(bookId);
 
         BookDetail detail = bookDetailRepository.findByBook_BookId(bookId).orElse(null);
         List<String> authors = bookAuthorRepository.findActiveByBookId(bookId).stream()
@@ -175,6 +173,13 @@ public class BookService {
         Pageable pageable = limit == null ? Pageable.unpaged() : PageRequest.of(0, limit);
         List<Book> books = bookRepository.findByCollectionId(collectionId, pageable);
         return toCardResponses(books);
+    }
+
+    // 다른 도메인(library 등)이 도서 정보가 필요할 때 BookRepository 대신 이 메서드를 거치도록 한다(AVAILABLE 규칙을 한 곳에서만 관리)
+    public Book getAvailableBookOrThrow(Long bookId) {
+        return bookRepository.findById(bookId)
+                .filter(candidate -> AVAILABLE.equals(candidate.getStatus()))
+                .orElseThrow(() -> new BusinessException(ErrorCode.BOOK_NOT_FOUND));
     }
 
     private PageResponse<BookCardResponse> toPageResponse(Page<Book> page) {
@@ -238,8 +243,9 @@ public class BookService {
         if (value == null) {
             return "latest";
         }
+        // 잘못된 sort 값은 latest로 조용히 넘기지 않고 VALIDATION_ERROR로 응답한다(normalizeRentalType과 동일 패턴, 계획 2-5)
         if (!"latest".equals(value) && !"title".equals(value) && !"popular".equals(value)) {
-            return "latest";
+            throw new BusinessException(ErrorCode.VALIDATION_ERROR);
         }
         return value;
     }
