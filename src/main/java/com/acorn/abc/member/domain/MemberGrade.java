@@ -29,6 +29,7 @@ public class MemberGrade {
     @Column(name = "grade_level", nullable = false)
     private int gradeLevel;
 
+    // final ERD는 DECIMAL(10,2)이지만 현재 정책은 원 단위 정수 금액만 사용하므로 int로 유지한다.
     @Column(name = "min_payment_amount", nullable = false)
     private int minPaymentAmount;
 
