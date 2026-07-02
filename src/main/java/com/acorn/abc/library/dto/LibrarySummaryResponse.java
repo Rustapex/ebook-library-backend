@@ -5,6 +5,7 @@ import java.math.BigDecimal;
 public record LibrarySummaryResponse(
         Long bookId,
         String title,
+        String coverImageUrl,
         String libraryName,
         String address,
         BigDecimal latitude,
