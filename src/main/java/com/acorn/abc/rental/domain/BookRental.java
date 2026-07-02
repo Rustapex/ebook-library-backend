@@ -47,4 +47,12 @@ public class BookRental {
 
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt;
+
+    // 뷰어 최초 진입 시에만 READY->READING 전환 + rental_start_at 저장(이미 시작한 대여는 그대로 둔다)
+    public void startReadingIfNotStarted() {
+        if ("READY".equals(this.rentalStatus)) {
+            this.rentalStatus = "READING";
+            this.rentalStartAt = LocalDateTime.now();
+        }
+    }
 }

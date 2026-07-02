@@ -44,4 +44,29 @@ public class ReadingProgress {
 
     @Column(name = "completed_at")
     private LocalDateTime completedAt;
+
+    public static ReadingProgress start(BookRental rental) {
+        ReadingProgress progress = new ReadingProgress();
+        progress.rental = rental;
+        progress.currentPage = 1;
+        progress.readPageCount = 0;
+        progress.completedYn = false;
+        return progress;
+    }
+
+    public void moveToPage(int pageNo, LocalDateTime viewedAt) {
+        this.currentPage = pageNo;
+        this.readPageCount = Math.max(this.readPageCount, pageNo);
+        this.lastReadAt = viewedAt;
+    }
+
+    // 마지막 페이지 도달 시 최초 1회만 완독 처리(api-spec 4.3절)
+    public boolean completeIfLastPage(int totalPages, LocalDateTime completedAt) {
+        if (Boolean.TRUE.equals(this.completedYn) || this.currentPage < totalPages) {
+            return false;
+        }
+        this.completedYn = true;
+        this.completedAt = completedAt;
+        return true;
+    }
 }

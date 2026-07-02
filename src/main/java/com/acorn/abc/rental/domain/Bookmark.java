@@ -35,4 +35,12 @@ public class Bookmark {
 
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt;
+
+    public static Bookmark create(BookRental rental, int pageNo) {
+        Bookmark bookmark = new Bookmark();
+        bookmark.rental = rental;
+        bookmark.pageNo = pageNo;
+        bookmark.createdAt = LocalDateTime.now();
+        return bookmark;
+    }
 }
