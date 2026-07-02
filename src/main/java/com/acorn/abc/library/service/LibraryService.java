@@ -23,6 +23,7 @@ public class LibraryService {
                 .map(libraryBook -> new LibrarySummaryResponse(
                         book.getBookId(),
                         book.getTitle(),
+                        book.getCoverImageUrl(),
                         libraryBook.getLibrary().getLibraryName(),
                         libraryBook.getLibrary().getAddress(),
                         libraryBook.getLibrary().getLatitude(),

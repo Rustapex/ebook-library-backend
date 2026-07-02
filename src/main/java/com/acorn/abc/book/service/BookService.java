@@ -21,6 +21,9 @@ import com.acorn.abc.book.repository.BookSpecifications;
 import com.acorn.abc.common.exception.BusinessException;
 import com.acorn.abc.common.exception.ErrorCode;
 import com.acorn.abc.common.response.PageResponse;
+import com.acorn.abc.favorite.repository.FavoriteBookRepository;
+import com.acorn.abc.rental.domain.BookRental;
+import com.acorn.abc.rental.repository.BookRentalRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -35,6 +38,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 
 @Service
 @RequiredArgsConstructor
@@ -52,6 +56,8 @@ public class BookService {
     private final BookCategoryRepository bookCategoryRepository;
     private final BookKeywordMapRepository bookKeywordMapRepository;
     private final BookDetailRepository bookDetailRepository;
+    private final FavoriteBookRepository favoriteBookRepository;
+    private final BookRentalRepository bookRentalRepository;
 
     public PageResponse<BookCardResponse> getBooks(
             Long categoryId,
@@ -61,7 +67,8 @@ public class BookService {
             String section,
             String sort,
             Integer page,
-            Integer size
+            Integer size,
+            Long memberId
     ) {
         BookListCriteria criteria = new BookListCriteria(
                 categoryId,
@@ -83,10 +90,10 @@ public class BookService {
 
         Pageable pageable = PageRequest.of(criteria.page(), criteria.size(), sortFor(criteria.sort()));
         Page<Book> books = bookRepository.findAll(spec, pageable);
-        return toPageResponse(books);
+        return toPageResponse(books, memberId);
     }
 
-    public BookSearchResponse searchBooks(String keyword, Long categoryId, String rentalType, String sort, Integer page, Integer size) {
+    public BookSearchResponse searchBooks(String keyword, Long categoryId, String rentalType, String sort, Integer page, Integer size, Long memberId) {
         if (keyword == null || keyword.isBlank()) {
             throw new BusinessException(ErrorCode.VALIDATION_ERROR);
         }
@@ -107,11 +114,11 @@ public class BookService {
                 criteria.rentalType(),
                 pageable
         );
-        PageResponse<BookCardResponse> resultPage = toPageResponse(result);
+        PageResponse<BookCardResponse> resultPage = toPageResponse(result, memberId);
         return new BookSearchResponse(trimmedKeyword, resultPage.totalElements(), resultPage);
     }
 
-    public BookDetailResponse getBookDetail(Long bookId) {
+    public BookDetailResponse getBookDetail(Long bookId, Long memberId) {
         Book book = getAvailableBookOrThrow(bookId);
 
         BookDetail detail = bookDetailRepository.findByBook_BookId(bookId).orElse(null);
@@ -140,6 +147,13 @@ public class BookService {
                 book.getReviewCount()
         );
 
+        String myRentalState = memberId == null ? null
+                : bookRentalRepository.findFirstByMember_MemberIdAndBook_BookIdOrderByCreatedAtDesc(memberId, bookId)
+                        .map(BookRental::getRentalStatus)
+                        .orElse(null);
+        boolean myFavoriteYn = memberId != null
+                && favoriteBookRepository.existsByMember_MemberIdAndBook_BookId(memberId, bookId);
+
         return new BookDetailResponse(
                 book.getBookId(),
                 book.getTitle(),
@@ -156,23 +170,26 @@ public class BookService {
                 rentalInfo,
                 book.getTotalPages(),
                 reviewSummary,
-                null,
-                false
+                myRentalState,
+                myFavoriteYn
         );
     }
 
     public BookRecommendationResponse getRecommendations(Long baseBookId, String type, Integer limit) {
+        // 회원별 "관심 카테고리 중심" 개인화(화면흐름도 02-User-상세화면설계도.md:47, U-001 메인/홈)는
+        // "관심 카테고리"를 어떤 데이터로 정의할지(즐겨찾기 기준? 최근 대여 기준?) api-spec/화면흐름도/ERD 어디에도 정의가 없어
+        // 구현하지 않음(2026-07-02_화면흐름도-API명세_4.2_대조검토.md 4-2 참고). 회원/비회원 모두 동일한 추천을 받는다.
         String recommendationType = normalizeRecommendationType(type, baseBookId);
         int normalizedLimit = normalizeRecommendationLimit(limit);
         Pageable pageable = PageRequest.of(0, normalizedLimit);
         List<Book> books = bookRepository.findRecommendations(baseBookId, recommendationType, pageable);
-        return new BookRecommendationResponse(recommendationType, toCardResponses(books));
+        return new BookRecommendationResponse(recommendationType, toCardResponses(books, null));
     }
 
     public List<BookCardResponse> findCardsByCollectionId(Long collectionId, Integer limit) {
         Pageable pageable = limit == null ? Pageable.unpaged() : PageRequest.of(0, limit);
         List<Book> books = bookRepository.findByCollectionId(collectionId, pageable);
-        return toCardResponses(books);
+        return toCardResponses(books, null);
     }
 
     // 다른 도메인(library 등)이 도서 정보가 필요할 때 BookRepository 대신 이 메서드를 거치도록 한다(AVAILABLE 규칙을 한 곳에서만 관리)
@@ -182,12 +199,12 @@ public class BookService {
                 .orElseThrow(() -> new BusinessException(ErrorCode.BOOK_NOT_FOUND));
     }
 
-    private PageResponse<BookCardResponse> toPageResponse(Page<Book> page) {
-        List<BookCardResponse> content = toCardResponses(page.getContent());
+    private PageResponse<BookCardResponse> toPageResponse(Page<Book> page, Long memberId) {
+        List<BookCardResponse> content = toCardResponses(page.getContent(), memberId);
         return PageResponse.of(content, page.getNumber(), page.getSize(), page.getTotalElements());
     }
 
-    private List<BookCardResponse> toCardResponses(List<Book> books) {
+    private List<BookCardResponse> toCardResponses(List<Book> books, Long memberId) {
         if (books.isEmpty()) {
             return List.of();
         }
@@ -197,6 +214,9 @@ public class BookService {
             authorsByBookId.computeIfAbsent(bookAuthor.getBook().getBookId(), id -> new ArrayList<>())
                     .add(bookAuthor.getAuthor().getAuthorName());
         }
+        Set<Long> favoriteBookIds = memberId == null
+                ? Set.of()
+                : Set.copyOf(favoriteBookRepository.findBookIdsByMemberIdAndBookIdIn(memberId, bookIds));
         return books.stream()
                 .map(book -> new BookCardResponse(
                         book.getBookId(),
@@ -208,7 +228,7 @@ public class BookService {
                         book.getRentalPrice(),
                         defaultBigDecimal(book.getAverageRating()),
                         book.getReviewCount(),
-                        false
+                        favoriteBookIds.contains(book.getBookId())
                 ))
                 .toList();
     }
