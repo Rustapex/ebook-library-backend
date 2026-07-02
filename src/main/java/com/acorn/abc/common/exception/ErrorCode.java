@@ -37,6 +37,8 @@ public enum ErrorCode {
     // Member
     MEMBER_NOT_FOUND(HttpStatus.NOT_FOUND, "MEMBER_NOT_FOUND", "존재하지 않는 회원입니다."),
     MEMBER_EMAIL_DUPLICATED(HttpStatus.CONFLICT, "MEMBER_EMAIL_DUPLICATED", "이미 사용 중인 이메일입니다."),
+    MEMBER_LOGIN_ID_DUPLICATED(HttpStatus.CONFLICT, "MEMBER_LOGIN_ID_DUPLICATED", "이미 사용 중인 아이디입니다."),
+    AUTH_INVALID_PASSWORD(HttpStatus.BAD_REQUEST, "AUTH_INVALID_PASSWORD", "현재 비밀번호가 올바르지 않습니다."),
 
     // Book
     BOOK_NOT_FOUND(HttpStatus.NOT_FOUND, "BOOK_NOT_FOUND", "존재하지 않는 도서입니다."),

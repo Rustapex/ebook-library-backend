@@ -1,5 +1,6 @@
 package com.acorn.abc.member.domain;
 
+import com.acorn.abc.common.domain.BaseEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
@@ -20,7 +21,7 @@ import java.time.LocalDateTime;
 @Table(name = "member")
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-public class Member {
+public class Member extends BaseEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -79,9 +80,25 @@ public class Member {
     @Column(name = "withdrawal_reason", length = 255)
     private String withdrawalReason;
 
-    @Column(name = "created_at", nullable = false)
-    private LocalDateTime createdAt;
+    // TODO: 기본 등급 정책 확정 전까지 grade_id=1 사용
+    public static Member create(String loginId, String passwordHash, String name, String email,
+                                String phone, LocalDate birthDate, String gender, MemberGrade grade) {
+        Member member = new Member();
+        member.loginId = loginId;
+        member.passwordHash = passwordHash;
+        member.name = name;
+        member.email = email;
+        member.phone = phone;
+        member.birthDate = birthDate;
+        member.gender = gender;
+        member.grade = grade;
+        member.role = "USER";
+        member.status = "JOINED";
+        member.pointBalance = 0;
+        return member;
+    }
 
-    @Column(name = "updated_at")
-    private LocalDateTime updatedAt;
+    public void changePassword(String newPasswordHash) {
+        this.passwordHash = newPasswordHash;
+    }
 }

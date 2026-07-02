@@ -32,6 +32,7 @@ CREATE TABLE IF NOT EXISTS member_grade (
   grade_id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
   grade_name VARCHAR(50) NOT NULL,
   grade_level INT NOT NULL,
+  -- final ERD는 DECIMAL(10,2)이지만 현재 정책은 원 단위 정수 금액만 사용하므로 INT로 유지한다.
   min_payment_amount INT NOT NULL DEFAULT 0,
   grade_period_months INT UNSIGNED NOT NULL,
   maintain_payment_rate DECIMAL(5,2) NOT NULL DEFAULT 10.00,
