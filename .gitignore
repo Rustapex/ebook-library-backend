@@ -48,6 +48,10 @@ CLAUDE.md
 **/.codex/
 AGENTS.md
 
+# Local environment
+.env
+.env.*
+!.env.example
 
 
 # OMC internal state
