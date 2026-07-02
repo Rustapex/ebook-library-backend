@@ -42,6 +42,7 @@ public enum ErrorCode {
 
     // Book
     BOOK_NOT_FOUND(HttpStatus.NOT_FOUND, "BOOK_NOT_FOUND", "존재하지 않는 도서입니다."),
+    BOOK_PAGE_NOT_FOUND(HttpStatus.NOT_FOUND, "BOOK_PAGE_NOT_FOUND", "존재하지 않는 페이지입니다."),
 
     // Rental
     RENTAL_ALREADY_EXISTS(HttpStatus.CONFLICT, "RENTAL_ALREADY_EXISTS", "이미 대여 중인 도서입니다."),

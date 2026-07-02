@@ -38,6 +38,7 @@ public class ViewerService {
         rental.startReadingIfNotStarted();
         ReadingProgress progress = readingProgressRepository.findByRental_RentalId(rentalId)
                 .orElseGet(() -> readingProgressRepository.save(ReadingProgress.start(rental)));
+        progress.moveToPage(pageNo, LocalDateTime.now());
 
         boolean bookmarkYn = bookmarkRepository.existsByRental_RentalIdAndPageNo(rentalId, pageNo);
 
@@ -53,6 +54,10 @@ public class ViewerService {
     public ProgressResponse saveProgress(Long rentalId, ProgressUpdateRequest request, Long memberId) {
         BookRental rental = rentalService.getOwnedRentalOrThrow(rentalId, memberId);
         Book book = rental.getBook();
+
+        if (request.currentPage() > book.getTotalPages()) {
+            throw new BusinessException(ErrorCode.BOOK_PAGE_NOT_FOUND);
+        }
 
         ReadingProgress progress = readingProgressRepository.findByRental_RentalId(rentalId)
                 .orElseGet(() -> readingProgressRepository.save(ReadingProgress.start(rental)));

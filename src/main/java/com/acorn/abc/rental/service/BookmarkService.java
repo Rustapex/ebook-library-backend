@@ -1,5 +1,6 @@
 package com.acorn.abc.rental.service;
 
+import com.acorn.abc.book.repository.BookPageRepository;
 import com.acorn.abc.common.exception.BusinessException;
 import com.acorn.abc.common.exception.ErrorCode;
 import com.acorn.abc.rental.domain.BookRental;
@@ -9,6 +10,7 @@ import com.acorn.abc.rental.dto.BookmarkDeleteResponse;
 import com.acorn.abc.rental.dto.BookmarkResponse;
 import com.acorn.abc.rental.repository.BookmarkRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -21,14 +23,21 @@ public class BookmarkService {
 
     private final RentalService rentalService;
     private final BookmarkRepository bookmarkRepository;
+    private final BookPageRepository bookPageRepository;
 
     public BookmarkResponse addBookmark(Long rentalId, BookmarkCreateRequest request, Long memberId) {
         BookRental rental = rentalService.getOwnedRentalOrThrow(rentalId, memberId);
+        bookPageRepository.findByBook_BookIdAndPageNo(rental.getBook().getBookId(), request.pageNo())
+                .orElseThrow(() -> new BusinessException(ErrorCode.BOOK_PAGE_NOT_FOUND));
         if (bookmarkRepository.existsByRental_RentalIdAndPageNo(rentalId, request.pageNo())) {
             throw new BusinessException(ErrorCode.BOOKMARK_ALREADY_EXISTS);
         }
-        Bookmark bookmark = bookmarkRepository.save(Bookmark.create(rental, request.pageNo()));
-        return new BookmarkResponse(bookmark.getBookmarkId(), bookmark.getPageNo(), bookmark.getCreatedAt());
+        try {
+            Bookmark bookmark = bookmarkRepository.save(Bookmark.create(rental, request.pageNo()));
+            return new BookmarkResponse(bookmark.getBookmarkId(), bookmark.getPageNo(), bookmark.getCreatedAt());
+        } catch (DataIntegrityViolationException e) {
+            throw new BusinessException(ErrorCode.BOOKMARK_ALREADY_EXISTS);
+        }
     }
 
     public BookmarkDeleteResponse deleteBookmark(Long rentalId, Long bookmarkId, Long memberId) {
