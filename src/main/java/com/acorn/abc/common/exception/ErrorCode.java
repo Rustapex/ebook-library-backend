@@ -54,6 +54,7 @@ public enum ErrorCode {
     // Rental
     RENTAL_ALREADY_EXISTS(HttpStatus.CONFLICT, "RENTAL_ALREADY_EXISTS", "이미 대여 중인 도서입니다."),
     RENTAL_NOT_FOUND(HttpStatus.NOT_FOUND, "RENTAL_NOT_FOUND", "존재하지 않는 대여 내역입니다."),
+    RENTAL_EXPIRED(HttpStatus.FORBIDDEN, "RENTAL_EXPIRED", "대여 기간이 만료되었습니다."),
 
     // Bookmark
     BOOKMARK_NOT_FOUND(HttpStatus.NOT_FOUND, "BOOKMARK_NOT_FOUND", "존재하지 않는 북마크입니다."),

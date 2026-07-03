@@ -33,7 +33,7 @@ public class BookmarkService {
             throw new BusinessException(ErrorCode.BOOKMARK_ALREADY_EXISTS);
         }
         try {
-            Bookmark bookmark = bookmarkRepository.save(Bookmark.create(rental, request.pageNo()));
+            Bookmark bookmark = bookmarkRepository.saveAndFlush(Bookmark.create(rental, request.pageNo()));
             return new BookmarkResponse(bookmark.getBookmarkId(), bookmark.getPageNo(), bookmark.getCreatedAt());
         } catch (DataIntegrityViolationException e) {
             throw new BusinessException(ErrorCode.BOOKMARK_ALREADY_EXISTS);

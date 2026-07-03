@@ -7,6 +7,8 @@ import com.acorn.abc.rental.repository.BookRentalRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDateTime;
+
 @Service
 @RequiredArgsConstructor
 public class RentalService {
@@ -19,6 +21,10 @@ public class RentalService {
                 .orElseThrow(() -> new BusinessException(ErrorCode.RENTAL_NOT_FOUND));
         if (!rental.getMember().getMemberId().equals(memberId)) {
             throw new BusinessException(ErrorCode.AUTH_ACCESS_DENIED);
+        }
+        // OWNED(소장)는 만료 없음(화면흐름도 02/04 문서 기준). READY/READING만 만료 검증.
+        if (!"OWNED".equals(rental.getRentalStatus()) && rental.getRentalEndAt().isBefore(LocalDateTime.now())) {
+            throw new BusinessException(ErrorCode.RENTAL_EXPIRED);
         }
         return rental;
     }

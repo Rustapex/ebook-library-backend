@@ -33,7 +33,7 @@ public class ViewerService {
         Book book = rental.getBook();
 
         BookPage page = bookPageRepository.findByBook_BookIdAndPageNo(book.getBookId(), pageNo)
-                .orElseThrow(() -> new BusinessException(ErrorCode.VALIDATION_ERROR));
+                .orElseThrow(() -> new BusinessException(ErrorCode.BOOK_PAGE_NOT_FOUND));
 
         rental.startReadingIfNotStarted();
         ReadingProgress progress = readingProgressRepository.findByRental_RentalId(rentalId)
@@ -55,9 +55,8 @@ public class ViewerService {
         BookRental rental = rentalService.getOwnedRentalOrThrow(rentalId, memberId);
         Book book = rental.getBook();
 
-        if (request.currentPage() > book.getTotalPages()) {
-            throw new BusinessException(ErrorCode.BOOK_PAGE_NOT_FOUND);
-        }
+        bookPageRepository.findByBook_BookIdAndPageNo(book.getBookId(), request.currentPage())
+                .orElseThrow(() -> new BusinessException(ErrorCode.BOOK_PAGE_NOT_FOUND));
 
         ReadingProgress progress = readingProgressRepository.findByRental_RentalId(rentalId)
                 .orElseGet(() -> readingProgressRepository.save(ReadingProgress.start(rental)));
