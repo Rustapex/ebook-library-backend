@@ -61,7 +61,21 @@ public enum ErrorCode {
     BOOKMARK_ALREADY_EXISTS(HttpStatus.CONFLICT, "BOOKMARK_ALREADY_EXISTS", "이미 같은 페이지에 북마크가 있습니다."),
 
     // Payment
-    PAYMENT_FAILED(HttpStatus.BAD_REQUEST, "PAYMENT_FAILED", "결제에 실패했습니다.");
+    PAYMENT_FAILED(HttpStatus.BAD_REQUEST, "PAYMENT_FAILED", "결제에 실패했습니다."),
+
+    // Attendance
+    ATTENDANCE_ALREADY_EXISTS(HttpStatus.CONFLICT, "ATTENDANCE_ALREADY_EXISTS", "오늘 이미 출석했습니다."),
+
+    // Point
+    POINT_BALANCE_INVALID(HttpStatus.BAD_REQUEST, "POINT_BALANCE_INVALID", "포인트 잔액이 부족합니다."),
+
+    // Coupon
+    COUPON_NOT_FOUND(HttpStatus.NOT_FOUND, "COUPON_NOT_FOUND", "존재하지 않는 쿠폰입니다."),
+    MEMBER_COUPON_NOT_FOUND(HttpStatus.NOT_FOUND, "MEMBER_COUPON_NOT_FOUND", "존재하지 않는 회원 쿠폰입니다."),
+
+    // Challenge
+    CHALLENGE_NOT_FOUND(HttpStatus.NOT_FOUND, "CHALLENGE_NOT_FOUND", "존재하지 않는 챌린지입니다."),
+    CHALLENGE_REWARD_NOT_CLAIMABLE(HttpStatus.CONFLICT, "CHALLENGE_REWARD_NOT_CLAIMABLE", "달성하지 않았거나 이미 수령한 보상입니다.");
 
     private final HttpStatus httpStatus;
     private final String code;

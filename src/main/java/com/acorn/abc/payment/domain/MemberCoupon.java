@@ -46,4 +46,15 @@ public class MemberCoupon {
 
     @Column(name = "used_at")
     private LocalDateTime usedAt;
+
+    public static MemberCoupon create(Member member, Coupon coupon) {
+        MemberCoupon memberCoupon = new MemberCoupon();
+        memberCoupon.member = member;
+        memberCoupon.coupon = coupon;
+        memberCoupon.couponStatus = "ISSUED";
+        LocalDateTime now = LocalDateTime.now();
+        memberCoupon.issuedAt = now;
+        memberCoupon.expiresAt = now.plusDays(coupon.getValidDays());
+        return memberCoupon;
+    }
 }

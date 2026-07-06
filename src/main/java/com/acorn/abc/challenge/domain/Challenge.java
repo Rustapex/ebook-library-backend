@@ -40,4 +40,12 @@ public class Challenge {
 
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt;
+
+    public void update(String challengeName, String challengeType, String targetAction, int targetCount, String status) {
+        this.challengeName = challengeName;
+        this.challengeType = challengeType;
+        this.targetAction = targetAction;
+        this.targetCount = targetCount;
+        this.status = status;
+    }
 }

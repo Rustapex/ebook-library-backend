@@ -36,4 +36,12 @@ public class Attendance {
 
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt;
+
+    public static Attendance create(Member member, LocalDate attendanceDate) {
+        Attendance attendance = new Attendance();
+        attendance.member = member;
+        attendance.attendanceDate = attendanceDate;
+        attendance.createdAt = LocalDateTime.now();
+        return attendance;
+    }
 }

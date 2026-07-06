@@ -50,4 +50,29 @@ public class ChallengeProgress {
 
     @Column(name = "reward_claimed_at")
     private LocalDateTime rewardClaimedAt;
+
+    public static ChallengeProgress create(Member member, Challenge challenge, LocalDate progressDate) {
+        ChallengeProgress progress = new ChallengeProgress();
+        progress.member = member;
+        progress.challenge = challenge;
+        progress.progressDate = progressDate;
+        progress.currentCount = 0;
+        progress.achievedYn = false;
+        return progress;
+    }
+
+    public void incrementProgress(int targetCount) {
+        if (Boolean.TRUE.equals(this.achievedYn)) {
+            return;
+        }
+        this.currentCount++;
+        if (this.currentCount >= targetCount) {
+            this.achievedYn = true;
+            this.achievedAt = LocalDateTime.now();
+        }
+    }
+
+    public void markRewardClaimed() {
+        this.rewardClaimedAt = LocalDateTime.now();
+    }
 }

@@ -101,4 +101,8 @@ public class Member extends BaseEntity {
     public void changePassword(String newPasswordHash) {
         this.passwordHash = newPasswordHash;
     }
+
+    public void applyPointChange(int amount) {
+        this.pointBalance += amount;
+    }
 }
