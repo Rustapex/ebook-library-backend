@@ -21,8 +21,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
+import org.springframework.boot.jdbc.test.autoconfigure.AutoConfigureTestDatabase;
 import org.springframework.boot.jpa.test.autoconfigure.TestEntityManager;
-import org.springframework.test.context.ActiveProfiles;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -32,7 +32,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 @DataJpaTest
-@ActiveProfiles("test")
+@AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
 class BookApprovalServiceTest {
 
     @Autowired private TestEntityManager entityManager;
@@ -107,7 +107,7 @@ class BookApprovalServiceTest {
 
         Book book = bookRepository.findById(response.bookId()).orElseThrow();
         assertThat(book.getTotalPages()).isZero();
-        assertThat(bookPageRepository.count()).isZero();
+        assertThat(bookPageRepository.countByBook_BookId(response.bookId())).isZero();
     }
 
     @Test

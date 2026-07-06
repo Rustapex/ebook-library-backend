@@ -5,11 +5,11 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
+import org.springframework.boot.jdbc.test.autoconfigure.AutoConfigureTestDatabase;
 import org.springframework.boot.jpa.test.autoconfigure.TestEntityManager;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
-import org.springframework.test.context.ActiveProfiles;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -17,7 +17,7 @@ import java.util.List;
 import static org.assertj.core.api.Assertions.assertThat;
 
 @DataJpaTest
-@ActiveProfiles("test")
+@AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
 class BookRepositoryTest {
 
     @Autowired
@@ -28,6 +28,7 @@ class BookRepositoryTest {
 
     private Long categoryChildId;
     private Long categoryRootId;
+    private Long bookJavaId;
     private Long bookHiddenId;
     private Long bookSpringId;
     private Long collectionId;
@@ -40,7 +41,7 @@ class BookRepositoryTest {
         categoryRootId = insertCategory(null, "Root Category", 1);
         categoryChildId = insertCategory(categoryRootId, "Child Category", 1);
 
-        Long bookJavaId = insertBook("Java Basics", "1111111111111", "FREE", 0, publisherId, "AVAILABLE");
+        bookJavaId = insertBook("Java Basics", "1111111111111", "FREE", 0, publisherId, "AVAILABLE");
         bookSpringId = insertBook("Spring Guide", "2222222222222", "PAID", 3000, publisherId, "AVAILABLE");
         bookHiddenId = insertBook("Hidden Book", "3333333333333", "FREE", 0, publisherId, "HIDDEN");
 
@@ -57,12 +58,12 @@ class BookRepositoryTest {
 
     @Test
     void availableSpecificationExcludesHiddenBooks() {
-        Page<Book> page = bookRepository.findAll(BookSpecifications.available(), PageRequest.of(0, 10));
+        Page<Book> page = bookRepository.findAll(BookSpecifications.available(), Pageable.unpaged());
 
         assertThat(page.getContent())
                 .extracting(Book::getBookId)
-                .doesNotContain(bookHiddenId);
-        assertThat(page.getTotalElements()).isEqualTo(2);
+                .doesNotContain(bookHiddenId)
+                .contains(bookJavaId, bookSpringId);
     }
 
     @Test

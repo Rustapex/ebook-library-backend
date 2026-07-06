@@ -301,6 +301,12 @@ CREATE TABLE IF NOT EXISTS bookmark (
   rental_id BIGINT UNSIGNED NOT NULL,
   page_no INT UNSIGNED NOT NULL,
   created_at DATETIME NOT NULL,
+
+
+
+
+
+
   CONSTRAINT pk_bookmark PRIMARY KEY (bookmark_id),
   CONSTRAINT uk_bookmark_rental_id_page_no UNIQUE (rental_id, page_no)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
