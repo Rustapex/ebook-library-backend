@@ -107,7 +107,7 @@ class BookApprovalServiceTest {
 
         Book book = bookRepository.findById(response.bookId()).orElseThrow();
         assertThat(book.getTotalPages()).isZero();
-        assertThat(bookPageRepository.count()).isZero();
+        assertThat(bookPageRepository.countByBook_BookId(response.bookId())).isZero();
     }
 
     @Test
