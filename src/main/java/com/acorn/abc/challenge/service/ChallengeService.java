@@ -15,11 +15,9 @@ import com.acorn.abc.challenge.repository.ChallengeRewardRepository;
 import com.acorn.abc.common.exception.BusinessException;
 import com.acorn.abc.common.exception.ErrorCode;
 import com.acorn.abc.common.response.PageResponse;
-import com.acorn.abc.coupon.repository.CouponRepository;
 import com.acorn.abc.member.domain.Member;
 import com.acorn.abc.member.repository.MemberRepository;
 import com.acorn.abc.member.service.PointService;
-import com.acorn.abc.payment.domain.Coupon;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -31,6 +29,8 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 /**
  * target_action="ATTENDANCE"는 api-spec/화면흐름도에 명시된 고정값이 아니라,
@@ -49,7 +49,6 @@ public class ChallengeService {
     private final ChallengeRewardRepository challengeRewardRepository;
     private final MemberRepository memberRepository;
     private final PointService pointService;
-    private final CouponRepository couponRepository;
 
     @Transactional(readOnly = true)
     public List<ChallengeResponse> getChallenges(Long memberId, String challengeType) {
@@ -57,8 +56,10 @@ public class ChallengeService {
                 ? challengeRepository.findByStatus("ACTIVE")
                 : challengeRepository.findByStatusAndChallengeType("ACTIVE", challengeType);
 
+        Map<Long, List<ChallengeRewardItemResponse>> rewardsByChallengeId = toRewardItemsByChallengeIds(challenges);
         return challenges.stream()
-                .map(challenge -> toResponse(memberId, challenge))
+                .map(challenge -> toResponse(memberId, challenge,
+                        rewardsByChallengeId.getOrDefault(challenge.getChallengeId(), List.of())))
                 .toList();
     }
 
@@ -127,11 +128,13 @@ public class ChallengeService {
             result = challengeRepository.findAll(pageable);
         }
 
-        List<AdminChallengeSummaryResponse> content = result.getContent().stream()
+        List<Challenge> challenges = result.getContent();
+        Map<Long, List<ChallengeRewardItemResponse>> rewardsByChallengeId = toRewardItemsByChallengeIds(challenges);
+        List<AdminChallengeSummaryResponse> content = challenges.stream()
                 .map(challenge -> new AdminChallengeSummaryResponse(
                         challenge.getChallengeId(), challenge.getChallengeName(), challenge.getChallengeType(),
                         challenge.getTargetAction(), challenge.getTargetCount(), challenge.getStatus(),
-                        toRewardItems(challenge.getChallengeId())))
+                        rewardsByChallengeId.getOrDefault(challenge.getChallengeId(), List.of())))
                 .toList();
         return PageResponse.of(content, page, size, result.getTotalElements());
     }
@@ -139,44 +142,48 @@ public class ChallengeService {
     public Long updateChallenge(Long challengeId, AdminChallengeUpdateRequest request) {
         Challenge challenge = challengeRepository.findById(challengeId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.CHALLENGE_NOT_FOUND));
+        validateRewardItems(request.rewards());
         challenge.update(request.challengeName(), request.challengeType(), request.targetAction(),
                 request.targetCount(), request.status());
 
         challengeRewardRepository.deleteAll(challengeRewardRepository.findByChallenge_ChallengeId(challengeId));
         for (AdminChallengeRewardItemRequest item : request.rewards()) {
-            if ("POINT".equals(item.rewardType()) && item.rewardPoint() == null) {
-                throw new BusinessException(ErrorCode.VALIDATION_ERROR);
-            }
-            if ("coupon".equals(item.rewardType()) && item.couponId() == null) {
-                throw new BusinessException(ErrorCode.VALIDATION_ERROR);
-            }
-            Coupon coupon = item.couponId() != null
-                    ? couponRepository.findById(item.couponId())
-                            .orElseThrow(() -> new BusinessException(ErrorCode.COUPON_NOT_FOUND))
-                    : null;
             challengeRewardRepository.save(ChallengeReward.create(
-                    challenge, item.rewardType(), item.rewardPoint(), coupon, item.rewardQuantity()));
+                    challenge, item.rewardType(), item.rewardPoint(), null, item.rewardQuantity()));
         }
         return challengeId;
     }
 
-    private List<ChallengeRewardItemResponse> toRewardItems(Long challengeId) {
-        return challengeRewardRepository.findByChallenge_ChallengeId(challengeId).stream()
-                .map(r -> new ChallengeRewardItemResponse(r.getRewardType(), r.getRewardPoint(), r.getRewardQuantity()))
-                .toList();
+    private void validateRewardItems(List<AdminChallengeRewardItemRequest> rewards) {
+        for (AdminChallengeRewardItemRequest item : rewards) {
+            if (!"POINT".equals(item.rewardType()) || item.rewardPoint() == null || item.couponId() != null) {
+                throw new BusinessException(ErrorCode.VALIDATION_ERROR);
+            }
+        }
     }
 
-    private ChallengeResponse toResponse(Long memberId, Challenge challenge) {
+    private Map<Long, List<ChallengeRewardItemResponse>> toRewardItemsByChallengeIds(List<Challenge> challenges) {
+        if (challenges.isEmpty()) {
+            return Map.of();
+        }
+
+        List<Long> challengeIds = challenges.stream()
+                .map(Challenge::getChallengeId)
+                .toList();
+        return challengeRewardRepository.findByChallenge_ChallengeIdIn(challengeIds).stream()
+                .collect(Collectors.groupingBy(
+                        reward -> reward.getChallenge().getChallengeId(),
+                        Collectors.mapping(
+                                r -> new ChallengeRewardItemResponse(
+                                        r.getRewardType(), r.getRewardPoint(), r.getRewardQuantity()),
+                                Collectors.toList())));
+    }
+
+    private ChallengeResponse toResponse(Long memberId, Challenge challenge, List<ChallengeRewardItemResponse> rewards) {
         ChallengeProgress progress = findProgress(memberId, challenge).orElse(null);
         int currentCount = progress != null ? progress.getCurrentCount() : 0;
         boolean achievedYn = progress != null && Boolean.TRUE.equals(progress.getAchievedYn());
         boolean rewardClaimedYn = progress != null && progress.getRewardClaimedAt() != null;
-
-        List<ChallengeRewardItemResponse> rewards = challengeRewardRepository
-                .findByChallenge_ChallengeId(challenge.getChallengeId())
-                .stream()
-                .map(r -> new ChallengeRewardItemResponse(r.getRewardType(), r.getRewardPoint(), r.getRewardQuantity()))
-                .toList();
 
         return new ChallengeResponse(
                 challenge.getChallengeId(), challenge.getChallengeName(), challenge.getChallengeType(),

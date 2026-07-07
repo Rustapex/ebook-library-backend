@@ -21,7 +21,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
@@ -69,8 +71,10 @@ public class CouponService {
             result = couponRepository.findAll(pageable);
         }
 
-        List<AdminCouponSummaryResponse> content = result.getContent().stream()
-                .map(this::toAdminSummary)
+        List<Coupon> coupons = result.getContent();
+        Map<Long, CouponCounts> countsByCouponId = loadCouponCounts(coupons);
+        List<AdminCouponSummaryResponse> content = coupons.stream()
+                .map(coupon -> toAdminSummary(coupon, countsByCouponId.getOrDefault(coupon.getCouponId(), CouponCounts.empty())))
                 .toList();
         return PageResponse.of(content, page, size, result.getTotalElements());
     }
@@ -96,14 +100,27 @@ public class CouponService {
         return issuedCount;
     }
 
-    private AdminCouponSummaryResponse toAdminSummary(Coupon coupon) {
-        long issuedCount = memberCouponRepository.countByCoupon_CouponId(coupon.getCouponId());
-        long usedCount = memberCouponRepository.countByCoupon_CouponIdAndCouponStatus(coupon.getCouponId(), "USED");
-        long expiredCount = memberCouponRepository.countByCoupon_CouponIdAndCouponStatus(coupon.getCouponId(), "EXPIRED");
+    private Map<Long, CouponCounts> loadCouponCounts(List<Coupon> coupons) {
+        if (coupons.isEmpty()) {
+            return Map.of();
+        }
+
+        List<Long> couponIds = coupons.stream()
+                .map(Coupon::getCouponId)
+                .toList();
+        Map<Long, CouponCounts> countsByCouponId = new HashMap<>();
+        memberCouponRepository.countByCouponIdsGroupedByStatus(couponIds)
+                .forEach(row -> countsByCouponId
+                        .computeIfAbsent(row.getCouponId(), ignored -> new CouponCounts())
+                        .add(row.getCouponStatus(), row.getCount()));
+        return countsByCouponId;
+    }
+
+    private AdminCouponSummaryResponse toAdminSummary(Coupon coupon, CouponCounts counts) {
         return new AdminCouponSummaryResponse(
                 coupon.getCouponId(), coupon.getCouponName(), coupon.getCouponType(),
                 coupon.getBenefitValue(), coupon.getBenefitUnit(), coupon.getValidDays(), coupon.getStatus(),
-                issuedCount, usedCount, expiredCount);
+                counts.totalCount, counts.usedCount, counts.expiredCount);
     }
 
     private MyCouponResponse toResponse(MemberCoupon mc, LocalDateTime expiringThreshold) {
@@ -120,5 +137,25 @@ public class CouponService {
                 mc.getUsedAt(),
                 expiringYn
         );
+    }
+
+    private static class CouponCounts {
+        private long totalCount;
+        private long usedCount;
+        private long expiredCount;
+
+        static CouponCounts empty() {
+            return new CouponCounts();
+        }
+
+        void add(String status, Long count) {
+            long value = count == null ? 0 : count;
+            totalCount += value;
+            if ("USED".equals(status)) {
+                usedCount += value;
+            } else if ("EXPIRED".equals(status)) {
+                expiredCount += value;
+            }
+        }
     }
 }

@@ -29,12 +29,16 @@ public class PointService {
     private final PointHistoryRepository pointHistoryRepository;
 
     public PointHistory grantOrAdjustPoint(Long memberId, int amount, String pointType, String description) {
-        Member member = memberRepository.findById(memberId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.MEMBER_NOT_FOUND));
-        if (member.getPointBalance() + amount < 0) {
+        int updatedRows = memberRepository.applyPointChangeIfSufficient(memberId, amount);
+        if (updatedRows == 0) {
+            if (!memberRepository.existsById(memberId)) {
+                throw new BusinessException(ErrorCode.MEMBER_NOT_FOUND);
+            }
             throw new BusinessException(ErrorCode.POINT_BALANCE_INSUFFICIENT);
         }
-        member.applyPointChange(amount);
+
+        Member member = memberRepository.findById(memberId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.MEMBER_NOT_FOUND));
         PointHistory pointHistory = PointHistory.create(member, null, pointType, amount, description);
         return pointHistoryRepository.save(pointHistory);
     }
