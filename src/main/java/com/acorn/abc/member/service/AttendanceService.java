@@ -11,6 +11,7 @@ import com.acorn.abc.member.dto.IssuedCouponResponse;
 import com.acorn.abc.member.repository.AttendanceRepository;
 import com.acorn.abc.member.repository.MemberRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -34,7 +35,11 @@ public class AttendanceService {
         if (attendanceRepository.existsByMember_MemberIdAndAttendanceDate(memberId, today)) {
             throw new BusinessException(ErrorCode.ATTENDANCE_ALREADY_EXISTS);
         }
-        attendanceRepository.save(Attendance.create(member, today));
+        try {
+            attendanceRepository.saveAndFlush(Attendance.create(member, today));
+        } catch (DataIntegrityViolationException e) {
+            throw new BusinessException(ErrorCode.ATTENDANCE_ALREADY_EXISTS);
+        }
         challengeService.updateProgressOnAttendance(memberId);
         int consecutiveDays = calculateConsecutiveDays(memberId);
 

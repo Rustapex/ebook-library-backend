@@ -71,20 +71,28 @@ public class ChallengeService {
             throw new BusinessException(ErrorCode.CHALLENGE_REWARD_NOT_CLAIMABLE);
         }
 
+        // 동시 요청 중복 지급 방지: 지급 전에 먼저 원자적으로 "미수령" 상태를 선점한다.
+        // 영향받은 row가 0건이면 다른 요청이 이미 선점한 것이므로 여기서 막는다.
+        LocalDateTime claimedAt = LocalDateTime.now();
+        int updatedRows = challengeProgressRepository.markRewardClaimedIfUnclaimed(
+                progress.getChallengeProgressId(), claimedAt);
+        if (updatedRows == 0) {
+            throw new BusinessException(ErrorCode.CHALLENGE_REWARD_NOT_CLAIMABLE);
+        }
+
         int grantedPoint = 0;
         List<ChallengeReward> rewards = challengeRewardRepository.findByChallenge_ChallengeId(challengeId);
         for (ChallengeReward reward : rewards) {
             if ("POINT".equals(reward.getRewardType()) && reward.getRewardPoint() != null) {
                 int amount = reward.getRewardPoint() * reward.getRewardQuantity();
-                pointService.grantOrAdjustPoint(memberId, amount, "CHALLENGE_REWARD",
+                pointService.grantOrAdjustPoint(memberId, amount, "challenge_reward",
                         challenge.getChallengeName() + " 챌린지 보상");
                 grantedPoint += amount;
             }
-            // TODO: rewardType=COUPON 지급 연동은 이번 범위에서 보류(계획 문서 참고, 쿠폰 발급 로직은 관리자 발급 경로 완성 후 연동)
+            // TODO: rewardType=coupon 지급 연동은 이번 범위에서 보류(계획 문서 참고, 쿠폰 발급 로직은 관리자 발급 경로 완성 후 연동)
         }
 
-        progress.markRewardClaimed();
-        return new ChallengeRewardClaimResponse(LocalDateTime.now(), grantedPoint);
+        return new ChallengeRewardClaimResponse(claimedAt, grantedPoint);
     }
 
     /** 출석 체크 시 AttendanceService에서 호출한다(출석 트리거만 이번 범위, 계획 문서 4절 참고). */
@@ -136,6 +144,12 @@ public class ChallengeService {
 
         challengeRewardRepository.deleteAll(challengeRewardRepository.findByChallenge_ChallengeId(challengeId));
         for (AdminChallengeRewardItemRequest item : request.rewards()) {
+            if ("POINT".equals(item.rewardType()) && item.rewardPoint() == null) {
+                throw new BusinessException(ErrorCode.VALIDATION_ERROR);
+            }
+            if ("coupon".equals(item.rewardType()) && item.couponId() == null) {
+                throw new BusinessException(ErrorCode.VALIDATION_ERROR);
+            }
             Coupon coupon = item.couponId() != null
                     ? couponRepository.findById(item.couponId())
                             .orElseThrow(() -> new BusinessException(ErrorCode.COUPON_NOT_FOUND))
