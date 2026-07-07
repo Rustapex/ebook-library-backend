@@ -23,6 +23,9 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
 import org.springframework.boot.jdbc.test.autoconfigure.AutoConfigureTestDatabase;
 import org.springframework.boot.jpa.test.autoconfigure.TestEntityManager;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionDefinition;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -45,12 +48,21 @@ class BookApprovalServiceTest {
     @Autowired private BookPageRepository bookPageRepository;
     @Autowired private BookCategoryRepository bookCategoryRepository;
     @Autowired private CategoryRepository categoryRepository;
+    @Autowired private PlatformTransactionManager transactionManager;
+
+    private static final String TEST_ISBN_PREFIX = "97889662609";
+    private static final String TEST_ALADIN_CATEGORY_ID = "TEST-2724";
 
     private BookApprovalService service;
     private Long categoryId;
 
     @BeforeEach
     void setUp() {
+        // 이 테스트의 isbn/aladin_category_id 픽스처는 REQUIRES_NEW로 커밋되거나
+        // 이전 실행이 비정상 종료된 경우 실DB에 그대로 남을 수 있다.
+        // 매 실행이 DB 잔여 상태와 무관하게 동작하도록 독립 트랜잭션에서 먼저 정리한다.
+        runInNewTransaction(this::cleanUpFixtureData);
+
         AladinCategoryImportService aladinCategoryImportService =
                 new AladinCategoryImportService(new AladinCategoryUpsertService(categoryRepository));
         service = new BookApprovalService(
@@ -58,6 +70,31 @@ class BookApprovalServiceTest {
                 bookAuthorRepository, bookDetailRepository, bookPageRepository,
                 bookCategoryRepository, categoryRepository, aladinCategoryImportService);
         categoryId = seedCategory("소설");
+    }
+
+    private void runInNewTransaction(Runnable action) {
+        TransactionTemplate transactionTemplate = new TransactionTemplate(transactionManager);
+        transactionTemplate.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
+        transactionTemplate.executeWithoutResult(status -> action.run());
+    }
+
+    private void cleanUpFixtureData() {
+        var em = entityManager.getEntityManager();
+        String isbnPattern = TEST_ISBN_PREFIX + "%";
+        em.createNativeQuery("DELETE bc FROM book_category bc JOIN book b ON b.book_id = bc.book_id WHERE b.isbn LIKE ?1")
+                .setParameter(1, isbnPattern).executeUpdate();
+        em.createNativeQuery("DELETE ba FROM book_author ba JOIN book b ON b.book_id = ba.book_id WHERE b.isbn LIKE ?1")
+                .setParameter(1, isbnPattern).executeUpdate();
+        em.createNativeQuery("DELETE FROM book_detail WHERE book_id IN (SELECT book_id FROM book WHERE isbn LIKE ?1)")
+                .setParameter(1, isbnPattern).executeUpdate();
+        em.createNativeQuery("DELETE FROM book_page WHERE book_id IN (SELECT book_id FROM book WHERE isbn LIKE ?1)")
+                .setParameter(1, isbnPattern).executeUpdate();
+        em.createNativeQuery("DELETE FROM book WHERE isbn LIKE ?1")
+                .setParameter(1, isbnPattern).executeUpdate();
+        em.createNativeQuery("DELETE FROM book_isbn_temp WHERE isbn13 LIKE ?1")
+                .setParameter(1, isbnPattern).executeUpdate();
+        em.createNativeQuery("DELETE FROM category WHERE aladin_category_id = ?1")
+                .setParameter(1, TEST_ALADIN_CATEGORY_ID).executeUpdate();
     }
 
     @Test
@@ -177,7 +214,7 @@ class BookApprovalServiceTest {
 
     @Test
     void approve_noCategoryIds_autoImportsAladinCategory() {
-        Long tempId = seedReadyTemp("9788966260967", null, "2724",
+        Long tempId = seedReadyTemp("9788966260967", null, TEST_ALADIN_CATEGORY_ID,
                 "국내도서 > 컴퓨터/모바일 > 프로그래밍 > 개발방법론");
 
         BookIsbnTempApproveRequest req = requestWithCategoryIds(List.of(), "PAID", 5000, List.of());
@@ -186,7 +223,7 @@ class BookApprovalServiceTest {
         entityManager.flush();
 
         assertThat(bookCategoryRepository.findActiveByBookId(response.bookId())).hasSize(1);
-        var imported = categoryRepository.findByAladinCategoryId("2724");
+        var imported = categoryRepository.findByAladinCategoryId(TEST_ALADIN_CATEGORY_ID);
         assertThat(imported).isPresent();
         assertThat(imported.get().getCategoryName()).isEqualTo("개발방법론");
         assertThat(imported.get().getParent().getCategoryName()).isEqualTo("프로그래밍");
@@ -221,7 +258,7 @@ class BookApprovalServiceTest {
     }
 
     private Long seedReadyTemp(String isbn13, String pubDate) {
-        return seedReadyTemp(isbn13, pubDate, "2724", "국내도서 > 컴퓨터/모바일 > 프로그래밍 > 개발방법론");
+        return seedReadyTemp(isbn13, pubDate, TEST_ALADIN_CATEGORY_ID, "국내도서 > 컴퓨터/모바일 > 프로그래밍 > 개발방법론");
     }
 
     private Long seedReadyTemp(String isbn13, String pubDate, String aladinCategoryId, String aladinCategoryName) {
