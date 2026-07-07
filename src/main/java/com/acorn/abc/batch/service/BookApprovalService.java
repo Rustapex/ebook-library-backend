@@ -74,7 +74,7 @@ public class BookApprovalService {
 
         validateRentalPrice(request.rentalType(), request.rentalPrice());
         List<BookIsbnTempApproveRequest.Page> pages = validateAndGetPages(request.pages());
-        List<Long> categoryIds = resolveCategoryIds(request.categoryIds(), temp);
+        List<Category> categories = resolveCategories(request.categoryIds(), temp);
 
         Publisher publisher = publisherRepository.findByPublisherName(request.publisherName())
                 .orElseGet(() -> publisherRepository.save(Publisher.create(request.publisherName())));
@@ -98,7 +98,7 @@ public class BookApprovalService {
 
         saveDetail(book, request.detail());
         savePages(book, pages);
-        saveCategories(book, categoryIds);
+        saveCategories(book, categories);
         saveAuthors(book, request.authors());
 
         temp.markMerged();
@@ -144,22 +144,30 @@ public class BookApprovalService {
         bookPageRepository.saveAll(bookPages);
     }
 
-    private List<Long> resolveCategoryIds(List<Long> requestedCategoryIds, BookIsbnTemp temp) {
+    /**
+     * 수동 categoryIds는 존재 검증(findById)이 필요하지만, 알라딘 자동 생성 category는
+     * REQUIRES_NEW로 별도 커밋된 직후라 같은 approve 트랜잭션의 REPEATABLE_READ 스냅샷에서
+     * findById로 재조회하면 안 보일 수 있다. getReferenceById는 재조회 없이 식별자만 참조하므로
+     * 이 경합을 피한다.
+     */
+    private List<Category> resolveCategories(List<Long> requestedCategoryIds, BookIsbnTemp temp) {
         if (requestedCategoryIds != null && !requestedCategoryIds.isEmpty()) {
-            return requestedCategoryIds;
+            List<Category> categories = new ArrayList<>();
+            for (Long categoryId : new LinkedHashSet<>(requestedCategoryIds)) {
+                categories.add(categoryRepository.findById(categoryId)
+                        .orElseThrow(() -> new BusinessException(ErrorCode.CATEGORY_NOT_FOUND)));
+            }
+            return categories;
         }
-        return aladinCategoryImportService
+        Long importedCategoryId = aladinCategoryImportService
                 .importOrGet(temp.getAladinCategoryId(), temp.getAladinCategoryName())
-                .map(List::of)
                 .orElseThrow(() -> new BusinessException(ErrorCode.VALIDATION_ERROR));
+        return List.of(categoryRepository.getReferenceById(importedCategoryId));
     }
 
-    private void saveCategories(Book book, List<Long> categoryIds) {
-        Set<Long> uniqueIds = new LinkedHashSet<>(categoryIds);
+    private void saveCategories(Book book, List<Category> categories) {
         List<BookCategory> bookCategories = new ArrayList<>();
-        for (Long categoryId : uniqueIds) {
-            Category category = categoryRepository.findById(categoryId)
-                    .orElseThrow(() -> new BusinessException(ErrorCode.CATEGORY_NOT_FOUND));
+        for (Category category : categories) {
             bookCategories.add(BookCategory.create(book, category));
         }
         bookCategoryRepository.saveAll(bookCategories);

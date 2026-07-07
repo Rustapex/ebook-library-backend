@@ -32,7 +32,7 @@ public class PointService {
         Member member = memberRepository.findById(memberId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.MEMBER_NOT_FOUND));
         if (member.getPointBalance() + amount < 0) {
-            throw new BusinessException(ErrorCode.POINT_BALANCE_INVALID);
+            throw new BusinessException(ErrorCode.POINT_BALANCE_INSUFFICIENT);
         }
         member.applyPointChange(amount);
         PointHistory pointHistory = PointHistory.create(member, null, pointType, amount, description);

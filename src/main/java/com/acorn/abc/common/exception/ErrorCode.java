@@ -55,6 +55,7 @@ public enum ErrorCode {
     RENTAL_ALREADY_EXISTS(HttpStatus.CONFLICT, "RENTAL_ALREADY_EXISTS", "이미 대여 중인 도서입니다."),
     RENTAL_NOT_FOUND(HttpStatus.NOT_FOUND, "RENTAL_NOT_FOUND", "존재하지 않는 대여 내역입니다."),
     RENTAL_EXPIRED(HttpStatus.FORBIDDEN, "RENTAL_EXPIRED", "대여 기간이 만료되었습니다."),
+    BOOK_RENTAL_TYPE_MISMATCH(HttpStatus.BAD_REQUEST, "BOOK_RENTAL_TYPE_MISMATCH", "도서의 대여 유형과 일치하지 않는 요청입니다."),
 
     // Bookmark
     BOOKMARK_NOT_FOUND(HttpStatus.NOT_FOUND, "BOOKMARK_NOT_FOUND", "존재하지 않는 북마크입니다."),
@@ -67,11 +68,12 @@ public enum ErrorCode {
     ATTENDANCE_ALREADY_EXISTS(HttpStatus.CONFLICT, "ATTENDANCE_ALREADY_EXISTS", "오늘 이미 출석했습니다."),
 
     // Point
-    POINT_BALANCE_INVALID(HttpStatus.BAD_REQUEST, "POINT_BALANCE_INVALID", "포인트 잔액이 부족합니다."),
+    POINT_BALANCE_INSUFFICIENT(HttpStatus.BAD_REQUEST, "POINT_BALANCE_INSUFFICIENT", "포인트 잔액이 부족합니다."),
 
     // Coupon
     COUPON_NOT_FOUND(HttpStatus.NOT_FOUND, "COUPON_NOT_FOUND", "존재하지 않는 쿠폰입니다."),
     MEMBER_COUPON_NOT_FOUND(HttpStatus.NOT_FOUND, "MEMBER_COUPON_NOT_FOUND", "존재하지 않는 회원 쿠폰입니다."),
+    MEMBER_COUPON_NOT_USABLE(HttpStatus.CONFLICT, "MEMBER_COUPON_NOT_USABLE", "사용할 수 없는 쿠폰입니다."),
 
     // Challenge
     CHALLENGE_NOT_FOUND(HttpStatus.NOT_FOUND, "CHALLENGE_NOT_FOUND", "존재하지 않는 챌린지입니다."),

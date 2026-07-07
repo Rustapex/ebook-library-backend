@@ -1,6 +1,8 @@
 package com.acorn.abc.member.domain;
 
 import com.acorn.abc.common.domain.BaseEntity;
+import com.acorn.abc.common.exception.BusinessException;
+import com.acorn.abc.common.exception.ErrorCode;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
@@ -104,5 +106,12 @@ public class Member extends BaseEntity {
 
     public void applyPointChange(int amount) {
         this.pointBalance += amount;
+    }
+
+    public void usePoint(int amount) {
+        if (amount > this.pointBalance) {
+            throw new BusinessException(ErrorCode.POINT_BALANCE_INSUFFICIENT);
+        }
+        this.pointBalance -= amount;
     }
 }

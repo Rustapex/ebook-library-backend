@@ -1,4 +1,4 @@
-package com.acorn.abc.coupon.repository;
+package com.acorn.abc.payment.repository;
 
 import com.acorn.abc.payment.domain.MemberCoupon;
 import org.junit.jupiter.api.BeforeEach;

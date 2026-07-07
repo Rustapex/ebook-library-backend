@@ -57,4 +57,14 @@ public class PointHistory {
         pointHistory.createdAt = LocalDateTime.now();
         return pointHistory;
     }
+
+    public static PointHistory createPaymentUse(Member member, Payment payment, int pointUsed, LocalDateTime createdAt) {
+        PointHistory history = new PointHistory();
+        history.member = member;
+        history.payment = payment;
+        history.pointType = "PAYMENT_USE";
+        history.pointAmount = -pointUsed;
+        history.createdAt = createdAt;
+        return history;
+    }
 }

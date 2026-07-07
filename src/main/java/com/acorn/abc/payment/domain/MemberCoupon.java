@@ -1,5 +1,7 @@
 package com.acorn.abc.payment.domain;
 
+import com.acorn.abc.common.exception.BusinessException;
+import com.acorn.abc.common.exception.ErrorCode;
 import com.acorn.abc.member.domain.Member;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -56,5 +58,13 @@ public class MemberCoupon {
         memberCoupon.issuedAt = now;
         memberCoupon.expiresAt = now.plusDays(coupon.getValidDays());
         return memberCoupon;
+    }
+
+    public void use(LocalDateTime now) {
+        if (!"ISSUED".equals(this.couponStatus) || this.expiresAt.isBefore(now)) {
+            throw new BusinessException(ErrorCode.MEMBER_COUPON_NOT_USABLE);
+        }
+        this.couponStatus = "USED";
+        this.usedAt = now;
     }
 }
