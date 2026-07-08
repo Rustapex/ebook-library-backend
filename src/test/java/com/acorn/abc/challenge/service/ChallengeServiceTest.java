@@ -4,7 +4,9 @@ import com.acorn.abc.admin.challenge.dto.AdminChallengeRewardItemRequest;
 import com.acorn.abc.admin.challenge.dto.AdminChallengeSummaryResponse;
 import com.acorn.abc.admin.challenge.dto.AdminChallengeUpdateRequest;
 import com.acorn.abc.challenge.domain.Challenge;
+import com.acorn.abc.challenge.domain.ChallengeProgress;
 import com.acorn.abc.challenge.domain.ChallengeReward;
+import com.acorn.abc.challenge.dto.ChallengeRewardClaimResponse;
 import com.acorn.abc.challenge.repository.ChallengeProgressRepository;
 import com.acorn.abc.challenge.repository.ChallengeRepository;
 import com.acorn.abc.challenge.repository.ChallengeRewardRepository;
@@ -21,6 +23,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 
@@ -29,6 +32,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -93,6 +97,67 @@ class ChallengeServiceTest {
         assertThat(response.content().get(1).rewards()).isEmpty();
         verify(challengeRewardRepository).findByChallenge_ChallengeIdIn(List.of(1L, 2L));
         verify(challengeRewardRepository, never()).findByChallenge_ChallengeId(anyLong());
+    }
+
+    @Test
+    void updateChallenge_rewardPoint가_0이면_등록을_차단한다() {
+        Challenge challenge = mock(Challenge.class);
+        given(challengeRepository.findById(1L)).willReturn(Optional.of(challenge));
+        AdminChallengeUpdateRequest request = new AdminChallengeUpdateRequest(
+                "출석 챌린지", "DAILY", "ATTENDANCE", 1, "ACTIVE",
+                List.of(new AdminChallengeRewardItemRequest("POINT", 0, null, 1)));
+
+        assertThatThrownBy(() -> challengeService.updateChallenge(1L, request))
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(ErrorCode.VALIDATION_ERROR);
+        verify(challenge, never()).update(any(), any(), any(), anyInt(), any());
+        verify(challengeRewardRepository, never()).deleteAll(any());
+    }
+
+    @Test
+    void updateChallenge_rewardPoint가_음수이면_등록을_차단한다() {
+        Challenge challenge = mock(Challenge.class);
+        given(challengeRepository.findById(1L)).willReturn(Optional.of(challenge));
+        AdminChallengeUpdateRequest request = new AdminChallengeUpdateRequest(
+                "출석 챌린지", "DAILY", "ATTENDANCE", 1, "ACTIVE",
+                List.of(new AdminChallengeRewardItemRequest("POINT", -100, null, 1)));
+
+        assertThatThrownBy(() -> challengeService.updateChallenge(1L, request))
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(ErrorCode.VALIDATION_ERROR);
+        verify(challenge, never()).update(any(), any(), any(), anyInt(), any());
+    }
+
+    @Test
+    void claimReward_보상은_달성시점이_아닌_수령시점_최신값을_지급한다() {
+        Challenge challenge = mock(Challenge.class);
+        given(challenge.getChallengeId()).willReturn(1L);
+        given(challenge.getChallengeName()).willReturn("누적 출석");
+        given(challenge.getChallengeType()).willReturn("TOTAL");
+        ChallengeProgress progress = mock(ChallengeProgress.class);
+        given(progress.getChallengeProgressId()).willReturn(10L);
+        given(progress.getAchievedYn()).willReturn(true);
+        given(progress.getRewardClaimedAt()).willReturn(null);
+
+        given(challengeRepository.findById(1L)).willReturn(Optional.of(challenge));
+        given(challengeProgressRepository.findFirstByMember_MemberIdAndChallenge_ChallengeId(100L, 1L))
+                .willReturn(Optional.of(progress));
+        given(challengeProgressRepository.markRewardClaimedIfUnclaimed(eq(10L), any())).willReturn(1);
+
+        // 회원이 달성한 시점엔 보상이 100이었을 수 있지만, 관리자가 그 사이 보상을 200으로 바꿨다고 가정.
+        // claimReward()는 달성 시점 값이 아니라 수령 시점(호출 시점)에 조회한 최신 보상을 지급해야 한다.
+        ChallengeReward latestReward = mock(ChallengeReward.class);
+        given(latestReward.getRewardType()).willReturn("POINT");
+        given(latestReward.getRewardPoint()).willReturn(200);
+        given(latestReward.getRewardQuantity()).willReturn(1);
+        given(challengeRewardRepository.findByChallenge_ChallengeId(1L)).willReturn(List.of(latestReward));
+
+        ChallengeRewardClaimResponse response = challengeService.claimReward(100L, 1L);
+
+        assertThat(response.grantedPoint()).isEqualTo(200);
+        verify(challengeRewardRepository).findByChallenge_ChallengeId(1L);
     }
 
     private Challenge challenge(Long id, String name) {

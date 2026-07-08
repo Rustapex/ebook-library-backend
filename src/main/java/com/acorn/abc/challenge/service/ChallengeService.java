@@ -63,6 +63,9 @@ public class ChallengeService {
                 .toList();
     }
 
+    // 정책: 챌린지 보상은 "달성 시점"이 아니라 "수령 시점"에 조회한 최신 challenge_reward를 지급한다(85행 조회).
+    // 즉 달성 후 미수령 상태에서 관리자가 보상을 변경하면, 이후 수령 시 변경된 보상이 지급된다(의도된 동작).
+    // 이 정책을 스냅샷 방식으로 바꿔야 한다면 별도 계획 문서 작성 후 진행할 것(2026-07-08_PR33_2차코드리뷰_대응계획.md 참고).
     public ChallengeRewardClaimResponse claimReward(Long memberId, Long challengeId) {
         Challenge challenge = challengeRepository.findById(challengeId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.CHALLENGE_NOT_FOUND));
@@ -139,6 +142,7 @@ public class ChallengeService {
         return PageResponse.of(content, page, size, result.getTotalElements());
     }
 
+    // 보상 수정은 미수령 진행도가 있어도 제한 없이 허용한다(현행 유지 정책, claimReward() 주석 참고).
     public Long updateChallenge(Long challengeId, AdminChallengeUpdateRequest request) {
         Challenge challenge = challengeRepository.findById(challengeId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.CHALLENGE_NOT_FOUND));
@@ -156,7 +160,11 @@ public class ChallengeService {
 
     private void validateRewardItems(List<AdminChallengeRewardItemRequest> rewards) {
         for (AdminChallengeRewardItemRequest item : rewards) {
-            if (!"POINT".equals(item.rewardType()) || item.rewardPoint() == null || item.couponId() != null) {
+            if (item == null
+                    || !"POINT".equals(item.rewardType())
+                    || item.rewardPoint() == null
+                    || item.rewardPoint() <= 0
+                    || item.couponId() != null) {
                 throw new BusinessException(ErrorCode.VALIDATION_ERROR);
             }
         }

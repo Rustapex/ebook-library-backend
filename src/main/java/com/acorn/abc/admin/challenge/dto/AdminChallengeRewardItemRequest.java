@@ -9,6 +9,7 @@ public record AdminChallengeRewardItemRequest(
         @Pattern(regexp = "POINT", message = "보상 유형은 POINT만 허용됩니다.")
         String rewardType,
 
+        @Min(value = 1, message = "보상 포인트는 1 이상이어야 합니다.")
         Integer rewardPoint,
 
         Long couponId,

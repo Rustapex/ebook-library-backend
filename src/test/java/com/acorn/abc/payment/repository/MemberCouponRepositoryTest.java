@@ -64,6 +64,16 @@ class MemberCouponRepositoryTest {
         assertThat(usedCount).isEqualTo(1);
     }
 
+    @Test
+    void findByMemberId_EntityGraph로_coupon을_함께_조회한다() {
+        entityManager.clear();
+
+        Page<MemberCoupon> page = memberCouponRepository.findByMember_MemberId(memberId, PageRequest.of(0, 10));
+
+        assertThat(page.getContent())
+                .allSatisfy(mc -> assertThat(mc.getCoupon().getCouponName()).isEqualTo("5% 할인 쿠폰"));
+    }
+
     private Long insertMember(String loginId) {
         entityManager.getEntityManager()
                 .createNativeQuery("INSERT INTO member (login_id, password_hash, name, email, birth_date, role, grade_id, point_balance, status, created_at) " +

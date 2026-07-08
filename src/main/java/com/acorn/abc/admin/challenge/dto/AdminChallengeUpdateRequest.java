@@ -3,6 +3,7 @@ package com.acorn.abc.admin.challenge.dto;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotEmpty;
+import jakarta.validation.constraints.NotNull;
 import jakarta.validation.Valid;
 
 import java.util.List;
@@ -25,6 +26,6 @@ public record AdminChallengeUpdateRequest(
 
         @NotEmpty(message = "보상을 1개 이상 입력해주세요.")
         @Valid
-        List<AdminChallengeRewardItemRequest> rewards
+        List<@NotNull(message = "보상 항목은 비어있을 수 없습니다.") AdminChallengeRewardItemRequest> rewards
 ) {
 }

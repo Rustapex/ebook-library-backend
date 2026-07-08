@@ -3,6 +3,7 @@ package com.acorn.abc.payment.repository;
 import com.acorn.abc.payment.domain.MemberCoupon;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -15,8 +16,10 @@ public interface MemberCouponRepository extends JpaRepository<MemberCoupon, Long
 
     Optional<MemberCoupon> findByMemberCouponIdAndMember_MemberId(Long memberCouponId, Long memberId);
 
+    @EntityGraph(attributePaths = "coupon")
     Page<MemberCoupon> findByMember_MemberId(Long memberId, Pageable pageable);
 
+    @EntityGraph(attributePaths = "coupon")
     Page<MemberCoupon> findByMember_MemberIdAndCouponStatus(Long memberId, String couponStatus, Pageable pageable);
 
     long countByCoupon_CouponId(Long couponId);

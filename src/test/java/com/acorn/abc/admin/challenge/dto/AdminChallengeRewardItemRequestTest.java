@@ -25,4 +25,20 @@ class AdminChallengeRewardItemRequestTest {
 
         assertThat(validator.validate(request)).isEmpty();
     }
+
+    @Test
+    void rewardPoint가_0이면_거부한다() {
+        AdminChallengeRewardItemRequest request =
+                new AdminChallengeRewardItemRequest("POINT", 0, null, 1);
+
+        assertThat(validator.validate(request)).isNotEmpty();
+    }
+
+    @Test
+    void rewardPoint가_음수이면_거부한다() {
+        AdminChallengeRewardItemRequest request =
+                new AdminChallengeRewardItemRequest("POINT", -100, null, 1);
+
+        assertThat(validator.validate(request)).isNotEmpty();
+    }
 }
