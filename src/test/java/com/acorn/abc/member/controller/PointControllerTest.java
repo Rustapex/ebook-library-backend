@@ -16,6 +16,7 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.web.method.annotation.AuthenticationPrincipalArgumentResolver;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
+import org.springframework.validation.beanvalidation.MethodValidationPostProcessor;
 
 import java.lang.reflect.Method;
 import java.util.List;
@@ -84,5 +85,38 @@ class PointControllerTest {
 
         mockMvc.perform(get("/api/v1/me/points").param("page", "0").param("size", "10"))
                 .andExpect(status().isOk());
+    }
+
+    // 위 제약 확인 테스트와 별개로, page=-1/size=0 요청이 실제 MVC 흐름에서 400으로 응답되는지 검증한다.
+    // standaloneSetup()은 컨트롤러 인스턴스를 그대로 쓰기 때문에 @Validated AOP 프록시가 안 걸려서,
+    // MethodValidationPostProcessor로 직접 프록시를 만들어 실제 검증 경로(ConstraintViolationException -> GlobalExceptionHandler -> 400)를 재현한다.
+    // @AuthenticationPrincipal 파라미터 바인딩을 위해 AuthenticationPrincipalArgumentResolver도 기존과 동일하게 유지한다.
+    @Test
+    void getPointHistory_page가_음수이면_실제_400을_반환한다() throws Exception {
+        MockMvc validatedMockMvc = MockMvcBuilders.standaloneSetup(methodValidatedController())
+                .setControllerAdvice(new GlobalExceptionHandler())
+                .setCustomArgumentResolvers(new AuthenticationPrincipalArgumentResolver())
+                .build();
+
+        validatedMockMvc.perform(get("/api/v1/me/points").param("page", "-1").param("size", "10"))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void getPointHistory_size가_0이면_실제_400을_반환한다() throws Exception {
+        MockMvc validatedMockMvc = MockMvcBuilders.standaloneSetup(methodValidatedController())
+                .setControllerAdvice(new GlobalExceptionHandler())
+                .setCustomArgumentResolvers(new AuthenticationPrincipalArgumentResolver())
+                .build();
+
+        validatedMockMvc.perform(get("/api/v1/me/points").param("page", "0").param("size", "0"))
+                .andExpect(status().isBadRequest());
+    }
+
+    private PointController methodValidatedController() {
+        MethodValidationPostProcessor postProcessor = new MethodValidationPostProcessor();
+        postProcessor.afterPropertiesSet();
+        return (PointController) postProcessor.postProcessAfterInitialization(
+                new PointController(pointService), "pointController");
     }
 }

@@ -31,6 +31,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 /**
  * target_action="ATTENDANCE"는 api-spec/화면흐름도에 명시된 고정값이 아니라,
@@ -57,10 +58,36 @@ public class ChallengeService {
                 : challengeRepository.findByStatusAndChallengeType("ACTIVE", challengeType);
 
         Map<Long, List<ChallengeRewardItemResponse>> rewardsByChallengeId = toRewardItemsByChallengeIds(challenges);
+        Map<Long, ChallengeProgress> progressByChallengeId = toProgressByChallengeId(memberId, challenges);
         return challenges.stream()
-                .map(challenge -> toResponse(memberId, challenge,
-                        rewardsByChallengeId.getOrDefault(challenge.getChallengeId(), List.of())))
+                .map(challenge -> toResponse(challenge,
+                        rewardsByChallengeId.getOrDefault(challenge.getChallengeId(), List.of()),
+                        progressByChallengeId.get(challenge.getChallengeId())))
                 .toList();
+    }
+
+    /** DAILY/TOTAL 그룹별 batch 조회로 챌린지 목록 progress N+1을 방지한다. */
+    private Map<Long, ChallengeProgress> toProgressByChallengeId(Long memberId, List<Challenge> challenges) {
+        List<Long> dailyIds = challenges.stream()
+                .filter(challenge -> "DAILY".equals(challenge.getChallengeType()))
+                .map(Challenge::getChallengeId)
+                .toList();
+        List<Long> totalIds = challenges.stream()
+                .filter(challenge -> "TOTAL".equals(challenge.getChallengeType()))
+                .map(Challenge::getChallengeId)
+                .toList();
+
+        List<ChallengeProgress> dailyProgress = dailyIds.isEmpty() ? List.of()
+                : challengeProgressRepository.findByMember_MemberIdAndChallenge_ChallengeIdInAndProgressDate(
+                        memberId, dailyIds, LocalDate.now());
+        List<ChallengeProgress> totalProgress = totalIds.isEmpty() ? List.of()
+                : challengeProgressRepository.findByMember_MemberIdAndChallenge_ChallengeIdIn(memberId, totalIds);
+
+        return Stream.concat(dailyProgress.stream(), totalProgress.stream())
+                .collect(Collectors.toMap(
+                        progress -> progress.getChallenge().getChallengeId(),
+                        progress -> progress,
+                        (first, second) -> first));
     }
 
     // 정책: 챌린지 보상은 "달성 시점"이 아니라 "수령 시점"에 조회한 최신 challenge_reward를 지급한다(85행 조회).
@@ -187,8 +214,7 @@ public class ChallengeService {
                                 Collectors.toList())));
     }
 
-    private ChallengeResponse toResponse(Long memberId, Challenge challenge, List<ChallengeRewardItemResponse> rewards) {
-        ChallengeProgress progress = findProgress(memberId, challenge).orElse(null);
+    private ChallengeResponse toResponse(Challenge challenge, List<ChallengeRewardItemResponse> rewards, ChallengeProgress progress) {
         int currentCount = progress != null ? progress.getCurrentCount() : 0;
         boolean achievedYn = progress != null && Boolean.TRUE.equals(progress.getAchievedYn());
         boolean rewardClaimedYn = progress != null && progress.getRewardClaimedAt() != null;

@@ -10,6 +10,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
+import org.springframework.validation.beanvalidation.MethodValidationPostProcessor;
 
 import java.lang.reflect.Method;
 import java.util.List;
@@ -68,5 +69,35 @@ class AdminChallengeControllerTest {
 
         mockMvc.perform(get("/api/v1/admin/challenges").param("page", "0").param("size", "10"))
                 .andExpect(status().isOk());
+    }
+
+    // 위 제약 확인 테스트와 별개로, page=-1/size=0 요청이 실제 MVC 흐름에서 400으로 응답되는지 검증한다.
+    // standaloneSetup()은 컨트롤러 인스턴스를 그대로 쓰기 때문에 @Validated AOP 프록시가 안 걸려서,
+    // MethodValidationPostProcessor로 직접 프록시를 만들어 실제 검증 경로(ConstraintViolationException -> GlobalExceptionHandler -> 400)를 재현한다.
+    @Test
+    void getChallenges_page가_음수이면_실제_400을_반환한다() throws Exception {
+        MockMvc validatedMockMvc = MockMvcBuilders.standaloneSetup(methodValidatedController())
+                .setControllerAdvice(new GlobalExceptionHandler())
+                .build();
+
+        validatedMockMvc.perform(get("/api/v1/admin/challenges").param("page", "-1").param("size", "10"))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void getChallenges_size가_0이면_실제_400을_반환한다() throws Exception {
+        MockMvc validatedMockMvc = MockMvcBuilders.standaloneSetup(methodValidatedController())
+                .setControllerAdvice(new GlobalExceptionHandler())
+                .build();
+
+        validatedMockMvc.perform(get("/api/v1/admin/challenges").param("page", "0").param("size", "0"))
+                .andExpect(status().isBadRequest());
+    }
+
+    private AdminChallengeController methodValidatedController() {
+        MethodValidationPostProcessor postProcessor = new MethodValidationPostProcessor();
+        postProcessor.afterPropertiesSet();
+        return (AdminChallengeController) postProcessor.postProcessAfterInitialization(
+                new AdminChallengeController(challengeService), "adminChallengeController");
     }
 }

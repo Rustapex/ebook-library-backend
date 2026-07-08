@@ -6,6 +6,7 @@ import com.acorn.abc.admin.challenge.dto.AdminChallengeUpdateRequest;
 import com.acorn.abc.challenge.domain.Challenge;
 import com.acorn.abc.challenge.domain.ChallengeProgress;
 import com.acorn.abc.challenge.domain.ChallengeReward;
+import com.acorn.abc.challenge.dto.ChallengeResponse;
 import com.acorn.abc.challenge.dto.ChallengeRewardClaimResponse;
 import com.acorn.abc.challenge.repository.ChallengeProgressRepository;
 import com.acorn.abc.challenge.repository.ChallengeRepository;
@@ -34,6 +35,7 @@ import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -131,6 +133,56 @@ class ChallengeServiceTest {
     }
 
     @Test
+    void getChallenges_진행도를_DAILY_TOTAL_그룹별로_배치조회해서_매핑한다() {
+        Challenge dailyChallenge = challenge(1L, "매일 출석", "DAILY");
+        Challenge totalChallenge = challenge(2L, "누적 출석", "TOTAL");
+        ChallengeProgress dailyProgress = mock(ChallengeProgress.class);
+        given(dailyProgress.getChallenge()).willReturn(dailyChallenge);
+        given(dailyProgress.getCurrentCount()).willReturn(1);
+        given(dailyProgress.getAchievedYn()).willReturn(true);
+        ChallengeProgress totalProgress = mock(ChallengeProgress.class);
+        given(totalProgress.getChallenge()).willReturn(totalChallenge);
+        given(totalProgress.getCurrentCount()).willReturn(10);
+        given(totalProgress.getAchievedYn()).willReturn(false);
+
+        given(challengeRepository.findByStatus("ACTIVE")).willReturn(List.of(dailyChallenge, totalChallenge));
+        given(challengeRewardRepository.findByChallenge_ChallengeIdIn(List.of(1L, 2L))).willReturn(List.of());
+        given(challengeProgressRepository.findByMember_MemberIdAndChallenge_ChallengeIdInAndProgressDate(
+                eq(100L), eq(List.of(1L)), any())).willReturn(List.of(dailyProgress));
+        given(challengeProgressRepository.findByMember_MemberIdAndChallenge_ChallengeIdIn(100L, List.of(2L)))
+                .willReturn(List.of(totalProgress));
+
+        List<ChallengeResponse> responses = challengeService.getChallenges(100L, null);
+
+        assertThat(responses).hasSize(2);
+        assertThat(responses.get(0).currentCount()).isEqualTo(1);
+        assertThat(responses.get(0).achievedYn()).isTrue();
+        assertThat(responses.get(1).currentCount()).isEqualTo(10);
+        assertThat(responses.get(1).achievedYn()).isFalse();
+        verify(challengeProgressRepository).findByMember_MemberIdAndChallenge_ChallengeIdInAndProgressDate(
+                eq(100L), eq(List.of(1L)), any());
+        verify(challengeProgressRepository).findByMember_MemberIdAndChallenge_ChallengeIdIn(100L, List.of(2L));
+        verify(challengeProgressRepository, never())
+                .findByMember_MemberIdAndChallenge_ChallengeIdAndProgressDate(anyLong(), anyLong(), any());
+        verify(challengeProgressRepository, never())
+                .findFirstByMember_MemberIdAndChallenge_ChallengeId(anyLong(), anyLong());
+    }
+
+    @Test
+    void getChallenges_한쪽_타입만_있으면_다른쪽_batch_쿼리를_호출하지_않는다() {
+        Challenge dailyChallenge = challenge(1L, "매일 출석", "DAILY");
+        given(challengeRepository.findByStatus("ACTIVE")).willReturn(List.of(dailyChallenge));
+        given(challengeRewardRepository.findByChallenge_ChallengeIdIn(List.of(1L))).willReturn(List.of());
+        given(challengeProgressRepository.findByMember_MemberIdAndChallenge_ChallengeIdInAndProgressDate(
+                eq(100L), eq(List.of(1L)), any())).willReturn(List.of());
+
+        challengeService.getChallenges(100L, null);
+
+        verify(challengeProgressRepository, never())
+                .findByMember_MemberIdAndChallenge_ChallengeIdIn(anyLong(), any());
+    }
+
+    @Test
     void claimReward_보상은_달성시점이_아닌_수령시점_최신값을_지급한다() {
         Challenge challenge = mock(Challenge.class);
         given(challenge.getChallengeId()).willReturn(1L);
@@ -161,13 +213,19 @@ class ChallengeServiceTest {
     }
 
     private Challenge challenge(Long id, String name) {
+        return challenge(id, name, "DAILY");
+    }
+
+    private Challenge challenge(Long id, String name, String challengeType) {
         Challenge challenge = mock(Challenge.class);
         given(challenge.getChallengeId()).willReturn(id);
         given(challenge.getChallengeName()).willReturn(name);
-        given(challenge.getChallengeType()).willReturn("DAILY");
+        given(challenge.getChallengeType()).willReturn(challengeType);
         given(challenge.getTargetAction()).willReturn("ATTENDANCE");
         given(challenge.getTargetCount()).willReturn(1);
-        given(challenge.getStatus()).willReturn("ACTIVE");
+        // getStatus()는 getAdminChallenges() 흐름에서만 쓰인다(ChallengeService.java:166).
+        // getChallenges() 흐름 테스트에서는 미사용이라 strict stubbing 예외를 피하려고 lenient 처리한다.
+        lenient().when(challenge.getStatus()).thenReturn("ACTIVE");
         return challenge;
     }
 }

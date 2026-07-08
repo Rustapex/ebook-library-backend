@@ -10,6 +10,7 @@ import org.springframework.boot.jpa.test.autoconfigure.TestEntityManager;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -27,12 +28,16 @@ class ChallengeProgressRepositoryTest {
     private Long memberId;
     private Long dailyChallengeId;
     private Long totalChallengeId;
+    private Long dailyChallengeWithoutProgressId;
+    private Long totalChallengeWithoutProgressId;
 
     @BeforeEach
     void setUp() {
         memberId = insertMember("challenge_test_user");
         dailyChallengeId = insertChallenge("일일 출석", "DAILY", "ATTENDANCE", 1, "ACTIVE");
         totalChallengeId = insertChallenge("누적 출석 100일", "TOTAL", "ATTENDANCE", 100, "ACTIVE");
+        dailyChallengeWithoutProgressId = insertChallenge("일일 출석(진행도 없음)", "DAILY", "ATTENDANCE", 1, "ACTIVE");
+        totalChallengeWithoutProgressId = insertChallenge("누적 출석(진행도 없음)", "TOTAL", "ATTENDANCE", 50, "ACTIVE");
 
         insertProgress(memberId, dailyChallengeId, LocalDate.now(), 1, true);
         insertProgress(memberId, totalChallengeId, LocalDate.now().minusDays(5), 10, false);
@@ -59,6 +64,28 @@ class ChallengeProgressRepositoryTest {
         assertThat(result).isPresent();
         assertThat(result.get().getCurrentCount()).isEqualTo(10);
         assertThat(result.get().getAchievedYn()).isFalse();
+    }
+
+    @Test
+    void findByChallengeIdsInAndProgressDateReturnsOnlyDailyProgressForToday() {
+        List<ChallengeProgress> result = challengeProgressRepository
+                .findByMember_MemberIdAndChallenge_ChallengeIdInAndProgressDate(
+                        memberId, List.of(dailyChallengeId, dailyChallengeWithoutProgressId), LocalDate.now());
+
+        assertThat(result).hasSize(1);
+        assertThat(result.get(0).getChallenge().getChallengeId()).isEqualTo(dailyChallengeId);
+        assertThat(result.get(0).getCurrentCount()).isEqualTo(1);
+    }
+
+    @Test
+    void findByChallengeIdsInReturnsOnlyExistingTotalProgress() {
+        List<ChallengeProgress> result = challengeProgressRepository
+                .findByMember_MemberIdAndChallenge_ChallengeIdIn(
+                        memberId, List.of(totalChallengeId, totalChallengeWithoutProgressId));
+
+        assertThat(result).hasSize(1);
+        assertThat(result.get(0).getChallenge().getChallengeId()).isEqualTo(totalChallengeId);
+        assertThat(result.get(0).getCurrentCount()).isEqualTo(10);
     }
 
     private Long insertMember(String loginId) {
