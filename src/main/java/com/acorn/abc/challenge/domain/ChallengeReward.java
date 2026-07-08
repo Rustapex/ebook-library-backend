@@ -41,4 +41,15 @@ public class ChallengeReward {
 
     @Column(name = "reward_quantity", nullable = false)
     private int rewardQuantity;
+
+    public static ChallengeReward create(Challenge challenge, String rewardType, Integer rewardPoint,
+                                          Coupon coupon, int rewardQuantity) {
+        ChallengeReward reward = new ChallengeReward();
+        reward.challenge = challenge;
+        reward.rewardType = rewardType;
+        reward.rewardPoint = rewardPoint;
+        reward.coupon = coupon;
+        reward.rewardQuantity = rewardQuantity;
+        return reward;
+    }
 }

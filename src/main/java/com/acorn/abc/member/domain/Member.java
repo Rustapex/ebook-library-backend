@@ -104,6 +104,10 @@ public class Member extends BaseEntity {
         this.passwordHash = newPasswordHash;
     }
 
+    public void applyPointChange(int amount) {
+        this.pointBalance += amount;
+    }
+
     public void usePoint(int amount) {
         if (amount > this.pointBalance) {
             throw new BusinessException(ErrorCode.POINT_BALANCE_INSUFFICIENT);

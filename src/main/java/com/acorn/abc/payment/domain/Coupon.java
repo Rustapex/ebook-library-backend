@@ -43,4 +43,17 @@ public class Coupon {
 
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt;
+
+    public static Coupon create(String couponName, String couponType, int benefitValue,
+                                 String benefitUnit, int validDays, String status) {
+        Coupon coupon = new Coupon();
+        coupon.couponName = couponName;
+        coupon.couponType = couponType;
+        coupon.benefitValue = benefitValue;
+        coupon.benefitUnit = benefitUnit;
+        coupon.validDays = validDays;
+        coupon.status = status;
+        coupon.createdAt = LocalDateTime.now();
+        return coupon;
+    }
 }

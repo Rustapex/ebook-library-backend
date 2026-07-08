@@ -47,6 +47,17 @@ public class PointHistory {
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt;
 
+    public static PointHistory create(Member member, Payment payment, String pointType, int pointAmount, String description) {
+        PointHistory pointHistory = new PointHistory();
+        pointHistory.member = member;
+        pointHistory.payment = payment;
+        pointHistory.pointType = pointType;
+        pointHistory.pointAmount = pointAmount;
+        pointHistory.description = description;
+        pointHistory.createdAt = LocalDateTime.now();
+        return pointHistory;
+    }
+
     public static PointHistory createPaymentUse(Member member, Payment payment, int pointUsed, LocalDateTime createdAt) {
         PointHistory history = new PointHistory();
         history.member = member;
