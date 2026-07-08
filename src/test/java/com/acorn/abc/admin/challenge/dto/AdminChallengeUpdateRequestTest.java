@@ -30,4 +30,31 @@ class AdminChallengeUpdateRequestTest {
 
         assertThat(validator.validate(request)).isEmpty();
     }
+
+    @Test
+    void challengeType이_DAILY_TOTAL이_아니면_거부한다() {
+        AdminChallengeUpdateRequest request = new AdminChallengeUpdateRequest(
+                "출석 챌린지", "WEEKLY", "ATTENDANCE", 1, "ACTIVE",
+                List.of(new AdminChallengeRewardItemRequest("POINT", 100, null, 1)));
+
+        assertThat(validator.validate(request)).isNotEmpty();
+    }
+
+    @Test
+    void status가_ACTIVE_INACTIVE가_아니면_거부한다() {
+        AdminChallengeUpdateRequest request = new AdminChallengeUpdateRequest(
+                "출석 챌린지", "DAILY", "ATTENDANCE", 1, "DELETED",
+                List.of(new AdminChallengeRewardItemRequest("POINT", 100, null, 1)));
+
+        assertThat(validator.validate(request)).isNotEmpty();
+    }
+
+    @Test
+    void challengeType_TOTAL과_status_INACTIVE는_통과한다() {
+        AdminChallengeUpdateRequest request = new AdminChallengeUpdateRequest(
+                "누적 챌린지", "TOTAL", "ATTENDANCE", 10, "INACTIVE",
+                List.of(new AdminChallengeRewardItemRequest("POINT", 100, null, 1)));
+
+        assertThat(validator.validate(request)).isEmpty();
+    }
 }
