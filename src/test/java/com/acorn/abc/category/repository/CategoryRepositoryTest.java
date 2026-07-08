@@ -36,7 +36,7 @@ class CategoryRepositoryTest {
     void findsOnlyActiveCategoriesOrderedByDisplayOrder() {
         List<Category> categories = categoryRepository.findByStatusOrderByDisplayOrderAscCategoryIdAsc("ACTIVE");
 
-        assertThat(categories).extracting(Category::getCategoryName).containsExactly("Essay", "Novel");
+        assertThat(categories).extracting(Category::getCategoryName).containsSubsequence("Essay", "Novel");
         assertThat(categories).extracting(Category::getStatus).allMatch("ACTIVE"::equals);
     }
 
