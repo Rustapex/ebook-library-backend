@@ -15,9 +15,13 @@ import com.acorn.abc.challenge.repository.ChallengeRewardRepository;
 import com.acorn.abc.common.exception.BusinessException;
 import com.acorn.abc.common.exception.ErrorCode;
 import com.acorn.abc.common.response.PageResponse;
+import com.acorn.abc.coupon.repository.CouponRepository;
 import com.acorn.abc.member.domain.Member;
 import com.acorn.abc.member.repository.MemberRepository;
 import com.acorn.abc.member.service.PointService;
+import com.acorn.abc.payment.domain.Coupon;
+import com.acorn.abc.payment.domain.MemberCoupon;
+import com.acorn.abc.payment.repository.MemberCouponRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -50,6 +54,8 @@ public class ChallengeService {
     private final ChallengeRewardRepository challengeRewardRepository;
     private final MemberRepository memberRepository;
     private final PointService pointService;
+    private final CouponRepository couponRepository;
+    private final MemberCouponRepository memberCouponRepository;
 
     @Transactional(readOnly = true)
     public List<ChallengeResponse> getChallenges(Long memberId, String challengeType) {
@@ -111,7 +117,11 @@ public class ChallengeService {
             throw new BusinessException(ErrorCode.CHALLENGE_REWARD_NOT_CLAIMABLE);
         }
 
+        Member member = memberRepository.findById(memberId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.MEMBER_NOT_FOUND));
+
         int grantedPoint = 0;
+        int grantedCouponQuantity = 0;
         List<ChallengeReward> rewards = challengeRewardRepository.findByChallenge_ChallengeId(challengeId);
         for (ChallengeReward reward : rewards) {
             if ("POINT".equals(reward.getRewardType()) && reward.getRewardPoint() != null) {
@@ -119,14 +129,19 @@ public class ChallengeService {
                 pointService.grantOrAdjustPoint(memberId, amount, "challenge_reward",
                         challenge.getChallengeName() + " 챌린지 보상");
                 grantedPoint += amount;
+            } else if ("coupon".equals(reward.getRewardType()) && reward.getCoupon() != null) {
+                for (int i = 0; i < reward.getRewardQuantity(); i++) {
+                    memberCouponRepository.save(MemberCoupon.create(member, reward.getCoupon()));
+                }
+                grantedCouponQuantity += reward.getRewardQuantity();
             } else {
-                // coupon 등 POINT 외 보상 지급 로직은 아직 미구현(계획 문서 참고). 조용히 넘어가면
-                // progress는 이미 "수령됨"으로 마킹된 뒤라 아무것도 안 지급되는 상태가 될 수 있어 fail-fast로 막는다.
+                // schema CHECK 제약상 POINT/coupon 외 값은 DB에 못 들어가므로 사실상 도달 불가능한 방어 코드.
+                // "안 터지게만 최소 방어"(4차 계획 문서 §1-2와 같은 맥락)로 유지.
                 throw new BusinessException(ErrorCode.CHALLENGE_REWARD_TYPE_NOT_SUPPORTED);
             }
         }
 
-        return new ChallengeRewardClaimResponse(claimedAt, grantedPoint);
+        return new ChallengeRewardClaimResponse(claimedAt, grantedPoint, grantedCouponQuantity);
     }
 
     /** 출석 체크 시 AttendanceService에서 호출한다(출석 트리거만 이번 범위, 계획 문서 4절 참고). */
@@ -182,19 +197,33 @@ public class ChallengeService {
 
         challengeRewardRepository.deleteAll(challengeRewardRepository.findByChallenge_ChallengeId(challengeId));
         for (AdminChallengeRewardItemRequest item : request.rewards()) {
+            Coupon coupon = item.couponId() != null
+                    ? couponRepository.findById(item.couponId())
+                            .orElseThrow(() -> new BusinessException(ErrorCode.COUPON_NOT_FOUND))
+                    : null;
             challengeRewardRepository.save(ChallengeReward.create(
-                    challenge, item.rewardType(), item.rewardPoint(), null, item.rewardQuantity()));
+                    challenge, item.rewardType(), item.rewardPoint(), coupon, item.rewardQuantity()));
         }
         return challengeId;
     }
 
     private void validateRewardItems(List<AdminChallengeRewardItemRequest> rewards) {
         for (AdminChallengeRewardItemRequest item : rewards) {
-            if (item == null
-                    || !"POINT".equals(item.rewardType())
-                    || item.rewardPoint() == null
-                    || item.rewardPoint() <= 0
-                    || item.couponId() != null) {
+            if (item == null) {
+                throw new BusinessException(ErrorCode.VALIDATION_ERROR);
+            }
+            if ("POINT".equals(item.rewardType())) {
+                if (item.rewardPoint() == null || item.rewardPoint() <= 0 || item.couponId() != null) {
+                    throw new BusinessException(ErrorCode.VALIDATION_ERROR);
+                }
+            } else if ("coupon".equals(item.rewardType())) {
+                if (item.couponId() == null || item.rewardPoint() != null) {
+                    throw new BusinessException(ErrorCode.VALIDATION_ERROR);
+                }
+                if (!couponRepository.existsById(item.couponId())) {
+                    throw new BusinessException(ErrorCode.COUPON_NOT_FOUND);
+                }
+            } else {
                 throw new BusinessException(ErrorCode.VALIDATION_ERROR);
             }
         }
