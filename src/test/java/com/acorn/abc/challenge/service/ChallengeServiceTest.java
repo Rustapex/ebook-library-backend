@@ -212,6 +212,30 @@ class ChallengeServiceTest {
         verify(challengeRewardRepository).findByChallenge_ChallengeId(1L);
     }
 
+    @Test
+    void claimReward_POINT가_아닌_보상은_fail_fast로_막는다() {
+        Challenge challenge = mock(Challenge.class);
+        given(challenge.getChallengeId()).willReturn(1L);
+        ChallengeProgress progress = mock(ChallengeProgress.class);
+        given(progress.getChallengeProgressId()).willReturn(10L);
+        given(progress.getAchievedYn()).willReturn(true);
+        given(progress.getRewardClaimedAt()).willReturn(null);
+
+        given(challengeRepository.findById(1L)).willReturn(Optional.of(challenge));
+        given(challengeProgressRepository.findFirstByMember_MemberIdAndChallenge_ChallengeId(100L, 1L))
+                .willReturn(Optional.of(progress));
+        given(challengeProgressRepository.markRewardClaimedIfUnclaimed(eq(10L), any())).willReturn(1);
+
+        ChallengeReward couponReward = mock(ChallengeReward.class);
+        given(couponReward.getRewardType()).willReturn("coupon");
+        given(challengeRewardRepository.findByChallenge_ChallengeId(1L)).willReturn(List.of(couponReward));
+
+        assertThatThrownBy(() -> challengeService.claimReward(100L, 1L))
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(ErrorCode.CHALLENGE_REWARD_TYPE_NOT_SUPPORTED);
+    }
+
     private Challenge challenge(Long id, String name) {
         return challenge(id, name, "DAILY");
     }

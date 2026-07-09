@@ -77,7 +77,8 @@ public enum ErrorCode {
 
     // Challenge
     CHALLENGE_NOT_FOUND(HttpStatus.NOT_FOUND, "CHALLENGE_NOT_FOUND", "존재하지 않는 챌린지입니다."),
-    CHALLENGE_REWARD_NOT_CLAIMABLE(HttpStatus.CONFLICT, "CHALLENGE_REWARD_NOT_CLAIMABLE", "달성하지 않았거나 이미 수령한 보상입니다.");
+    CHALLENGE_REWARD_NOT_CLAIMABLE(HttpStatus.CONFLICT, "CHALLENGE_REWARD_NOT_CLAIMABLE", "달성하지 않았거나 이미 수령한 보상입니다."),
+    CHALLENGE_REWARD_TYPE_NOT_SUPPORTED(HttpStatus.CONFLICT, "CHALLENGE_REWARD_TYPE_NOT_SUPPORTED", "아직 지원하지 않는 보상 유형입니다.");
 
     private final HttpStatus httpStatus;
     private final String code;
