@@ -88,6 +88,22 @@ class ChallengeProgressRepositoryTest {
         assertThat(result.get(0).getCurrentCount()).isEqualTo(10);
     }
 
+    // 동시성 테스트가 아니다. 같은 메서드를 순차 호출해 "1건 반영 -> 0건 반영"이라는 SQL 정합성만 확인한다.
+    // 실제 동시 요청 시나리오는 Postman Collection Runner로 별도 검증한다.
+    @Test
+    void markRewardClaimedIfUnclaimedUpdatesOnlyOnFirstCall() {
+        insertProgress(memberId, totalChallengeId, LocalDate.now(), 5, true);
+        Long progressId = lastInsertId("challenge_progress").longValue();
+        entityManager.flush();
+        entityManager.clear();
+
+        int firstUpdate = challengeProgressRepository.markRewardClaimedIfUnclaimed(progressId, LocalDateTime.now());
+        int secondUpdate = challengeProgressRepository.markRewardClaimedIfUnclaimed(progressId, LocalDateTime.now());
+
+        assertThat(firstUpdate).isEqualTo(1);
+        assertThat(secondUpdate).isEqualTo(0);
+    }
+
     private Long insertMember(String loginId) {
         entityManager.getEntityManager()
                 .createNativeQuery("INSERT INTO member (login_id, password_hash, name, email, birth_date, role, grade_id, point_balance, status, created_at) " +

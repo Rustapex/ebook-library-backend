@@ -119,8 +119,11 @@ public class ChallengeService {
                 pointService.grantOrAdjustPoint(memberId, amount, "challenge_reward",
                         challenge.getChallengeName() + " 챌린지 보상");
                 grantedPoint += amount;
+            } else {
+                // coupon 등 POINT 외 보상 지급 로직은 아직 미구현(계획 문서 참고). 조용히 넘어가면
+                // progress는 이미 "수령됨"으로 마킹된 뒤라 아무것도 안 지급되는 상태가 될 수 있어 fail-fast로 막는다.
+                throw new BusinessException(ErrorCode.CHALLENGE_REWARD_TYPE_NOT_SUPPORTED);
             }
-            // TODO: rewardType=coupon 지급 연동은 이번 범위에서 보류(계획 문서 참고, 쿠폰 발급 로직은 관리자 발급 경로 완성 후 연동)
         }
 
         return new ChallengeRewardClaimResponse(claimedAt, grantedPoint);
