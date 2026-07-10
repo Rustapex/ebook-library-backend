@@ -4,6 +4,7 @@ import java.time.LocalDateTime;
 
 public record ChallengeRewardClaimResponse(
         LocalDateTime rewardClaimedAt,
-        int grantedPoint
+        int grantedPoint,
+        int grantedCouponQuantity
 ) {
 }

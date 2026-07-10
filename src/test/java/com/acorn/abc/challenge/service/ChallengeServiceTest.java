@@ -14,10 +14,16 @@ import com.acorn.abc.challenge.repository.ChallengeRewardRepository;
 import com.acorn.abc.common.exception.BusinessException;
 import com.acorn.abc.common.exception.ErrorCode;
 import com.acorn.abc.common.response.PageResponse;
+import com.acorn.abc.coupon.repository.CouponRepository;
+import com.acorn.abc.member.domain.Member;
 import com.acorn.abc.member.repository.MemberRepository;
 import com.acorn.abc.member.service.PointService;
+import com.acorn.abc.payment.domain.Coupon;
+import com.acorn.abc.payment.domain.MemberCoupon;
+import com.acorn.abc.payment.repository.MemberCouponRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -38,6 +44,7 @@ import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
 @ExtendWith(MockitoExtension.class)
@@ -58,13 +65,54 @@ class ChallengeServiceTest {
     @Mock
     private PointService pointService;
 
+    @Mock
+    private CouponRepository couponRepository;
+
+    @Mock
+    private MemberCouponRepository memberCouponRepository;
+
     @InjectMocks
     private ChallengeService challengeService;
 
     @Test
-    void updateChallenge_rewardType_coupon이면_등록을_차단한다() {
+    void updateChallenge_rewardType_coupon이고_couponId가_존재하면_등록에_성공한다() {
+        Challenge challenge = mock(Challenge.class);
+        Coupon coupon = mock(Coupon.class);
+        given(challengeRepository.findById(1L)).willReturn(Optional.of(challenge));
+        given(couponRepository.existsById(10L)).willReturn(true);
+        given(couponRepository.findById(10L)).willReturn(Optional.of(coupon));
+        AdminChallengeUpdateRequest request = new AdminChallengeUpdateRequest(
+                "출석 챌린지", "DAILY", "ATTENDANCE", 1, "ACTIVE",
+                List.of(new AdminChallengeRewardItemRequest("coupon", null, 10L, 1)));
+
+        challengeService.updateChallenge(1L, request);
+
+        ArgumentCaptor<ChallengeReward> captor = ArgumentCaptor.forClass(ChallengeReward.class);
+        verify(challengeRewardRepository).save(captor.capture());
+        assertThat(captor.getValue().getCoupon()).isEqualTo(coupon);
+    }
+
+    @Test
+    void updateChallenge_rewardType_coupon인데_couponId가_없으면_VALIDATION_ERROR을_던진다() {
         Challenge challenge = mock(Challenge.class);
         given(challengeRepository.findById(1L)).willReturn(Optional.of(challenge));
+        AdminChallengeUpdateRequest request = new AdminChallengeUpdateRequest(
+                "출석 챌린지", "DAILY", "ATTENDANCE", 1, "ACTIVE",
+                List.of(new AdminChallengeRewardItemRequest("coupon", null, null, 1)));
+
+        assertThatThrownBy(() -> challengeService.updateChallenge(1L, request))
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(ErrorCode.VALIDATION_ERROR);
+        verify(challenge, never()).update(any(), any(), any(), anyInt(), any());
+        verify(challengeRewardRepository, never()).deleteAll(any());
+    }
+
+    @Test
+    void updateChallenge_존재하지_않는_couponId면_COUPON_NOT_FOUND을_던진다() {
+        Challenge challenge = mock(Challenge.class);
+        given(challengeRepository.findById(1L)).willReturn(Optional.of(challenge));
+        given(couponRepository.existsById(10L)).willReturn(false);
         AdminChallengeUpdateRequest request = new AdminChallengeUpdateRequest(
                 "출석 챌린지", "DAILY", "ATTENDANCE", 1, "ACTIVE",
                 List.of(new AdminChallengeRewardItemRequest("coupon", null, 10L, 1)));
@@ -72,7 +120,7 @@ class ChallengeServiceTest {
         assertThatThrownBy(() -> challengeService.updateChallenge(1L, request))
                 .isInstanceOf(BusinessException.class)
                 .extracting("errorCode")
-                .isEqualTo(ErrorCode.VALIDATION_ERROR);
+                .isEqualTo(ErrorCode.COUPON_NOT_FOUND);
         verify(challenge, never()).update(any(), any(), any(), anyInt(), any());
         verify(challengeRewardRepository, never()).deleteAll(any());
     }
@@ -197,6 +245,7 @@ class ChallengeServiceTest {
         given(challengeProgressRepository.findFirstByMember_MemberIdAndChallenge_ChallengeId(100L, 1L))
                 .willReturn(Optional.of(progress));
         given(challengeProgressRepository.markRewardClaimedIfUnclaimed(eq(10L), any())).willReturn(1);
+        given(memberRepository.findById(100L)).willReturn(Optional.of(mock(Member.class)));
 
         // 회원이 달성한 시점엔 보상이 100이었을 수 있지만, 관리자가 그 사이 보상을 200으로 바꿨다고 가정.
         // claimReward()는 달성 시점 값이 아니라 수령 시점(호출 시점)에 조회한 최신 보상을 지급해야 한다.
@@ -209,11 +258,12 @@ class ChallengeServiceTest {
         ChallengeRewardClaimResponse response = challengeService.claimReward(100L, 1L);
 
         assertThat(response.grantedPoint()).isEqualTo(200);
+        assertThat(response.grantedCouponQuantity()).isEqualTo(0);
         verify(challengeRewardRepository).findByChallenge_ChallengeId(1L);
     }
 
     @Test
-    void claimReward_POINT가_아닌_보상은_fail_fast로_막는다() {
+    void claimReward_coupon_보상은_MemberCoupon을_실제로_생성한다() {
         Challenge challenge = mock(Challenge.class);
         given(challenge.getChallengeId()).willReturn(1L);
         ChallengeProgress progress = mock(ChallengeProgress.class);
@@ -225,10 +275,43 @@ class ChallengeServiceTest {
         given(challengeProgressRepository.findFirstByMember_MemberIdAndChallenge_ChallengeId(100L, 1L))
                 .willReturn(Optional.of(progress));
         given(challengeProgressRepository.markRewardClaimedIfUnclaimed(eq(10L), any())).willReturn(1);
+        given(memberRepository.findById(100L)).willReturn(Optional.of(mock(Member.class)));
 
+        Coupon coupon = mock(Coupon.class);
         ChallengeReward couponReward = mock(ChallengeReward.class);
         given(couponReward.getRewardType()).willReturn("coupon");
+        given(couponReward.getCoupon()).willReturn(coupon);
+        given(couponReward.getRewardQuantity()).willReturn(2);
         given(challengeRewardRepository.findByChallenge_ChallengeId(1L)).willReturn(List.of(couponReward));
+
+        ChallengeRewardClaimResponse response = challengeService.claimReward(100L, 1L);
+
+        assertThat(response.grantedCouponQuantity()).isEqualTo(2);
+        assertThat(response.grantedPoint()).isEqualTo(0);
+        verify(memberCouponRepository, times(2)).save(any(MemberCoupon.class));
+    }
+
+    @Test
+    void claimReward_스키마상_존재할_수_없는_보상타입은_방어코드로_막는다() {
+        Challenge challenge = mock(Challenge.class);
+        given(challenge.getChallengeId()).willReturn(1L);
+        ChallengeProgress progress = mock(ChallengeProgress.class);
+        given(progress.getChallengeProgressId()).willReturn(10L);
+        given(progress.getAchievedYn()).willReturn(true);
+        given(progress.getRewardClaimedAt()).willReturn(null);
+
+        given(challengeRepository.findById(1L)).willReturn(Optional.of(challenge));
+        given(challengeProgressRepository.findFirstByMember_MemberIdAndChallenge_ChallengeId(100L, 1L))
+                .willReturn(Optional.of(progress));
+        given(challengeProgressRepository.markRewardClaimedIfUnclaimed(eq(10L), any())).willReturn(1);
+        given(memberRepository.findById(100L)).willReturn(Optional.of(mock(Member.class)));
+
+        // 실제로는 DTO @Pattern("POINT|coupon") + schema CHECK로 도달 불가능하지만,
+        // claimReward()의 방어 분기 자체를 회귀 검증하기 위한 테스트(4차 계획 문서 §1-2와 동일한 패턴).
+        // 향후 제3의 보상 타입이 추가되는데 claimReward()에 분기 처리를 빠뜨리면 이 테스트가 잡아준다.
+        ChallengeReward unknownReward = mock(ChallengeReward.class);
+        given(unknownReward.getRewardType()).willReturn("UNKNOWN");
+        given(challengeRewardRepository.findByChallenge_ChallengeId(1L)).willReturn(List.of(unknownReward));
 
         assertThatThrownBy(() -> challengeService.claimReward(100L, 1L))
                 .isInstanceOf(BusinessException.class)

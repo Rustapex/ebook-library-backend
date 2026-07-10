@@ -11,9 +11,9 @@ class AdminChallengeRewardItemRequestTest {
     private final Validator validator = Validation.buildDefaultValidatorFactory().getValidator();
 
     @Test
-    void rewardType_POINT만_허용한다() {
+    void rewardType_POINT_또는_coupon_외에는_거부한다() {
         AdminChallengeRewardItemRequest request =
-                new AdminChallengeRewardItemRequest("coupon", null, 1L, 1);
+                new AdminChallengeRewardItemRequest("GOODS", null, 1L, 1);
 
         assertThat(validator.validate(request)).isNotEmpty();
     }
@@ -22,6 +22,14 @@ class AdminChallengeRewardItemRequestTest {
     void rewardType_POINT는_통과한다() {
         AdminChallengeRewardItemRequest request =
                 new AdminChallengeRewardItemRequest("POINT", 100, null, 1);
+
+        assertThat(validator.validate(request)).isEmpty();
+    }
+
+    @Test
+    void rewardType_coupon은_통과한다() {
+        AdminChallengeRewardItemRequest request =
+                new AdminChallengeRewardItemRequest("coupon", null, 1L, 1);
 
         assertThat(validator.validate(request)).isEmpty();
     }
