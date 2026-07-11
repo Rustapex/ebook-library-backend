@@ -34,7 +34,7 @@ class AdminDashboardControllerTest {
                 "TOTAL", "ALL", LocalDate.of(2000, 1, 1), LocalDate.now(),
                 0, 0, 0, 0, 0, 0, 0, 0L, 0, 0, LocalDateTime.now());
         when(adminDashboardService.getDashboard())
-                .thenReturn(new AdminDashboardResponse(statistics, List.of()));
+                .thenReturn(new AdminDashboardResponse(statistics, List.of(), List.of(), List.of()));
 
         mockMvc.perform(get("/api/v1/admin/dashboard"))
                 .andExpect(status().isOk());
