@@ -50,13 +50,13 @@ public class AdminStatisticService {
             throw new BusinessException(ErrorCode.COMMON_NOT_FOUND);
         }
 
-        int totalMemberCount = (int) memberRepository.count();
-        int sanctionedMemberCount = (int) memberRepository.countByStatus("SANCTIONED");
-        int activeBookCount = (int) bookRepository.countByStatus("AVAILABLE");
-        int totalRentalCount = (int) bookRentalRepository.count();
-        int freeRentalCount = (int) bookRentalRepository.countByBook_RentalType("FREE");
-        int paidRentalCount = (int) bookRentalRepository.countByBook_RentalType("PAID");
-        int totalReadBookCount = (int) readingProgressRepository.countByCompletedYn(true);
+        long totalMemberCount = memberRepository.count();
+        long sanctionedMemberCount = memberRepository.countByStatus("SANCTIONED");
+        long activeBookCount = bookRepository.countByStatus("AVAILABLE");
+        long totalRentalCount = bookRentalRepository.count();
+        long freeRentalCount = bookRentalRepository.countByBook_RentalType("FREE");
+        long paidRentalCount = bookRentalRepository.countByBook_RentalType("PAID");
+        long totalReadBookCount = readingProgressRepository.countByCompletedYn(true);
         long totalPaymentAmount = paymentRepository.sumAmountByPaymentStatus("PAID");
 
         return new AdminStatisticResponse(

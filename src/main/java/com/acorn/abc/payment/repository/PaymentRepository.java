@@ -15,7 +15,7 @@ public interface PaymentRepository extends JpaRepository<Payment, Long> {
     @Query("SELECT COALESCE(SUM(p.amount), 0) FROM Payment p WHERE p.paymentStatus = :paymentStatus")
     long sumAmountByPaymentStatus(@Param("paymentStatus") String paymentStatus);
 
-    @Query("SELECT p FROM Payment p JOIN FETCH p.member ORDER BY p.paidAt DESC")
+    @Query("SELECT p FROM Payment p JOIN FETCH p.member WHERE p.paymentStatus = 'PAID' ORDER BY p.paidAt DESC")
     List<Payment> findRecentPayments(Pageable pageable);
 
     @Query(value = "SELECT p FROM Payment p JOIN FETCH p.rental r JOIN FETCH r.book " +
