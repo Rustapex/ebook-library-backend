@@ -41,4 +41,14 @@ public class Rating {
 
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt;
+
+    // 생성 후 수정/삭제 불가 - 변경 메서드를 두지 않는다
+    public static Rating create(Member member, Book book, int ratingScore) {
+        Rating rating = new Rating();
+        rating.member = member;
+        rating.book = book;
+        rating.ratingScore = (byte) ratingScore;
+        rating.createdAt = LocalDateTime.now();
+        return rating;
+    }
 }
