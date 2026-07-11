@@ -43,4 +43,15 @@ class AdminAuditLogServiceTest {
         assertThat(response.page()).isZero();
         assertThat(response.size()).isEqualTo(10);
     }
+
+    @Test
+    void getAuditLogs_size가_100을_넘으면_100으로_클램프한다() {
+        given(adminAuditLogRepository.search(any(), any(), any(), eq(PageRequest.of(0, 100))))
+                .willReturn(new PageImpl<>(List.of(), PageRequest.of(0, 100), 0));
+
+        PageResponse<AdminAuditLogSummaryResponse> response =
+                adminAuditLogService.getAuditLogs(null, null, null, 0, 500);
+
+        assertThat(response.size()).isEqualTo(100);
+    }
 }

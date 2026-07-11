@@ -3,8 +3,8 @@ package com.acorn.abc.statistic.service;
 import com.acorn.abc.member.domain.Member;
 import com.acorn.abc.payment.domain.Payment;
 import com.acorn.abc.payment.repository.PaymentRepository;
-import com.acorn.abc.statistic.domain.AdminStatistic;
 import com.acorn.abc.statistic.dto.AdminDashboardResponse;
+import com.acorn.abc.statistic.dto.AdminStatisticResponse;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -34,9 +34,10 @@ class AdminDashboardServiceTest {
 
     @Test
     void getDashboard_통계와_최근_결제_5건을_함께_반환한다() {
-        AdminStatistic statistic = AdminStatistic.create(
-                "TOTAL", "ALL", AdminStatisticBatchService.TOTAL_PERIOD_START_DATE, LocalDate.now());
-        given(adminStatisticService.getTotalStatisticForDashboard()).willReturn(statistic);
+        AdminStatisticResponse statistics = new AdminStatisticResponse(
+                "TOTAL", "ALL", LocalDate.of(2000, 1, 1), LocalDate.now(),
+                5, 0, 1, 10, 7, 3, 4, 19800L, 0, 0, LocalDateTime.now());
+        given(adminStatisticService.getTotalStatisticForDashboard()).willReturn(statistics);
 
         Member member = mock(Member.class);
         given(member.getName()).willReturn("홍길동");

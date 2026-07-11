@@ -1,18 +1,18 @@
 package com.acorn.abc.statistic.service;
 
+import com.acorn.abc.book.repository.BookRepository;
 import com.acorn.abc.common.exception.BusinessException;
 import com.acorn.abc.common.exception.ErrorCode;
-import com.acorn.abc.statistic.domain.AdminStatistic;
+import com.acorn.abc.member.repository.MemberRepository;
+import com.acorn.abc.payment.repository.PaymentRepository;
+import com.acorn.abc.rental.repository.BookRentalRepository;
+import com.acorn.abc.rental.repository.ReadingProgressRepository;
 import com.acorn.abc.statistic.dto.AdminStatisticResponse;
-import com.acorn.abc.statistic.repository.AdminStatisticRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-
-import java.time.LocalDate;
-import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -22,27 +22,53 @@ import static org.mockito.BDDMockito.given;
 class AdminStatisticServiceTest {
 
     @Mock
-    private AdminStatisticRepository adminStatisticRepository;
+    private MemberRepository memberRepository;
+
+    @Mock
+    private BookRepository bookRepository;
+
+    @Mock
+    private BookRentalRepository bookRentalRepository;
+
+    @Mock
+    private ReadingProgressRepository readingProgressRepository;
+
+    @Mock
+    private PaymentRepository paymentRepository;
 
     @InjectMocks
     private AdminStatisticService adminStatisticService;
 
     @Test
-    void getStatistics_TOTAL_ALL_조합은_저장된_값을_반환한다() {
-        AdminStatistic statistic = AdminStatistic.create(
-                "TOTAL", "ALL", AdminStatisticBatchService.TOTAL_PERIOD_START_DATE, LocalDate.now());
-        given(adminStatisticRepository.findByPeriodTypeAndPeriodStartDateAndAgeBand(
-                "TOTAL", AdminStatisticBatchService.TOTAL_PERIOD_START_DATE, "ALL"))
-                .willReturn(Optional.of(statistic));
+    void getStatistics_TOTAL_ALL_조합은_실시간으로_집계한_값을_반환한다() {
+        given(memberRepository.count()).willReturn(5L);
+        given(memberRepository.countByStatus("SANCTIONED")).willReturn(1L);
+        given(bookRepository.countByStatus("AVAILABLE")).willReturn(2L);
+        given(bookRentalRepository.count()).willReturn(10L);
+        given(bookRentalRepository.countByBook_RentalType("FREE")).willReturn(7L);
+        given(bookRentalRepository.countByBook_RentalType("PAID")).willReturn(3L);
+        given(readingProgressRepository.countByCompletedYn(true)).willReturn(4L);
+        given(paymentRepository.sumAmountByPaymentStatus("PAID")).willReturn(19800L);
 
         AdminStatisticResponse response = adminStatisticService.getStatistics("TOTAL", null, null);
 
         assertThat(response.periodType()).isEqualTo("TOTAL");
         assertThat(response.ageBand()).isEqualTo("ALL");
+        assertThat(response.totalMemberCount()).isEqualTo(5);
+        assertThat(response.sanctionedMemberCount()).isEqualTo(1);
+        assertThat(response.activeBookCount()).isEqualTo(2);
+        assertThat(response.totalRentalCount()).isEqualTo(10);
+        assertThat(response.freeRentalCount()).isEqualTo(7);
+        assertThat(response.paidRentalCount()).isEqualTo(3);
+        assertThat(response.totalReadBookCount()).isEqualTo(4);
+        assertThat(response.totalPaymentAmount()).isEqualTo(19800L);
+        // review_count/report_count는 review 패키지에 Repository가 없어(§4-4) 항상 0이다.
+        assertThat(response.reviewCount()).isZero();
+        assertThat(response.reportCount()).isZero();
     }
 
     @Test
-    void getStatistics_WEEKLY처럼_아직_배치가_안_채운_조합은_COMMON_NOT_FOUND() {
+    void getStatistics_WEEKLY처럼_아직_지원하지_않는_periodType은_COMMON_NOT_FOUND() {
         assertThatThrownBy(() -> adminStatisticService.getStatistics("WEEKLY", null, null))
                 .isInstanceOf(BusinessException.class)
                 .extracting(e -> ((BusinessException) e).getErrorCode())
@@ -52,18 +78,6 @@ class AdminStatisticServiceTest {
     @Test
     void getStatistics_TOTAL이어도_ageBand이_ALL이_아니면_COMMON_NOT_FOUND() {
         assertThatThrownBy(() -> adminStatisticService.getStatistics("TOTAL", null, "10S"))
-                .isInstanceOf(BusinessException.class)
-                .extracting(e -> ((BusinessException) e).getErrorCode())
-                .isEqualTo(ErrorCode.COMMON_NOT_FOUND);
-    }
-
-    @Test
-    void getStatistics_TOTAL_ALL이어도_배치가_아직_실행_전이면_COMMON_NOT_FOUND() {
-        given(adminStatisticRepository.findByPeriodTypeAndPeriodStartDateAndAgeBand(
-                "TOTAL", AdminStatisticBatchService.TOTAL_PERIOD_START_DATE, "ALL"))
-                .willReturn(Optional.empty());
-
-        assertThatThrownBy(() -> adminStatisticService.getStatistics("TOTAL", null, "ALL"))
                 .isInstanceOf(BusinessException.class)
                 .extracting(e -> ((BusinessException) e).getErrorCode())
                 .isEqualTo(ErrorCode.COMMON_NOT_FOUND);

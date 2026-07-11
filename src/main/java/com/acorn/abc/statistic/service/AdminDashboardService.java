@@ -23,8 +23,7 @@ public class AdminDashboardService {
     private final PaymentRepository paymentRepository;
 
     public AdminDashboardResponse getDashboard() {
-        AdminStatisticResponse statistics =
-                AdminStatisticResponse.from(adminStatisticService.getTotalStatisticForDashboard());
+        AdminStatisticResponse statistics = adminStatisticService.getTotalStatisticForDashboard();
 
         Pageable pageable = PageRequest.of(0, RECENT_PAYMENT_LIMIT);
         List<AdminRecentPaymentResponse> recentPayments = paymentRepository.findRecentPayments(pageable).stream()
