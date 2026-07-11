@@ -67,13 +67,36 @@ class BookRepositoryTest {
     }
 
     @Test
-    void hasParentCategoryFindsBooksUnderChildCategory() {
+    void hasAnyCategoryFindsBooksInGivenCategoryIds() {
         Page<Book> page = bookRepository.findAll(
-                BookSpecifications.available().and(BookSpecifications.hasParentCategory(categoryRootId)),
+                BookSpecifications.available().and(BookSpecifications.hasAnyCategory(List.of(categoryRootId, categoryChildId))),
                 PageRequest.of(0, 10)
         );
 
         assertThat(page.getContent()).extracting(Book::getBookId).containsExactly(bookSpringId);
+    }
+
+    @Test
+    void hasAnyCategoryWithEmptyListMatchesNoBooks() {
+        Page<Book> page = bookRepository.findAll(
+                BookSpecifications.available().and(BookSpecifications.hasAnyCategory(List.of())),
+                PageRequest.of(0, 10)
+        );
+
+        assertThat(page.getContent()).isEmpty();
+    }
+
+    @Test
+    void hasAnyCategoryWithNullDoesNotFilter() {
+        Page<Book> page = bookRepository.findAll(
+                BookSpecifications.available().and(BookSpecifications.hasAnyCategory(null)),
+                PageRequest.of(0, 10)
+        );
+
+        // 실DB를 공유하는 테스트라 다른 데이터가 섞여 있을 수 있어 정확히 일치가 아니라 포함 여부만 검증한다
+        assertThat(page.getContent()).extracting(Book::getBookId)
+                .contains(bookJavaId, bookSpringId)
+                .doesNotContain(bookHiddenId);
     }
 
     @Test

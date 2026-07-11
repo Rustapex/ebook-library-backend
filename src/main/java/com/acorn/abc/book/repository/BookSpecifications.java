@@ -8,6 +8,8 @@ import jakarta.persistence.criteria.Root;
 import jakarta.persistence.criteria.Subquery;
 import org.springframework.data.jpa.domain.Specification;
 
+import java.util.List;
+
 public final class BookSpecifications {
 
     private static final String AVAILABLE = "AVAILABLE";
@@ -40,22 +42,21 @@ public final class BookSpecifications {
         };
     }
 
-    public static Specification<Book> hasParentCategory(Long parentCategoryId) {
+    // categoryIds는 CategoryService.findDescendantIds()로 미리 계산한 (자기 자신 포함) 하위 카테고리 id 전체다.
+    // null이면 필터링하지 않고(요청 자체에 parentCategoryId 없음), 빈 리스트면 아무것도 매칭하지 않는다
+    // (parentCategoryId가 존재하지 않거나 비활성 카테고리라 하위가 없는 경우).
+    public static Specification<Book> hasAnyCategory(List<Long> categoryIds) {
         return (root, query, cb) -> {
-            if (parentCategoryId == null) {
+            if (categoryIds == null) {
                 return cb.conjunction();
+            }
+            if (categoryIds.isEmpty()) {
+                return cb.disjunction();
             }
             Subquery<Long> subquery = query.subquery(Long.class);
             Root<BookCategory> bc = subquery.from(BookCategory.class);
-            Join<Object, Object> category = bc.join("category");
             subquery.select(bc.get("book").get("bookId"))
-                    .where(cb.and(
-                            cb.equal(category.get("status"), ACTIVE),
-                            cb.or(
-                                    cb.equal(category.get("parent").get("categoryId"), parentCategoryId),
-                                    cb.equal(category.get("categoryId"), parentCategoryId)
-                            )
-                    ));
+                    .where(bc.get("category").get("categoryId").in(categoryIds));
             return root.get("bookId").in(subquery);
         };
     }

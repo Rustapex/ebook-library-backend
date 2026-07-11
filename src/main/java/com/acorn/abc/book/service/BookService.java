@@ -18,6 +18,7 @@ import com.acorn.abc.book.repository.BookDetailRepository;
 import com.acorn.abc.book.repository.BookKeywordMapRepository;
 import com.acorn.abc.book.repository.BookRepository;
 import com.acorn.abc.book.repository.BookSpecifications;
+import com.acorn.abc.category.service.CategoryService;
 import com.acorn.abc.common.exception.BusinessException;
 import com.acorn.abc.common.exception.ErrorCode;
 import com.acorn.abc.common.response.PageResponse;
@@ -58,6 +59,7 @@ public class BookService {
     private final BookDetailRepository bookDetailRepository;
     private final FavoriteBookRepository favoriteBookRepository;
     private final BookRentalRepository bookRentalRepository;
+    private final CategoryService categoryService;
 
     public PageResponse<BookCardResponse> getBooks(
             Long categoryId,
@@ -81,9 +83,15 @@ public class BookService {
                 normalizeSize(size)
         );
 
+        // parentCategoryId는 직계 자식이 아니라 전체 하위 트리 기준으로 매칭해야 하므로
+        // CategoryService에서 (자기 자신 포함) 하위 categoryId 전체를 미리 계산한다.
+        List<Long> categoryScopeIds = criteria.parentCategoryId() == null
+                ? null
+                : categoryService.findDescendantIds(criteria.parentCategoryId());
+
         Specification<Book> spec = BookSpecifications.available()
                 .and(BookSpecifications.hasCategory(criteria.categoryId()))
-                .and(BookSpecifications.hasParentCategory(criteria.parentCategoryId()))
+                .and(BookSpecifications.hasAnyCategory(categoryScopeIds))
                 .and(BookSpecifications.inCollection(criteria.collectionId()))
                 .and(BookSpecifications.inEventSection("event".equalsIgnoreCase(criteria.section())))
                 .and(BookSpecifications.hasRentalType(criteria.rentalType()));

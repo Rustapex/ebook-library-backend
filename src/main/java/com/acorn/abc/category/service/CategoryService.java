@@ -6,7 +6,9 @@ import com.acorn.abc.category.repository.CategoryRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
+import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Deque;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -33,6 +35,41 @@ public class CategoryService {
                     .toList();
         }
         return toTree(categories);
+    }
+
+    // parentCategoryId로 도서를 필터링할 때, 직계 자식만이 아니라 모든 하위(자식의 자식...) 카테고리를
+    // 포함해야 하므로 자기 자신 + 전체 하위 categoryId를 BFS로 모아 반환한다.
+    // 존재하지 않거나 비활성 카테고리면 빈 리스트를 반환한다(호출 측에서 "매칭 결과 없음"으로 처리).
+    public List<Long> findDescendantIds(Long categoryId) {
+        if (categoryId == null) {
+            return List.of();
+        }
+        List<Category> categories = categoryRepository.findByStatusOrderByDisplayOrderAscCategoryIdAsc(ACTIVE);
+
+        Map<Long, List<Long>> childIdsByParentId = new LinkedHashMap<>();
+        boolean exists = false;
+        for (Category category : categories) {
+            if (categoryId.equals(category.getCategoryId())) {
+                exists = true;
+            }
+            Long parentId = parentId(category);
+            if (parentId != null) {
+                childIdsByParentId.computeIfAbsent(parentId, id -> new ArrayList<>()).add(category.getCategoryId());
+            }
+        }
+        if (!exists) {
+            return List.of();
+        }
+
+        List<Long> descendantIds = new ArrayList<>();
+        Deque<Long> queue = new ArrayDeque<>();
+        queue.add(categoryId);
+        while (!queue.isEmpty()) {
+            Long current = queue.poll();
+            descendantIds.add(current);
+            queue.addAll(childIdsByParentId.getOrDefault(current, List.of()));
+        }
+        return descendantIds;
     }
 
     private List<CategoryResponse> toTree(List<Category> categories) {
