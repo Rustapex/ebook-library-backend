@@ -5,14 +5,17 @@ import com.acorn.abc.category.dto.CategoryResponse;
 import com.acorn.abc.category.repository.CategoryRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
+// open-in-view=false 환경에서 category.parent(LAZY) 접근을 조회와 같은 세션에서 하기 위해 필요하다
 @Service
 @RequiredArgsConstructor
+@Transactional(readOnly = true)
 public class CategoryService {
 
     private static final String ACTIVE = "ACTIVE";
