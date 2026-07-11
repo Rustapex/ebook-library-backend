@@ -38,4 +38,12 @@ public class FavoriteBook {
 
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt;
+
+    public static FavoriteBook create(Member member, Book book) {
+        FavoriteBook favoriteBook = new FavoriteBook();
+        favoriteBook.member = member;
+        favoriteBook.book = book;
+        favoriteBook.createdAt = LocalDateTime.now();
+        return favoriteBook;
+    }
 }

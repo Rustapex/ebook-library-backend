@@ -78,7 +78,16 @@ public enum ErrorCode {
     // Challenge
     CHALLENGE_NOT_FOUND(HttpStatus.NOT_FOUND, "CHALLENGE_NOT_FOUND", "존재하지 않는 챌린지입니다."),
     CHALLENGE_REWARD_NOT_CLAIMABLE(HttpStatus.CONFLICT, "CHALLENGE_REWARD_NOT_CLAIMABLE", "달성하지 않았거나 이미 수령한 보상입니다."),
-    CHALLENGE_REWARD_TYPE_NOT_SUPPORTED(HttpStatus.CONFLICT, "CHALLENGE_REWARD_TYPE_NOT_SUPPORTED", "아직 지원하지 않는 보상 유형입니다.");
+    CHALLENGE_REWARD_TYPE_NOT_SUPPORTED(HttpStatus.CONFLICT, "CHALLENGE_REWARD_TYPE_NOT_SUPPORTED", "아직 지원하지 않는 보상 유형입니다."),
+
+    // Review
+    REVIEW_NOT_FOUND(HttpStatus.NOT_FOUND, "REVIEW_NOT_FOUND", "존재하지 않는 리뷰입니다."),
+    REVIEW_ALREADY_EXISTS(HttpStatus.CONFLICT, "REVIEW_ALREADY_EXISTS", "이미 작성한 리뷰가 있습니다."),
+    REVIEW_NOT_ALLOWED(HttpStatus.FORBIDDEN, "REVIEW_NOT_ALLOWED", "읽기를 시작한 이후에만 리뷰를 작성할 수 있습니다."),
+
+    // Favorite
+    FAVORITE_ALREADY_EXISTS(HttpStatus.CONFLICT, "FAVORITE_ALREADY_EXISTS", "이미 즐겨찾기한 도서입니다."),
+    FAVORITE_NOT_FOUND(HttpStatus.NOT_FOUND, "FAVORITE_NOT_FOUND", "즐겨찾기 내역이 없습니다.");
 
     private final HttpStatus httpStatus;
     private final String code;

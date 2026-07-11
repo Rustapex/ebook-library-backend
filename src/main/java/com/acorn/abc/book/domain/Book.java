@@ -14,6 +14,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 
@@ -97,5 +98,22 @@ public class Book {
 
     public void increaseRentalCount() {
         this.rentalCount++;
+    }
+
+    // 활성 리뷰 수 갱신 전용. Rating(별점) 개수와는 무관하다 (리뷰 삭제/복구 시 호출)
+    public void increaseReviewCount() {
+        this.reviewCount++;
+    }
+
+    public void decreaseReviewCount() {
+        this.reviewCount--;
+    }
+
+    // 신규 Rating 생성 시에만 호출한다. Rating은 생성 후 수정/삭제가 없으므로 증분 계산만으로 평균을 유지할 수 있다.
+    public void applyNewRating(int existingRatingCount, int newRatingScore) {
+        BigDecimal totalScore = this.averageRating.multiply(BigDecimal.valueOf(existingRatingCount))
+                .add(BigDecimal.valueOf(newRatingScore));
+        int newRatingCount = existingRatingCount + 1;
+        this.averageRating = totalScore.divide(BigDecimal.valueOf(newRatingCount), 2, RoundingMode.HALF_UP);
     }
 }

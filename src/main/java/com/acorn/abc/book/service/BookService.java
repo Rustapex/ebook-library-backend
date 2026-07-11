@@ -205,7 +205,8 @@ public class BookService {
         return PageResponse.of(content, page.getNumber(), page.getSize(), page.getTotalElements());
     }
 
-    private List<BookCardResponse> toCardResponses(List<Book> books, Long memberId) {
+    // favorite 등 다른 도메인이 BookCard 목록을 만들 때 재사용한다 (author 조회/즐겨찾기 여부 계산 로직을 한 곳에서만 관리)
+    public List<BookCardResponse> toCardResponses(List<Book> books, Long memberId) {
         if (books.isEmpty()) {
             return List.of();
         }
