@@ -15,6 +15,8 @@ public interface BookRentalRepository extends JpaRepository<BookRental, Long> {
     // createdAt이 동률일 수 있어 rentalId desc를 tie-breaker로 추가해 조회 결과를 결정적으로 만든다
     Optional<BookRental> findFirstByMember_MemberIdAndBook_BookIdOrderByCreatedAtDescRentalIdDesc(Long memberId, Long bookId);
 
+    long countByBook_RentalType(String rentalType);
+
     @Query(value = "SELECT r FROM BookRental r JOIN FETCH r.book " +
             "WHERE r.member.memberId = :memberId AND (:status IS NULL OR r.rentalStatus = :status) " +
             "ORDER BY r.createdAt DESC, r.rentalId DESC",

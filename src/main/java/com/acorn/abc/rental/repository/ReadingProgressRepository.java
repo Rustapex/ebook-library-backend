@@ -13,6 +13,8 @@ public interface ReadingProgressRepository extends JpaRepository<ReadingProgress
 
     Optional<ReadingProgress> findByRental_RentalId(Long rentalId);
 
+    long countByCompletedYn(Boolean completedYn);
+
     @Query("SELECT rp FROM ReadingProgress rp JOIN FETCH rp.rental r JOIN FETCH r.book " +
             "WHERE r.member.memberId = :memberId AND rp.lastReadAt IS NOT NULL " +
             "ORDER BY rp.lastReadAt DESC")

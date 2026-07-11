@@ -17,6 +17,8 @@ public interface BookRepository extends JpaRepository<Book, Long>, JpaSpecificat
 
     Optional<Book> findByIsbn(String isbn);
 
+    long countByStatus(String status);
+
     @Query("SELECT DISTINCT b FROM Book b LEFT JOIN b.publisher p " +
             "WHERE (b.isbn IS NULL OR b.isbn <> :isbn) " +
             "AND (b.title LIKE :titleLike " +

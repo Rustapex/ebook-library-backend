@@ -18,6 +18,8 @@ public interface MemberRepository extends JpaRepository<Member, Long> {
 
     boolean existsByEmail(String email);
 
+    long countByStatus(String status);
+
     @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query("UPDATE Member m SET m.pointBalance = m.pointBalance + :amount "
             + "WHERE m.memberId = :memberId AND m.pointBalance + :amount >= 0")

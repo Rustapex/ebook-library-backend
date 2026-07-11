@@ -68,4 +68,41 @@ public class AdminStatistic {
 
     @Column(name = "updated_at", nullable = false)
     private LocalDateTime updatedAt;
+
+    public static AdminStatistic create(String periodType, String ageBand,
+                                         LocalDate periodStartDate, LocalDate periodEndDate) {
+        AdminStatistic statistic = new AdminStatistic();
+        statistic.periodType = periodType;
+        statistic.ageBand = ageBand;
+        statistic.periodStartDate = periodStartDate;
+        statistic.periodEndDate = periodEndDate;
+        // review_count/report_count는 review 패키지에 Repository가 없어(§4-4) 이번 배치 범위에서 0으로 고정한다.
+        // 후속 작업(구현계획 §9)에서 review/report Repository가 추가되면 refreshCounts에 포함해 채운다.
+        statistic.reviewCount = 0;
+        statistic.reportCount = 0;
+        statistic.updatedAt = LocalDateTime.now();
+        return statistic;
+    }
+
+    public void refreshCounts(LocalDate periodEndDate,
+                               int totalMemberCount,
+                               int sanctionedMemberCount,
+                               int activeBookCount,
+                               int totalRentalCount,
+                               int freeRentalCount,
+                               int paidRentalCount,
+                               int totalReadBookCount,
+                               long totalPaymentAmount,
+                               LocalDateTime updatedAt) {
+        this.periodEndDate = periodEndDate;
+        this.totalMemberCount = totalMemberCount;
+        this.sanctionedMemberCount = sanctionedMemberCount;
+        this.activeBookCount = activeBookCount;
+        this.totalRentalCount = totalRentalCount;
+        this.freeRentalCount = freeRentalCount;
+        this.paidRentalCount = paidRentalCount;
+        this.totalReadBookCount = totalReadBookCount;
+        this.totalPaymentAmount = totalPaymentAmount;
+        this.updatedAt = updatedAt;
+    }
 }
