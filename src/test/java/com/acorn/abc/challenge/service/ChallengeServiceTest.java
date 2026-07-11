@@ -21,6 +21,9 @@ import com.acorn.abc.member.service.PointService;
 import com.acorn.abc.payment.domain.Coupon;
 import com.acorn.abc.payment.domain.MemberCoupon;
 import com.acorn.abc.payment.repository.MemberCouponRepository;
+import com.acorn.abc.statistic.domain.AdminAuditLogActionType;
+import com.acorn.abc.statistic.domain.AdminAuditLogTargetType;
+import com.acorn.abc.statistic.service.AdminAuditLogWriter;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
@@ -71,6 +74,9 @@ class ChallengeServiceTest {
     @Mock
     private MemberCouponRepository memberCouponRepository;
 
+    @Mock
+    private AdminAuditLogWriter adminAuditLogWriter;
+
     @InjectMocks
     private ChallengeService challengeService;
 
@@ -85,11 +91,14 @@ class ChallengeServiceTest {
                 "출석 챌린지", "DAILY", "ATTENDANCE", 1, "ACTIVE",
                 List.of(new AdminChallengeRewardItemRequest("coupon", null, 10L, 1)));
 
-        challengeService.updateChallenge(1L, request);
+        challengeService.updateChallenge(1L, request, 999L);
 
         ArgumentCaptor<ChallengeReward> captor = ArgumentCaptor.forClass(ChallengeReward.class);
         verify(challengeRewardRepository).save(captor.capture());
         assertThat(captor.getValue().getCoupon()).isEqualTo(coupon);
+        verify(adminAuditLogWriter).record(
+                eq(999L), eq(AdminAuditLogActionType.CHALLENGE_UPDATE),
+                eq(AdminAuditLogTargetType.CHALLENGE), eq(1L), any(), any());
     }
 
     @Test
@@ -100,7 +109,7 @@ class ChallengeServiceTest {
                 "출석 챌린지", "DAILY", "ATTENDANCE", 1, "ACTIVE",
                 List.of(new AdminChallengeRewardItemRequest("coupon", null, null, 1)));
 
-        assertThatThrownBy(() -> challengeService.updateChallenge(1L, request))
+        assertThatThrownBy(() -> challengeService.updateChallenge(1L, request, 999L))
                 .isInstanceOf(BusinessException.class)
                 .extracting("errorCode")
                 .isEqualTo(ErrorCode.VALIDATION_ERROR);
@@ -117,7 +126,7 @@ class ChallengeServiceTest {
                 "출석 챌린지", "DAILY", "ATTENDANCE", 1, "ACTIVE",
                 List.of(new AdminChallengeRewardItemRequest("coupon", null, 10L, 1)));
 
-        assertThatThrownBy(() -> challengeService.updateChallenge(1L, request))
+        assertThatThrownBy(() -> challengeService.updateChallenge(1L, request, 999L))
                 .isInstanceOf(BusinessException.class)
                 .extracting("errorCode")
                 .isEqualTo(ErrorCode.COUPON_NOT_FOUND);
@@ -157,7 +166,7 @@ class ChallengeServiceTest {
                 "출석 챌린지", "DAILY", "ATTENDANCE", 1, "ACTIVE",
                 List.of(new AdminChallengeRewardItemRequest("POINT", 0, null, 1)));
 
-        assertThatThrownBy(() -> challengeService.updateChallenge(1L, request))
+        assertThatThrownBy(() -> challengeService.updateChallenge(1L, request, 999L))
                 .isInstanceOf(BusinessException.class)
                 .extracting("errorCode")
                 .isEqualTo(ErrorCode.VALIDATION_ERROR);
@@ -173,7 +182,7 @@ class ChallengeServiceTest {
                 "출석 챌린지", "DAILY", "ATTENDANCE", 1, "ACTIVE",
                 List.of(new AdminChallengeRewardItemRequest("POINT", -100, null, 1)));
 
-        assertThatThrownBy(() -> challengeService.updateChallenge(1L, request))
+        assertThatThrownBy(() -> challengeService.updateChallenge(1L, request, 999L))
                 .isInstanceOf(BusinessException.class)
                 .extracting("errorCode")
                 .isEqualTo(ErrorCode.VALIDATION_ERROR);

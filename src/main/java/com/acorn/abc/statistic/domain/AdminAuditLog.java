@@ -48,4 +48,17 @@ public class AdminAuditLog {
 
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt;
+
+    public static AdminAuditLog create(Member adminMember, String actionType, String targetType, Long targetId,
+                                        String beforeSummary, String afterSummary) {
+        AdminAuditLog log = new AdminAuditLog();
+        log.adminMember = adminMember;
+        log.actionType = actionType;
+        log.targetType = targetType;
+        log.targetId = targetId;
+        log.beforeSummary = beforeSummary;
+        log.afterSummary = afterSummary;
+        log.createdAt = LocalDateTime.now();
+        return log;
+    }
 }

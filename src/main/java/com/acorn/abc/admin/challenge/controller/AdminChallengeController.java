@@ -6,12 +6,14 @@ import com.acorn.abc.admin.challenge.dto.AdminChallengeUpdateResponse;
 import com.acorn.abc.challenge.service.ChallengeService;
 import com.acorn.abc.common.response.ApiResponse;
 import com.acorn.abc.common.response.PageResponse;
+import com.acorn.abc.common.security.CustomUserDetails;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Min;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -46,8 +48,9 @@ public class AdminChallengeController {
     @PutMapping("/{challengeId}")
     public ResponseEntity<ApiResponse<AdminChallengeUpdateResponse>> updateChallenge(
             @PathVariable Long challengeId,
-            @Valid @RequestBody AdminChallengeUpdateRequest request) {
-        Long updatedId = challengeService.updateChallenge(challengeId, request);
+            @Valid @RequestBody AdminChallengeUpdateRequest request,
+            @AuthenticationPrincipal CustomUserDetails adminDetails) {
+        Long updatedId = challengeService.updateChallenge(challengeId, request, adminDetails.getMemberId());
         return ResponseEntity.ok(ApiResponse.ok(new AdminChallengeUpdateResponse(updatedId)));
     }
 }

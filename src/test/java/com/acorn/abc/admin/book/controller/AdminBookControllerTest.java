@@ -101,7 +101,7 @@ class AdminBookControllerTest {
 
     @Test
     void approve_returnsCreated() throws Exception {
-        when(bookApprovalService.approve(eq(35L), any()))
+        when(bookApprovalService.approve(eq(35L), any(), any()))
                 .thenReturn(new BookIsbnTempApproveResponse(12L, 35L, "AVAILABLE"));
 
         String body = """

@@ -10,6 +10,9 @@ import com.acorn.abc.member.dto.PointHistoryResponse;
 import com.acorn.abc.member.dto.PointSummaryResponse;
 import com.acorn.abc.member.repository.MemberRepository;
 import com.acorn.abc.member.repository.PointHistoryRepository;
+import com.acorn.abc.statistic.domain.AdminAuditLogActionType;
+import com.acorn.abc.statistic.domain.AdminAuditLogTargetType;
+import com.acorn.abc.statistic.service.AdminAuditLogWriter;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -27,6 +30,7 @@ public class PointService {
 
     private final MemberRepository memberRepository;
     private final PointHistoryRepository pointHistoryRepository;
+    private final AdminAuditLogWriter adminAuditLogWriter;
 
     public PointHistory grantOrAdjustPoint(Long memberId, int amount, String pointType, String description) {
         int updatedRows = memberRepository.applyPointChangeIfSufficient(memberId, amount);
@@ -43,8 +47,11 @@ public class PointService {
         return pointHistoryRepository.save(pointHistory);
     }
 
-    public AdminPointAdjustResponse adjustPointByAdmin(Long memberId, int amount, String description) {
+    public AdminPointAdjustResponse adjustPointByAdmin(Long memberId, int amount, String description, Long adminMemberId) {
         PointHistory history = grantOrAdjustPoint(memberId, amount, "ADMIN_ADJUST", description);
+        adminAuditLogWriter.record(adminMemberId, AdminAuditLogActionType.MEMBER_POINT_ADJUST,
+                AdminAuditLogTargetType.MEMBER, memberId, null,
+                "{\"pointAmount\":" + amount + ",\"balanceAfter\":" + history.getMember().getPointBalance() + "}");
         return new AdminPointAdjustResponse(
                 history.getPointHistoryId(), history.getPointAmount(), history.getPointType(),
                 history.getMember().getPointBalance(), history.getCreatedAt());

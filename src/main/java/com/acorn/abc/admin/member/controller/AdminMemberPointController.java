@@ -3,12 +3,14 @@ package com.acorn.abc.admin.member.controller;
 import com.acorn.abc.admin.member.dto.AdminPointAdjustRequest;
 import com.acorn.abc.admin.member.dto.AdminPointAdjustResponse;
 import com.acorn.abc.common.response.ApiResponse;
+import com.acorn.abc.common.security.CustomUserDetails;
 import com.acorn.abc.member.service.PointService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -27,9 +29,10 @@ public class AdminMemberPointController {
     @PostMapping("/{memberId}/points")
     public ResponseEntity<ApiResponse<AdminPointAdjustResponse>> adjustPoint(
             @PathVariable Long memberId,
-            @Valid @RequestBody AdminPointAdjustRequest request) {
-        AdminPointAdjustResponse response =
-                pointService.adjustPointByAdmin(memberId, request.pointAmount(), request.description());
+            @Valid @RequestBody AdminPointAdjustRequest request,
+            @AuthenticationPrincipal CustomUserDetails adminDetails) {
+        AdminPointAdjustResponse response = pointService.adjustPointByAdmin(
+                memberId, request.pointAmount(), request.description(), adminDetails.getMemberId());
         return ResponseEntity.ok(ApiResponse.ok(response));
     }
 }

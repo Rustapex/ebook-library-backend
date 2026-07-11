@@ -7,6 +7,7 @@ import com.acorn.abc.admin.coupon.dto.AdminCouponIssueResponse;
 import com.acorn.abc.admin.coupon.dto.AdminCouponSummaryResponse;
 import com.acorn.abc.common.response.ApiResponse;
 import com.acorn.abc.common.response.PageResponse;
+import com.acorn.abc.common.security.CustomUserDetails;
 import com.acorn.abc.coupon.service.CouponService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -15,6 +16,7 @@ import jakarta.validation.constraints.Min;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -47,8 +49,9 @@ public class AdminCouponController {
     @Operation(summary = "쿠폰 등록", description = "새 쿠폰 정의를 등록합니다.")
     @PostMapping
     public ResponseEntity<ApiResponse<AdminCouponCreateResponse>> createCoupon(
-            @Valid @RequestBody AdminCouponCreateRequest request) {
-        Long couponId = couponService.createCoupon(request);
+            @Valid @RequestBody AdminCouponCreateRequest request,
+            @AuthenticationPrincipal CustomUserDetails adminDetails) {
+        Long couponId = couponService.createCoupon(request, adminDetails.getMemberId());
         return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.created(new AdminCouponCreateResponse(couponId)));
     }
 
@@ -56,8 +59,9 @@ public class AdminCouponController {
     @PostMapping("/{couponId}/issue")
     public ResponseEntity<ApiResponse<AdminCouponIssueResponse>> issueCoupon(
             @PathVariable Long couponId,
-            @Valid @RequestBody AdminCouponIssueRequest request) {
-        int issuedCount = couponService.issueCoupon(couponId, request.memberIds(), request.quantity());
+            @Valid @RequestBody AdminCouponIssueRequest request,
+            @AuthenticationPrincipal CustomUserDetails adminDetails) {
+        int issuedCount = couponService.issueCoupon(couponId, request.memberIds(), request.quantity(), adminDetails.getMemberId());
         return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.created(new AdminCouponIssueResponse(issuedCount)));
     }
 }
