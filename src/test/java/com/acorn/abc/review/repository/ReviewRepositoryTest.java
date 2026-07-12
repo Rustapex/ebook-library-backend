@@ -78,6 +78,36 @@ class ReviewRepositoryTest {
         assertThat(ratings.get(0).getRatingScore()).isEqualTo((byte) 5);
     }
 
+    // 관리자 통계 확장(PR #42 리뷰 Watchlist W2) — 기간/상태 조건부 집계 검증
+    @Test
+    void countByStatisticConditions_ACTIVE_상태와_기간_조건을_함께_적용한다() {
+        LocalDateTime from = LocalDateTime.of(2026, 1, 1, 0, 0);
+        LocalDateTime to = LocalDateTime.of(2026, 2, 1, 0, 0);
+        long baseline = reviewRepository.countByStatisticConditions("ACTIVE", from, to, null, null);
+
+        insertReviewAt(memberId1, insertBook(), "ACTIVE", LocalDateTime.of(2026, 1, 15, 10, 0));
+        insertReviewAt(memberId1, insertBook(), "ACTIVE", LocalDateTime.of(2026, 2, 1, 0, 0));
+        entityManager.flush();
+        entityManager.clear();
+
+        long count = reviewRepository.countByStatisticConditions("ACTIVE", from, to, null, null);
+
+        // 1/15 review만 포함, 2/1 00:00:00 review는 endExclusive라 제외 -> 기준선 + 1건
+        assertThat(count).isEqualTo(baseline + 1);
+    }
+
+    private void insertReviewAt(Long memberId, Long bookId, String status, LocalDateTime createdAt) {
+        entityManager.getEntityManager()
+                .createNativeQuery("INSERT INTO review (member_id, book_id, content, status, created_at) VALUES (?, ?, ?, ?, ?)")
+                .unwrap(org.hibernate.query.NativeQuery.class)
+                .setParameter(1, memberId)
+                .setParameter(2, bookId)
+                .setParameter(3, "기간 테스트 리뷰")
+                .setParameter(4, status)
+                .setParameter(5, createdAt)
+                .executeUpdate();
+    }
+
     private Long insertMember(String loginId) {
         entityManager.getEntityManager()
                 .createNativeQuery("INSERT INTO member (login_id, password_hash, name, email, birth_date, role, grade_id, point_balance, status, created_at) " +

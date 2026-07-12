@@ -11,6 +11,7 @@ import org.springframework.validation.beanvalidation.MethodValidationPostProcess
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.List;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
@@ -58,12 +59,37 @@ class AdminStatisticControllerTest {
 
     @Test
     void getStatistics_정상_요청은_200을_반환한다() throws Exception {
-        AdminStatisticResponse response = new AdminStatisticResponse(
-                "TOTAL", "ALL", LocalDate.of(2000, 1, 1), LocalDate.now(),
-                0, 0, 0, 0, 0, 0, 0, 0L, 0, 0, LocalDateTime.now());
-        when(adminStatisticService.getStatistics(any(), any(), any())).thenReturn(response);
+        when(adminStatisticService.getStatistics(any(), any(), any())).thenReturn(sampleResponse("TOTAL", "ALL"));
 
         validatedMockMvc.perform(get("/api/v1/admin/statistics").param("periodType", "TOTAL"))
                 .andExpect(status().isOk());
+    }
+
+    @Test
+    void getStatistics_WEEKLY와_baseDate로_호출하면_200을_반환한다() throws Exception {
+        when(adminStatisticService.getStatistics(any(), any(), any())).thenReturn(sampleResponse("WEEKLY", "ALL"));
+
+        validatedMockMvc.perform(get("/api/v1/admin/statistics")
+                        .param("periodType", "WEEKLY")
+                        .param("baseDate", "2026-07-12"))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    void getStatistics_MONTHLY와_baseDate_ageBand로_호출하면_200을_반환한다() throws Exception {
+        when(adminStatisticService.getStatistics(any(), any(), any())).thenReturn(sampleResponse("MONTHLY", "20S"));
+
+        validatedMockMvc.perform(get("/api/v1/admin/statistics")
+                        .param("periodType", "MONTHLY")
+                        .param("baseDate", "2026-07-12")
+                        .param("ageBand", "20S"))
+                .andExpect(status().isOk());
+    }
+
+    private AdminStatisticResponse sampleResponse(String periodType, String ageBand) {
+        return new AdminStatisticResponse(
+                periodType, ageBand, LocalDate.of(2000, 1, 1), LocalDate.now(),
+                0, 0, 0, 0, 0, 0, 0, 0L, 0, 0, 0L, 0.0,
+                List.of(), List.of(), List.of(), LocalDateTime.now());
     }
 }

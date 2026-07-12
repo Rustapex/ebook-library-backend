@@ -79,6 +79,62 @@ class ReadingProgressRepositoryTest {
                 .doesNotContain(rentalNotStartedId);
     }
 
+    // 관리자 통계 확장(PR #42 리뷰 Watchlist W2) — 완독 기간/나이대 조건부 집계 검증.
+    // 실제 공유 MySQL DB를 사용하므로 절대 건수 대신 삽입 전/후 차이로 검증한다.
+    @Test
+    void countCompletedByStatisticConditions_완독여부와_기간_나이대_조건을_함께_적용한다() {
+        LocalDateTime from = LocalDateTime.of(2026, 1, 1, 0, 0);
+        LocalDateTime to = LocalDateTime.of(2026, 2, 1, 0, 0);
+        java.time.LocalDate birthDateFrom = java.time.LocalDate.of(1996, 7, 12);
+        java.time.LocalDate birthDateTo = java.time.LocalDate.of(2006, 7, 12);
+        long baseline = readingProgressRepository.countCompletedByStatisticConditions(from, to, birthDateFrom, birthDateTo);
+
+        Long publisherId = insertPublisher("Stat Publisher");
+        Long bookId = insertBook("Stat Book", "9999999999999", publisherId);
+        // grade_id=1은 다른 repository 테스트에서도 공통으로 쓰는 시드 기본 등급이다.
+        Long boundaryMemberId = insertMemberWithBirthDate("stat_reader_boundary", 1L, "2006-07-12");
+
+        Long inRangeRentalId = insertBookRental(boundaryMemberId, bookId);
+        insertCompletedReadingProgress(inRangeRentalId, LocalDateTime.of(2026, 1, 15, 10, 0));
+        Long outOfRangeRentalId = insertBookRental(boundaryMemberId, insertBook("Stat Book 2", "8888888888888", publisherId));
+        insertCompletedReadingProgress(outOfRangeRentalId, LocalDateTime.of(2026, 2, 1, 0, 0));
+
+        entityManager.flush();
+        entityManager.clear();
+
+        // 20S 나이대: birthDate <= 2006-07-12, birthDate > 1996-07-12
+        long count = readingProgressRepository.countCompletedByStatisticConditions(from, to, birthDateFrom, birthDateTo);
+
+        // inRangeRentalId(1/15, 기간+나이대 조건 부합)만 포함, outOfRangeRentalId(2/1)는 endExclusive라 제외
+        assertThat(count).isEqualTo(baseline + 1);
+    }
+
+    private Long insertMemberWithBirthDate(String loginId, Long gradeId, String birthDate) {
+        entityManager.getEntityManager()
+                .createNativeQuery("INSERT INTO member (login_id, password_hash, name, email, birth_date, role, " +
+                        "grade_id, point_balance, status, created_at) " +
+                        "VALUES (?, 'hash', ?, ?, ?, 'USER', ?, 0, 'JOINED', ?)")
+                .unwrap(org.hibernate.query.NativeQuery.class)
+                .setParameter(1, loginId)
+                .setParameter(2, loginId)
+                .setParameter(3, loginId + "@test.com")
+                .setParameter(4, java.time.LocalDate.parse(birthDate))
+                .setParameter(5, gradeId)
+                .setParameter(6, LocalDateTime.now())
+                .executeUpdate();
+        return lastInsertId("member").longValue();
+    }
+
+    private void insertCompletedReadingProgress(Long rentalId, LocalDateTime completedAt) {
+        entityManager.getEntityManager()
+                .createNativeQuery("INSERT INTO reading_progress (rental_id, current_page, read_page_count, " +
+                        "completed_yn, completed_at) VALUES (?, 100, 100, true, ?)")
+                .unwrap(org.hibernate.query.NativeQuery.class)
+                .setParameter(1, rentalId)
+                .setParameter(2, completedAt)
+                .executeUpdate();
+    }
+
     private Long insertPublisher(String name) {
         entityManager.getEntityManager()
                 .createNativeQuery("INSERT INTO publisher (publisher_name, status, created_at) VALUES (?, 'ACTIVE', ?)")

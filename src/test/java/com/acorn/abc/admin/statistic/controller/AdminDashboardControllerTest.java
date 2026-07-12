@@ -32,7 +32,8 @@ class AdminDashboardControllerTest {
     void getDashboard_정상_요청은_200을_반환한다() throws Exception {
         AdminStatisticResponse statistics = new AdminStatisticResponse(
                 "TOTAL", "ALL", LocalDate.of(2000, 1, 1), LocalDate.now(),
-                0, 0, 0, 0, 0, 0, 0, 0L, 0, 0, LocalDateTime.now());
+                0, 0, 0, 0, 0, 0, 0, 0L, 0, 0, 0L, 0.0,
+                List.of(), List.of(), List.of(), LocalDateTime.now());
         when(adminDashboardService.getDashboard())
                 .thenReturn(new AdminDashboardResponse(statistics, List.of(), List.of(), List.of()));
 
