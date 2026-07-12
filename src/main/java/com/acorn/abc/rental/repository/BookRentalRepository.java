@@ -7,6 +7,8 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.Optional;
 
 public interface BookRentalRepository extends JpaRepository<BookRental, Long> {
@@ -16,6 +18,18 @@ public interface BookRentalRepository extends JpaRepository<BookRental, Long> {
     Optional<BookRental> findFirstByMember_MemberIdAndBook_BookIdOrderByCreatedAtDescRentalIdDesc(Long memberId, Long bookId);
 
     long countByBook_RentalType(String rentalType);
+
+    // 관리자 통계 기간/나이대/대여유형 조건부 집계(관리자 통계 확장 §3.1~§3.3). from/to/rentalType/birthDate 조건은 null이면 필터 미적용.
+    @Query("SELECT COUNT(r) FROM BookRental r WHERE " +
+            "(:from IS NULL OR r.createdAt >= :from) AND (:to IS NULL OR r.createdAt < :to) " +
+            "AND (:rentalType IS NULL OR r.book.rentalType = :rentalType) " +
+            "AND (:birthDateFrom IS NULL OR r.member.birthDate > :birthDateFrom) " +
+            "AND (:birthDateTo IS NULL OR r.member.birthDate <= :birthDateTo)")
+    long countByStatisticConditions(@Param("from") LocalDateTime from,
+                                     @Param("to") LocalDateTime to,
+                                     @Param("rentalType") String rentalType,
+                                     @Param("birthDateFrom") LocalDate birthDateFrom,
+                                     @Param("birthDateTo") LocalDate birthDateTo);
 
     @Query(value = "SELECT r FROM BookRental r JOIN FETCH r.book " +
             "WHERE r.member.memberId = :memberId AND (:status IS NULL OR r.rentalStatus = :status) " +

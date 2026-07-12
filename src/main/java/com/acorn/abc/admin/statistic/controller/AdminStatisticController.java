@@ -27,15 +27,20 @@ public class AdminStatisticController {
     private final AdminStatisticService adminStatisticService;
 
     @Operation(summary = "관리자 통계 조회",
-            description = "기간·나이대별 KPI 통계를 반환합니다. "
-                    + "현재는 periodType=TOTAL, ageBand=ALL(또는 미지정) 조합만 지원하며, 요청 시점에 실시간으로 집계합니다. "
-                    + "그 외 조합은 404(COMMON_NOT_FOUND)를 반환합니다.")
+            description = "기간·나이대별 KPI, 대여/결제/완독 추이, 탄소·나무 환경 지표를 반환합니다. "
+                    + "periodType=TOTAL/WEEKLY/MONTHLY/YEARLY, ageBand=ALL/10S/20S/30S/40S/50_PLUS 전 조합을 요청 시점에 실시간으로 집계합니다. "
+                    + "회원 수·제재 회원 수·이용 가능 도서 수는 과거 시점 복원이 어려운 현재 상태 지표라 기간 필터와 무관하게 조회 시점 기준입니다. "
+                    + "추이(rentalTrend/paymentTrend/completedReadTrend)는 원본 이벤트 시간 기준 실시간 집계이며, "
+                    + "WEEKLY는 7일 일별, MONTHLY는 해당 월 일별, YEARLY는 12개월 월별, TOTAL은 baseDate가 속한 달까지의 최근 12개월 월별 bucket입니다. "
+                    + "과거 상태 스냅샷 그래프는 이번 범위에 포함하지 않으며 후속 검토 대상입니다.")
     @GetMapping
     public ResponseEntity<ApiResponse<AdminStatisticResponse>> getStatistics(
             @RequestParam
             @Pattern(regexp = "WEEKLY|MONTHLY|YEARLY|TOTAL", message = "periodType은 WEEKLY, MONTHLY, YEARLY, TOTAL 중 하나여야 합니다.")
             String periodType,
-            @Parameter(description = "현재 미사용 파라미터입니다. WEEKLY/MONTHLY/YEARLY 기간별 조회를 지원하는 후속 작업에서 사용될 예정입니다.")
+            @Parameter(description = "집계 기준일입니다. WEEKLY/MONTHLY/YEARLY는 이 날짜가 속한 주/월/연도를 집계 기간으로 사용합니다. "
+                    + "생략하면 오늘 날짜를 기준일로 사용합니다. TOTAL의 집계 기간(전체)에는 영향을 주지 않지만, "
+                    + "TOTAL의 추이 bucket(최근 12개월)과 ageBand의 만 나이 계산 기준일로는 사용됩니다.")
             @RequestParam(required = false) LocalDate baseDate,
             @RequestParam(required = false)
             @Pattern(regexp = "ALL|10S|20S|30S|40S|50_PLUS", message = "ageBand 값이 올바르지 않습니다.")

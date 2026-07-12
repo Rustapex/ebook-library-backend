@@ -54,7 +54,8 @@ class AdminDashboardServiceTest {
     void getDashboard_통계와_최근_결제_신고_희망도서를_함께_반환한다() {
         AdminStatisticResponse statistics = new AdminStatisticResponse(
                 "TOTAL", "ALL", LocalDate.of(2000, 1, 1), LocalDate.now(),
-                5, 0, 1, 10, 7, 3, 4, 19800L, 0, 0, LocalDateTime.now());
+                5, 0, 1, 10, 7, 3, 4, 19800L, 0, 0, 8L, 0.16,
+                List.of(), List.of(), List.of(), LocalDateTime.now());
         given(adminStatisticService.getTotalStatisticForDashboard()).willReturn(statistics);
 
         Member member = mock(Member.class);
