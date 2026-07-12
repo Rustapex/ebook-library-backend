@@ -1,6 +1,8 @@
 package com.acorn.abc.statistic.service;
 
 import com.acorn.abc.book.repository.BookRepository;
+import com.acorn.abc.common.exception.BusinessException;
+import com.acorn.abc.common.exception.ErrorCode;
 import com.acorn.abc.member.repository.MemberRepository;
 import com.acorn.abc.payment.repository.PaymentRepository;
 import com.acorn.abc.rental.repository.BookRentalRepository;
@@ -23,12 +25,15 @@ import org.mockito.quality.Strictness;
 import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.temporal.TemporalAdjusters;
+import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 
 /**
@@ -206,5 +211,60 @@ class AdminStatisticServiceTest {
         assertThat(response.periodType()).isEqualTo("TOTAL");
         assertThat(response.ageBand()).isEqualTo("ALL");
         assertThat(response.rentalTrend()).hasSize(12);
+    }
+
+    // PR #42 리뷰 항목 2 반영: bucket 반복 조회 대신 GROUP BY 결과를 label로 매칭하는 로직이
+    // 정확한 bucket에 정확한 값을 채우는지 확인한다(매칭 안 되는 bucket은 0).
+    @Test
+    void getStatistics_WEEKLY_추이는_grouped_query_결과를_해당_bucket에만_매칭한다() {
+        LocalDate baseDate = LocalDate.of(2026, 7, 15);
+        LocalDate monday = baseDate.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY));
+        LocalDate wednesday = monday.plusDays(2);
+
+        BookRentalRepository.DailyCountBucket rentalBucket = mock(BookRentalRepository.DailyCountBucket.class);
+        given(rentalBucket.getBucketDate()).willReturn(wednesday);
+        given(rentalBucket.getBucketCount()).willReturn(7L);
+        given(bookRentalRepository.groupByDayStatisticConditions(any(), any(), any(), any(), any()))
+                .willReturn(List.of(rentalBucket));
+
+        PaymentRepository.DailyAmountBucket paymentBucket = mock(PaymentRepository.DailyAmountBucket.class);
+        given(paymentBucket.getBucketDate()).willReturn(wednesday);
+        given(paymentBucket.getBucketAmount()).willReturn(9900L);
+        given(paymentRepository.groupByDayStatisticConditions(any(), any(), any(), any(), any()))
+                .willReturn(List.of(paymentBucket));
+
+        ReadingProgressRepository.DailyCountBucket completedBucket = mock(ReadingProgressRepository.DailyCountBucket.class);
+        given(completedBucket.getBucketDate()).willReturn(wednesday);
+        given(completedBucket.getBucketCount()).willReturn(2L);
+        given(readingProgressRepository.groupByDayCompletedStatisticConditions(any(), any(), any(), any()))
+                .willReturn(List.of(completedBucket));
+
+        AdminStatisticResponse response = adminStatisticService.getStatistics("WEEKLY", baseDate, null);
+
+        assertThat(response.rentalTrend().get(2).periodStartDate()).isEqualTo(wednesday);
+        assertThat(response.rentalTrend().get(2).count()).isEqualTo(7L);
+        assertThat(response.rentalTrend().get(0).count()).isEqualTo(0L);
+        assertThat(response.paymentTrend().get(2).amount()).isEqualTo(9900L);
+        assertThat(response.paymentTrend().get(0).amount()).isEqualTo(0L);
+        assertThat(response.completedReadTrend().get(2).count()).isEqualTo(2L);
+        assertThat(response.completedReadTrend().get(0).count()).isEqualTo(0L);
+    }
+
+    // PR #42 리뷰 반영: Controller의 @Pattern 검증을 거치지 않는 서비스 직접 호출 경로에서
+    // 잘못된 periodType/ageBand이 조용히 TOTAL/ALL로 처리되지 않고 fail-fast하는지 확인한다.
+    @Test
+    void getStatistics_잘못된_periodType은_VALIDATION_ERROR를_던진다() {
+        assertThatThrownBy(() -> adminStatisticService.getStatistics("DAILY", LocalDate.of(2026, 7, 15), null))
+                .isInstanceOf(BusinessException.class)
+                .extracting(e -> ((BusinessException) e).getErrorCode())
+                .isEqualTo(ErrorCode.VALIDATION_ERROR);
+    }
+
+    @Test
+    void getStatistics_잘못된_ageBand은_VALIDATION_ERROR를_던진다() {
+        assertThatThrownBy(() -> adminStatisticService.getStatistics("TOTAL", LocalDate.of(2026, 7, 15), "TEENAGER"))
+                .isInstanceOf(BusinessException.class)
+                .extracting(e -> ((BusinessException) e).getErrorCode())
+                .isEqualTo(ErrorCode.VALIDATION_ERROR);
     }
 }

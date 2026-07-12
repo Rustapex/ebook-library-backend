@@ -27,6 +27,43 @@ public interface PaymentRepository extends JpaRepository<Payment, Long> {
                                          @Param("birthDateFrom") LocalDate birthDateFrom,
                                          @Param("birthDateTo") LocalDate birthDateTo);
 
+    interface DailyAmountBucket {
+        LocalDate getBucketDate();
+        Long getBucketAmount();
+    }
+
+    interface MonthlyAmountBucket {
+        String getBucketMonth();
+        Long getBucketAmount();
+    }
+
+    // 관리자 통계 추이(paymentTrend) — bucket 반복 조회 대신 기간 전체를 한 번에 GROUP BY로 집계한다(PR #42 리뷰 항목 2 반영).
+    @Query(value = "SELECT DATE(p.paid_at) AS bucketDate, CAST(COALESCE(SUM(p.amount), 0) AS SIGNED) AS bucketAmount " +
+            "FROM payment p JOIN member m ON p.member_id = m.member_id " +
+            "WHERE p.payment_status = :paymentStatus " +
+            "AND (:from IS NULL OR p.paid_at >= :from) AND (:to IS NULL OR p.paid_at < :to) " +
+            "AND (:birthDateFrom IS NULL OR m.birth_date > :birthDateFrom) " +
+            "AND (:birthDateTo IS NULL OR m.birth_date <= :birthDateTo) " +
+            "GROUP BY DATE(p.paid_at)", nativeQuery = true)
+    List<DailyAmountBucket> groupByDayStatisticConditions(@Param("paymentStatus") String paymentStatus,
+                                                           @Param("from") LocalDateTime from,
+                                                           @Param("to") LocalDateTime to,
+                                                           @Param("birthDateFrom") LocalDate birthDateFrom,
+                                                           @Param("birthDateTo") LocalDate birthDateTo);
+
+    @Query(value = "SELECT DATE_FORMAT(p.paid_at, '%Y-%m') AS bucketMonth, CAST(COALESCE(SUM(p.amount), 0) AS SIGNED) AS bucketAmount " +
+            "FROM payment p JOIN member m ON p.member_id = m.member_id " +
+            "WHERE p.payment_status = :paymentStatus " +
+            "AND (:from IS NULL OR p.paid_at >= :from) AND (:to IS NULL OR p.paid_at < :to) " +
+            "AND (:birthDateFrom IS NULL OR m.birth_date > :birthDateFrom) " +
+            "AND (:birthDateTo IS NULL OR m.birth_date <= :birthDateTo) " +
+            "GROUP BY DATE_FORMAT(p.paid_at, '%Y-%m')", nativeQuery = true)
+    List<MonthlyAmountBucket> groupByMonthStatisticConditions(@Param("paymentStatus") String paymentStatus,
+                                                               @Param("from") LocalDateTime from,
+                                                               @Param("to") LocalDateTime to,
+                                                               @Param("birthDateFrom") LocalDate birthDateFrom,
+                                                               @Param("birthDateTo") LocalDate birthDateTo);
+
     @Query("SELECT p FROM Payment p JOIN FETCH p.member WHERE p.paymentStatus = 'PAID' ORDER BY p.paidAt DESC")
     List<Payment> findRecentPayments(Pageable pageable);
 

@@ -9,6 +9,7 @@ import org.springframework.data.repository.query.Param;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Optional;
 
 public interface BookRentalRepository extends JpaRepository<BookRental, Long> {
@@ -30,6 +31,43 @@ public interface BookRentalRepository extends JpaRepository<BookRental, Long> {
                                      @Param("rentalType") String rentalType,
                                      @Param("birthDateFrom") LocalDate birthDateFrom,
                                      @Param("birthDateTo") LocalDate birthDateTo);
+
+    interface DailyCountBucket {
+        LocalDate getBucketDate();
+        Long getBucketCount();
+    }
+
+    interface MonthlyCountBucket {
+        String getBucketMonth();
+        Long getBucketCount();
+    }
+
+    // 관리자 통계 추이(rentalTrend) — bucket마다 반복 조회하지 않고 기간 전체를 한 번에 GROUP BY로 집계한다(PR #42 리뷰 항목 2 반영).
+    @Query(value = "SELECT DATE(r.created_at) AS bucketDate, COUNT(*) AS bucketCount " +
+            "FROM book_rental r JOIN book b ON r.book_id = b.book_id JOIN member m ON r.member_id = m.member_id " +
+            "WHERE (:from IS NULL OR r.created_at >= :from) AND (:to IS NULL OR r.created_at < :to) " +
+            "AND (:rentalType IS NULL OR b.rental_type = :rentalType) " +
+            "AND (:birthDateFrom IS NULL OR m.birth_date > :birthDateFrom) " +
+            "AND (:birthDateTo IS NULL OR m.birth_date <= :birthDateTo) " +
+            "GROUP BY DATE(r.created_at)", nativeQuery = true)
+    List<DailyCountBucket> groupByDayStatisticConditions(@Param("from") LocalDateTime from,
+                                                          @Param("to") LocalDateTime to,
+                                                          @Param("rentalType") String rentalType,
+                                                          @Param("birthDateFrom") LocalDate birthDateFrom,
+                                                          @Param("birthDateTo") LocalDate birthDateTo);
+
+    @Query(value = "SELECT DATE_FORMAT(r.created_at, '%Y-%m') AS bucketMonth, COUNT(*) AS bucketCount " +
+            "FROM book_rental r JOIN book b ON r.book_id = b.book_id JOIN member m ON r.member_id = m.member_id " +
+            "WHERE (:from IS NULL OR r.created_at >= :from) AND (:to IS NULL OR r.created_at < :to) " +
+            "AND (:rentalType IS NULL OR b.rental_type = :rentalType) " +
+            "AND (:birthDateFrom IS NULL OR m.birth_date > :birthDateFrom) " +
+            "AND (:birthDateTo IS NULL OR m.birth_date <= :birthDateTo) " +
+            "GROUP BY DATE_FORMAT(r.created_at, '%Y-%m')", nativeQuery = true)
+    List<MonthlyCountBucket> groupByMonthStatisticConditions(@Param("from") LocalDateTime from,
+                                                              @Param("to") LocalDateTime to,
+                                                              @Param("rentalType") String rentalType,
+                                                              @Param("birthDateFrom") LocalDate birthDateFrom,
+                                                              @Param("birthDateTo") LocalDate birthDateTo);
 
     @Query(value = "SELECT r FROM BookRental r JOIN FETCH r.book " +
             "WHERE r.member.memberId = :memberId AND (:status IS NULL OR r.rentalStatus = :status) " +

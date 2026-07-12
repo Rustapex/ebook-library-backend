@@ -1,6 +1,8 @@
 package com.acorn.abc.statistic.service;
 
 import com.acorn.abc.book.repository.BookRepository;
+import com.acorn.abc.common.exception.BusinessException;
+import com.acorn.abc.common.exception.ErrorCode;
 import com.acorn.abc.member.repository.MemberRepository;
 import com.acorn.abc.payment.repository.PaymentRepository;
 import com.acorn.abc.rental.repository.BookRentalRepository;
@@ -20,7 +22,10 @@ import java.time.LocalDateTime;
 import java.time.YearMonth;
 import java.time.temporal.TemporalAdjusters;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.function.Function;
 
 /**
  * 관리자 통계를 실시간으로 집계한다(PR #37 리뷰 §1-3 반영 — 배치 사전집계 방식에서 전환, 관리자 통계 확장 §3에서 기간/나이대/추이/환경지표까지 확장).
@@ -92,21 +97,41 @@ public class AdminStatisticService {
         List<AdminStatisticResponse.TrendCountPoint> rentalTrend = new ArrayList<>();
         List<AdminStatisticResponse.TrendAmountPoint> paymentTrend = new ArrayList<>();
         List<AdminStatisticResponse.TrendCountPoint> completedReadTrend = new ArrayList<>();
+
+        // PR #42 리뷰 항목 2 반영: bucket마다 반복 조회하지 않고, 전체 추이 기간(trendFrom~trendTo)을
+        // GROUP BY 쿼리 1회씩(대여/결제/완독 각 1회, 총 3회)으로 가져와 bucket label로 매칭한다.
+        LocalDateTime trendFrom = buckets.get(0).startDateTimeInclusive();
+        LocalDateTime trendTo = buckets.get(buckets.size() - 1).endDateTimeExclusive();
+        boolean dailyGranularity = isDailyTrendGranularity(periodType);
+
+        Map<String, Long> rentalCountByLabel = dailyGranularity
+                ? toBucketMap(bookRentalRepository.groupByDayStatisticConditions(trendFrom, trendTo, null, birthDateFrom, birthDateTo),
+                        b -> b.getBucketDate().toString(), BookRentalRepository.DailyCountBucket::getBucketCount)
+                : toBucketMap(bookRentalRepository.groupByMonthStatisticConditions(trendFrom, trendTo, null, birthDateFrom, birthDateTo),
+                        BookRentalRepository.MonthlyCountBucket::getBucketMonth, BookRentalRepository.MonthlyCountBucket::getBucketCount);
+
+        Map<String, Long> paymentAmountByLabel = dailyGranularity
+                ? toBucketMap(paymentRepository.groupByDayStatisticConditions("PAID", trendFrom, trendTo, birthDateFrom, birthDateTo),
+                        b -> b.getBucketDate().toString(), PaymentRepository.DailyAmountBucket::getBucketAmount)
+                : toBucketMap(paymentRepository.groupByMonthStatisticConditions("PAID", trendFrom, trendTo, birthDateFrom, birthDateTo),
+                        PaymentRepository.MonthlyAmountBucket::getBucketMonth, PaymentRepository.MonthlyAmountBucket::getBucketAmount);
+
+        Map<String, Long> completedCountByLabel = dailyGranularity
+                ? toBucketMap(readingProgressRepository.groupByDayCompletedStatisticConditions(trendFrom, trendTo, birthDateFrom, birthDateTo),
+                        b -> b.getBucketDate().toString(), ReadingProgressRepository.DailyCountBucket::getBucketCount)
+                : toBucketMap(readingProgressRepository.groupByMonthCompletedStatisticConditions(trendFrom, trendTo, birthDateFrom, birthDateTo),
+                        ReadingProgressRepository.MonthlyCountBucket::getBucketMonth, ReadingProgressRepository.MonthlyCountBucket::getBucketCount);
+
         for (TrendBucket bucket : buckets) {
-            long bucketRentalCount = bookRentalRepository.countByStatisticConditions(
-                    bucket.startDateTimeInclusive(), bucket.endDateTimeExclusive(), null, birthDateFrom, birthDateTo);
             rentalTrend.add(new AdminStatisticResponse.TrendCountPoint(
-                    bucket.label(), bucket.periodStartDate(), bucket.periodEndDate(), bucketRentalCount));
-
-            long bucketPaymentAmount = paymentRepository.sumAmountByStatisticConditions("PAID",
-                    bucket.startDateTimeInclusive(), bucket.endDateTimeExclusive(), birthDateFrom, birthDateTo);
+                    bucket.label(), bucket.periodStartDate(), bucket.periodEndDate(),
+                    rentalCountByLabel.getOrDefault(bucket.label(), 0L)));
             paymentTrend.add(new AdminStatisticResponse.TrendAmountPoint(
-                    bucket.label(), bucket.periodStartDate(), bucket.periodEndDate(), bucketPaymentAmount));
-
-            long bucketCompletedCount = readingProgressRepository.countCompletedByStatisticConditions(
-                    bucket.startDateTimeInclusive(), bucket.endDateTimeExclusive(), birthDateFrom, birthDateTo);
+                    bucket.label(), bucket.periodStartDate(), bucket.periodEndDate(),
+                    paymentAmountByLabel.getOrDefault(bucket.label(), 0L)));
             completedReadTrend.add(new AdminStatisticResponse.TrendCountPoint(
-                    bucket.label(), bucket.periodStartDate(), bucket.periodEndDate(), bucketCompletedCount));
+                    bucket.label(), bucket.periodStartDate(), bucket.periodEndDate(),
+                    completedCountByLabel.getOrDefault(bucket.label(), 0L)));
         }
 
         return new AdminStatisticResponse(
@@ -149,12 +174,20 @@ public class AdminStatisticService {
             LocalDate firstOfNextYear = firstOfYear.plusYears(1);
             return new PeriodRange(firstOfYear, firstOfNextYear.minusDays(1), firstOfYear.atStartOfDay(), firstOfNextYear.atStartOfDay());
         }
-        // TOTAL: baseDate가 있어도 집계 기간에는 영향을 주지 않는다. periodEndDate는 요청 시점의 오늘 날짜.
-        return new PeriodRange(TOTAL_PERIOD_START_DATE, LocalDate.now(), null, null);
+        if (PERIOD_TYPE_TOTAL.equals(periodType)) {
+            // TOTAL: baseDate가 있어도 집계 기간에는 영향을 주지 않는다. periodEndDate는 요청 시점의 오늘 날짜.
+            return new PeriodRange(TOTAL_PERIOD_START_DATE, LocalDate.now(), null, null);
+        }
+        // PR #42 리뷰 반영: Controller의 @Pattern은 HTTP 경로에서만 동작하므로, 서비스 직접 호출(재사용/테스트) 경로에서
+        // 잘못된 periodType이 조용히 TOTAL로 처리되지 않도록 여기서도 fail-fast한다.
+        throw new BusinessException(ErrorCode.VALIDATION_ERROR);
     }
 
     // 만 나이 계산 기준(관리자 통계 확장 §3.2). birthDate <= 기준일-min, birthDate > 기준일-(max+1).
     private AgeBandRange resolveAgeBandRange(String ageBand, LocalDate baseDate) {
+        if (AGE_BAND_ALL.equals(ageBand)) {
+            return new AgeBandRange(null, null);
+        }
         if ("10S".equals(ageBand)) {
             return ageBandRange(baseDate, 10, 19);
         }
@@ -170,13 +203,28 @@ public class AdminStatisticService {
         if ("50_PLUS".equals(ageBand)) {
             return ageBandRange(baseDate, 50, null);
         }
-        return new AgeBandRange(null, null);
+        // PR #42 리뷰 반영: 잘못된 ageBand이 조용히 ALL로 처리되지 않도록 fail-fast한다.
+        throw new BusinessException(ErrorCode.VALIDATION_ERROR);
     }
 
     private AgeBandRange ageBandRange(LocalDate baseDate, int minAgeInclusive, Integer maxAgeInclusive) {
         LocalDate birthDateToInclusive = baseDate.minusYears(minAgeInclusive);
         LocalDate birthDateFromExclusive = maxAgeInclusive == null ? null : baseDate.minusYears(maxAgeInclusive + 1L);
         return new AgeBandRange(birthDateFromExclusive, birthDateToInclusive);
+    }
+
+    // WEEKLY/MONTHLY는 일별 bucket, YEARLY/TOTAL은 월별 bucket이다(resolveTrendBuckets와 동일 기준).
+    private boolean isDailyTrendGranularity(String periodType) {
+        return PERIOD_TYPE_WEEKLY.equals(periodType) || PERIOD_TYPE_MONTHLY.equals(periodType);
+    }
+
+    // GROUP BY 쿼리 결과(List<T>)를 bucket label(일별: yyyy-MM-dd, 월별: yyyy-MM) 기준 Map으로 변환한다.
+    private <T> Map<String, Long> toBucketMap(List<T> rows, Function<T, String> labelFn, Function<T, Long> valueFn) {
+        Map<String, Long> map = new HashMap<>();
+        for (T row : rows) {
+            map.put(labelFn.apply(row), valueFn.apply(row));
+        }
+        return map;
     }
 
     // 추이 bucket 기준(관리자 통계 확장 §3.4, §3.6 확정): WEEKLY=7일 일별, MONTHLY=해당 월 일별,
