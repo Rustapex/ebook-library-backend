@@ -4,6 +4,8 @@ import com.acorn.abc.member.domain.Member;
 import com.acorn.abc.member.repository.MemberRepository;
 import com.acorn.abc.statistic.domain.AdminAuditLog;
 import com.acorn.abc.statistic.repository.AdminAuditLogRepository;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -17,15 +19,34 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class AdminAuditLogWriter {
 
+    // Spring Boot 4(Jackson 3) 환경이라 com.fasterxml.jackson.databind.ObjectMapper는 자동 구성 빈으로 제공되지 않는다
+    // (JacksonAutoConfiguration이 tools.jackson.databind.json.JsonMapper만 등록함).
+    // NaverBookClient/AladinBookClient/InfoNaruBookClient와 동일하게 직접 인스턴스를 든다.
+    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
+
     private final AdminAuditLogRepository adminAuditLogRepository;
     private final MemberRepository memberRepository;
 
     @Transactional
     public void record(Long adminMemberId, String actionType, String targetType, Long targetId,
-                        String beforeSummary, String afterSummary) {
+                        Object beforeSummary, Object afterSummary) {
         // admin_audit_log.admin_member_id는 스키마상 NULL 허용이라, adminMemberId가 없을 때도 기록은 남긴다.
         Member adminMember = adminMemberId == null ? null : memberRepository.getReferenceById(adminMemberId);
-        AdminAuditLog log = AdminAuditLog.create(adminMember, actionType, targetType, targetId, beforeSummary, afterSummary);
+        AdminAuditLog log = AdminAuditLog.create(adminMember, actionType, targetType, targetId,
+                toJson(beforeSummary), toJson(afterSummary));
         adminAuditLogRepository.save(log);
+    }
+
+    // 호출부는 Map.of(...)/record 같은 구조화된 값을 넘기고, 여기서만 JSON 문자열로 직렬화한다.
+    // 문자열을 직접 이어붙이던 방식과 달리 따옴표/역슬래시/줄바꿈 이스케이프를 Jackson에 맡길 수 있다.
+    private String toJson(Object summary) {
+        if (summary == null) {
+            return null;
+        }
+        try {
+            return OBJECT_MAPPER.writeValueAsString(summary);
+        } catch (JsonProcessingException e) {
+            throw new IllegalStateException("감사 로그 summary 직렬화에 실패했습니다.", e);
+        }
     }
 }

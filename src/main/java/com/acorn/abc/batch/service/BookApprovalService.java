@@ -36,6 +36,7 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 /**
@@ -109,7 +110,7 @@ public class BookApprovalService {
 
         adminAuditLogWriter.record(adminMemberId, AdminAuditLogActionType.BOOK_CREATE,
                 AdminAuditLogTargetType.BOOK, book.getBookId(), null,
-                "{\"title\":\"" + book.getTitle() + "\",\"isbn\":\"" + book.getIsbn() + "\"}");
+                Map.of("title", book.getTitle(), "isbn", book.getIsbn()));
 
         return new BookIsbnTempApproveResponse(book.getBookId(), temp.getId(), book.getStatus());
     }

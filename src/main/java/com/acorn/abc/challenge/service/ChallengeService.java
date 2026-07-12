@@ -35,6 +35,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -195,8 +196,9 @@ public class ChallengeService {
     public Long updateChallenge(Long challengeId, AdminChallengeUpdateRequest request, Long adminMemberId) {
         Challenge challenge = challengeRepository.findById(challengeId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.CHALLENGE_NOT_FOUND));
-        String beforeSummary = "{\"challengeName\":\"" + challenge.getChallengeName()
-                + "\",\"status\":\"" + challenge.getStatus() + "\"}";
+        Map<String, Object> beforeSummary = new LinkedHashMap<>();
+        beforeSummary.put("challengeName", challenge.getChallengeName());
+        beforeSummary.put("status", challenge.getStatus());
 
         validateRewardItems(request.rewards());
         challenge.update(request.challengeName(), request.challengeType(), request.targetAction(),
@@ -212,8 +214,9 @@ public class ChallengeService {
                     challenge, item.rewardType(), item.rewardPoint(), coupon, item.rewardQuantity()));
         }
 
-        String afterSummary = "{\"challengeName\":\"" + challenge.getChallengeName()
-                + "\",\"status\":\"" + challenge.getStatus() + "\"}";
+        Map<String, Object> afterSummary = new LinkedHashMap<>();
+        afterSummary.put("challengeName", challenge.getChallengeName());
+        afterSummary.put("status", challenge.getStatus());
         adminAuditLogWriter.record(adminMemberId, AdminAuditLogActionType.CHALLENGE_UPDATE,
                 AdminAuditLogTargetType.CHALLENGE, challengeId, beforeSummary, afterSummary);
 

@@ -7,6 +7,10 @@ import com.acorn.abc.member.repository.MemberRepository;
 import com.acorn.abc.payment.repository.PaymentRepository;
 import com.acorn.abc.rental.repository.BookRentalRepository;
 import com.acorn.abc.rental.repository.ReadingProgressRepository;
+import com.acorn.abc.review.domain.Review;
+import com.acorn.abc.review.repository.BookReportRepository;
+import com.acorn.abc.review.repository.ReviewReportRepository;
+import com.acorn.abc.review.repository.ReviewRepository;
 import com.acorn.abc.statistic.dto.AdminStatisticResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -18,7 +22,7 @@ import java.time.LocalDateTime;
 /**
  * 관리자 통계를 실시간으로 집계한다(PR #37 리뷰 §1-3 반영 — 배치 사전집계 방식에서 전환).
  * 현재는 periodType=TOTAL, ageBand=ALL 조합만 지원한다. 그 외 조합은 COMMON_NOT_FOUND로 응답한다.
- * review_count/report_count는 review 패키지에 Repository가 없어(§4-4) 항상 0으로 고정한다(§9 후속 과제).
+ * reviewCount는 활성(ACTIVE) 리뷰 수, reportCount는 도서/리뷰 신고 합계다(PR #41 리뷰 반영 — review/report Repository 도입 이후 실제 집계로 전환).
  */
 @Service
 @RequiredArgsConstructor
@@ -35,6 +39,9 @@ public class AdminStatisticService {
     private final BookRentalRepository bookRentalRepository;
     private final ReadingProgressRepository readingProgressRepository;
     private final PaymentRepository paymentRepository;
+    private final ReviewRepository reviewRepository;
+    private final BookReportRepository bookReportRepository;
+    private final ReviewReportRepository reviewReportRepository;
 
     public AdminStatisticResponse getStatistics(String periodType, LocalDate baseDate, String ageBand) {
         String resolvedAgeBand = ageBand == null ? AGE_BAND_ALL : ageBand;
@@ -58,6 +65,8 @@ public class AdminStatisticService {
         long paidRentalCount = bookRentalRepository.countByBook_RentalType("PAID");
         long totalReadBookCount = readingProgressRepository.countByCompletedYn(true);
         long totalPaymentAmount = paymentRepository.sumAmountByPaymentStatus("PAID");
+        long reviewCount = reviewRepository.countByStatus(Review.STATUS_ACTIVE);
+        long reportCount = bookReportRepository.count() + reviewReportRepository.count();
 
         return new AdminStatisticResponse(
                 periodType,
@@ -72,8 +81,8 @@ public class AdminStatisticService {
                 paidRentalCount,
                 totalReadBookCount,
                 totalPaymentAmount,
-                0,
-                0,
+                reviewCount,
+                reportCount,
                 LocalDateTime.now());
     }
 }

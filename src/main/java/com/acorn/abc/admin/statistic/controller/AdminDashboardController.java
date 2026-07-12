@@ -20,8 +20,9 @@ public class AdminDashboardController {
     private final AdminDashboardService adminDashboardService;
 
     @Operation(summary = "관리자 대시보드 조회",
-            description = "KPI 통계와 최근 결제 목록을 반환합니다. "
-                    + "1차 구현으로 최근 결제만 포함하며, 최근 신고·최근 희망도서 위젯은 review/request 도메인 Repository 추가 후 후속 작업으로 제공될 예정입니다.")
+            description = "KPI 통계와 최근 결제, 최근 신고, 최근 희망도서 목록을 반환합니다. "
+                    + "recentReports[*].reportId는 도서 신고(book_report)와 리뷰 신고(review_report)의 PK를 그대로 사용하므로 "
+                    + "단독으로는 전역 유니크하지 않습니다. targetType과 함께 조합해서 식별해야 합니다.")
     @GetMapping
     public ResponseEntity<ApiResponse<AdminDashboardResponse>> getDashboard() {
         return ResponseEntity.ok(ApiResponse.ok(adminDashboardService.getDashboard()));

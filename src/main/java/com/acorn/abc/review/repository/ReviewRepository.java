@@ -13,6 +13,8 @@ public interface ReviewRepository extends JpaRepository<Review, Long> {
 
     Optional<Review> findByMember_MemberIdAndBook_BookId(Long memberId, Long bookId);
 
+    long countByStatus(String status);
+
     @Query(value = "SELECT r FROM Review r JOIN FETCH r.member " +
             "WHERE r.book.bookId = :bookId AND r.status = 'ACTIVE' " +
             "ORDER BY r.createdAt DESC, r.reviewId DESC",

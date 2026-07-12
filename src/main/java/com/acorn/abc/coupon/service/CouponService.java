@@ -89,7 +89,7 @@ public class CouponService {
         Long couponId = couponRepository.save(coupon).getCouponId();
         adminAuditLogWriter.record(adminMemberId, AdminAuditLogActionType.COUPON_CREATE,
                 AdminAuditLogTargetType.COUPON, couponId, null,
-                "{\"couponName\":\"" + request.couponName() + "\",\"couponType\":\"" + request.couponType() + "\"}");
+                Map.of("couponName", request.couponName(), "couponType", request.couponType()));
         return couponId;
     }
 
