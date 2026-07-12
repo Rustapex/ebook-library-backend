@@ -107,7 +107,7 @@ public class CouponService {
         }
         adminAuditLogWriter.record(adminMemberId, AdminAuditLogActionType.COUPON_ISSUE,
                 AdminAuditLogTargetType.COUPON, couponId, null,
-                "{\"issuedCount\":" + issuedCount + ",\"memberCount\":" + memberIds.size() + ",\"quantityPerMember\":" + quantity + "}");
+                Map.of("issuedCount", issuedCount, "memberCount", memberIds.size(), "quantityPerMember", quantity));
         return issuedCount;
     }
 

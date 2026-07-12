@@ -22,6 +22,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
@@ -51,7 +52,7 @@ public class PointService {
         PointHistory history = grantOrAdjustPoint(memberId, amount, "ADMIN_ADJUST", description);
         adminAuditLogWriter.record(adminMemberId, AdminAuditLogActionType.MEMBER_POINT_ADJUST,
                 AdminAuditLogTargetType.MEMBER, memberId, null,
-                "{\"pointAmount\":" + amount + ",\"balanceAfter\":" + history.getMember().getPointBalance() + "}");
+                Map.of("pointAmount", amount, "balanceAfter", history.getMember().getPointBalance()));
         return new AdminPointAdjustResponse(
                 history.getPointHistoryId(), history.getPointAmount(), history.getPointType(),
                 history.getMember().getPointBalance(), history.getCreatedAt());
