@@ -7,6 +7,10 @@ import com.acorn.abc.member.repository.MemberRepository;
 import com.acorn.abc.payment.repository.PaymentRepository;
 import com.acorn.abc.rental.repository.BookRentalRepository;
 import com.acorn.abc.rental.repository.ReadingProgressRepository;
+import com.acorn.abc.review.domain.Review;
+import com.acorn.abc.review.repository.BookReportRepository;
+import com.acorn.abc.review.repository.ReviewReportRepository;
+import com.acorn.abc.review.repository.ReviewRepository;
 import com.acorn.abc.statistic.dto.AdminStatisticResponse;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -36,6 +40,15 @@ class AdminStatisticServiceTest {
     @Mock
     private PaymentRepository paymentRepository;
 
+    @Mock
+    private ReviewRepository reviewRepository;
+
+    @Mock
+    private BookReportRepository bookReportRepository;
+
+    @Mock
+    private ReviewReportRepository reviewReportRepository;
+
     @InjectMocks
     private AdminStatisticService adminStatisticService;
 
@@ -49,6 +62,9 @@ class AdminStatisticServiceTest {
         given(bookRentalRepository.countByBook_RentalType("PAID")).willReturn(3L);
         given(readingProgressRepository.countByCompletedYn(true)).willReturn(4L);
         given(paymentRepository.sumAmountByPaymentStatus("PAID")).willReturn(19800L);
+        given(reviewRepository.countByStatus(Review.STATUS_ACTIVE)).willReturn(6L);
+        given(bookReportRepository.count()).willReturn(2L);
+        given(reviewReportRepository.count()).willReturn(1L);
 
         AdminStatisticResponse response = adminStatisticService.getStatistics("TOTAL", null, null);
 
@@ -62,9 +78,9 @@ class AdminStatisticServiceTest {
         assertThat(response.paidRentalCount()).isEqualTo(3);
         assertThat(response.totalReadBookCount()).isEqualTo(4);
         assertThat(response.totalPaymentAmount()).isEqualTo(19800L);
-        // review_count/report_count는 review 패키지에 Repository가 없어(§4-4) 항상 0이다.
-        assertThat(response.reviewCount()).isZero();
-        assertThat(response.reportCount()).isZero();
+        // reviewCount는 ACTIVE 리뷰 수, reportCount는 book_report+review_report 합계다(PR #41 반영).
+        assertThat(response.reviewCount()).isEqualTo(6L);
+        assertThat(response.reportCount()).isEqualTo(3L);
     }
 
     @Test

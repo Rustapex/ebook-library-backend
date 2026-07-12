@@ -23,6 +23,9 @@ import com.acorn.abc.category.repository.CategoryRepository;
 import com.acorn.abc.category.service.AladinCategoryImportService;
 import com.acorn.abc.common.exception.BusinessException;
 import com.acorn.abc.common.exception.ErrorCode;
+import com.acorn.abc.statistic.domain.AdminAuditLogActionType;
+import com.acorn.abc.statistic.domain.AdminAuditLogTargetType;
+import com.acorn.abc.statistic.service.AdminAuditLogWriter;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -33,6 +36,7 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 /**
@@ -56,9 +60,10 @@ public class BookApprovalService {
     private final BookCategoryRepository bookCategoryRepository;
     private final CategoryRepository categoryRepository;
     private final AladinCategoryImportService aladinCategoryImportService;
+    private final AdminAuditLogWriter adminAuditLogWriter;
 
     @Transactional
-    public BookIsbnTempApproveResponse approve(Long tempId, BookIsbnTempApproveRequest request) {
+    public BookIsbnTempApproveResponse approve(Long tempId, BookIsbnTempApproveRequest request, Long adminMemberId) {
         BookIsbnTemp temp = bookIsbnTempRepository.findById(tempId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.BOOK_ISBN_TEMP_NOT_FOUND));
 
@@ -102,6 +107,10 @@ public class BookApprovalService {
         saveAuthors(book, request.authors());
 
         temp.markMerged();
+
+        adminAuditLogWriter.record(adminMemberId, AdminAuditLogActionType.BOOK_CREATE,
+                AdminAuditLogTargetType.BOOK, book.getBookId(), null,
+                Map.of("title", book.getTitle(), "isbn", book.getIsbn()));
 
         return new BookIsbnTempApproveResponse(book.getBookId(), temp.getId(), book.getStatus());
     }

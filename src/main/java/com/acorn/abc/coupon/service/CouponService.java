@@ -12,6 +12,9 @@ import com.acorn.abc.member.repository.MemberRepository;
 import com.acorn.abc.payment.domain.Coupon;
 import com.acorn.abc.payment.domain.MemberCoupon;
 import com.acorn.abc.payment.repository.MemberCouponRepository;
+import com.acorn.abc.statistic.domain.AdminAuditLogActionType;
+import com.acorn.abc.statistic.domain.AdminAuditLogTargetType;
+import com.acorn.abc.statistic.service.AdminAuditLogWriter;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -35,6 +38,7 @@ public class CouponService {
     private final MemberCouponRepository memberCouponRepository;
     private final CouponRepository couponRepository;
     private final MemberRepository memberRepository;
+    private final AdminAuditLogWriter adminAuditLogWriter;
 
     @Transactional(readOnly = true)
     public PageResponse<MyCouponResponse> getMyCoupons(Long memberId, String status, Long usableForBookId, int page, int size) {
@@ -79,13 +83,17 @@ public class CouponService {
         return PageResponse.of(content, page, size, result.getTotalElements());
     }
 
-    public Long createCoupon(AdminCouponCreateRequest request) {
+    public Long createCoupon(AdminCouponCreateRequest request, Long adminMemberId) {
         Coupon coupon = Coupon.create(request.couponName(), request.couponType(), request.benefitValue(),
                 request.benefitUnit(), request.validDays(), request.status());
-        return couponRepository.save(coupon).getCouponId();
+        Long couponId = couponRepository.save(coupon).getCouponId();
+        adminAuditLogWriter.record(adminMemberId, AdminAuditLogActionType.COUPON_CREATE,
+                AdminAuditLogTargetType.COUPON, couponId, null,
+                Map.of("couponName", request.couponName(), "couponType", request.couponType()));
+        return couponId;
     }
 
-    public int issueCoupon(Long couponId, List<Long> memberIds, int quantity) {
+    public int issueCoupon(Long couponId, List<Long> memberIds, int quantity, Long adminMemberId) {
         Coupon coupon = couponRepository.findById(couponId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.COUPON_NOT_FOUND));
         int issuedCount = 0;
@@ -97,6 +105,9 @@ public class CouponService {
                 issuedCount++;
             }
         }
+        adminAuditLogWriter.record(adminMemberId, AdminAuditLogActionType.COUPON_ISSUE,
+                AdminAuditLogTargetType.COUPON, couponId, null,
+                Map.of("issuedCount", issuedCount, "memberCount", memberIds.size(), "quantityPerMember", quantity));
         return issuedCount;
     }
 

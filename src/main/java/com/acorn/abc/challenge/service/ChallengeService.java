@@ -22,6 +22,9 @@ import com.acorn.abc.member.service.PointService;
 import com.acorn.abc.payment.domain.Coupon;
 import com.acorn.abc.payment.domain.MemberCoupon;
 import com.acorn.abc.payment.repository.MemberCouponRepository;
+import com.acorn.abc.statistic.domain.AdminAuditLogActionType;
+import com.acorn.abc.statistic.domain.AdminAuditLogTargetType;
+import com.acorn.abc.statistic.service.AdminAuditLogWriter;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -32,6 +35,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -56,6 +60,7 @@ public class ChallengeService {
     private final PointService pointService;
     private final CouponRepository couponRepository;
     private final MemberCouponRepository memberCouponRepository;
+    private final AdminAuditLogWriter adminAuditLogWriter;
 
     @Transactional(readOnly = true)
     public List<ChallengeResponse> getChallenges(Long memberId, String challengeType) {
@@ -188,9 +193,13 @@ public class ChallengeService {
     }
 
     // 보상 수정은 미수령 진행도가 있어도 제한 없이 허용한다(현행 유지 정책, claimReward() 주석 참고).
-    public Long updateChallenge(Long challengeId, AdminChallengeUpdateRequest request) {
+    public Long updateChallenge(Long challengeId, AdminChallengeUpdateRequest request, Long adminMemberId) {
         Challenge challenge = challengeRepository.findById(challengeId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.CHALLENGE_NOT_FOUND));
+        Map<String, Object> beforeSummary = new LinkedHashMap<>();
+        beforeSummary.put("challengeName", challenge.getChallengeName());
+        beforeSummary.put("status", challenge.getStatus());
+
         validateRewardItems(request.rewards());
         challenge.update(request.challengeName(), request.challengeType(), request.targetAction(),
                 request.targetCount(), request.status());
@@ -204,6 +213,13 @@ public class ChallengeService {
             challengeRewardRepository.save(ChallengeReward.create(
                     challenge, item.rewardType(), item.rewardPoint(), coupon, item.rewardQuantity()));
         }
+
+        Map<String, Object> afterSummary = new LinkedHashMap<>();
+        afterSummary.put("challengeName", challenge.getChallengeName());
+        afterSummary.put("status", challenge.getStatus());
+        adminAuditLogWriter.record(adminMemberId, AdminAuditLogActionType.CHALLENGE_UPDATE,
+                AdminAuditLogTargetType.CHALLENGE, challengeId, beforeSummary, afterSummary);
+
         return challengeId;
     }
 

@@ -1,11 +1,16 @@
 package com.acorn.abc.coupon.service;
 
+import com.acorn.abc.admin.coupon.dto.AdminCouponCreateRequest;
 import com.acorn.abc.admin.coupon.dto.AdminCouponSummaryResponse;
 import com.acorn.abc.common.response.PageResponse;
 import com.acorn.abc.coupon.repository.CouponRepository;
+import com.acorn.abc.member.domain.Member;
 import com.acorn.abc.member.repository.MemberRepository;
 import com.acorn.abc.payment.domain.Coupon;
 import com.acorn.abc.payment.repository.MemberCouponRepository;
+import com.acorn.abc.statistic.domain.AdminAuditLogActionType;
+import com.acorn.abc.statistic.domain.AdminAuditLogTargetType;
+import com.acorn.abc.statistic.service.AdminAuditLogWriter;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -15,11 +20,13 @@ import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 
 import java.util.List;
+import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -37,8 +44,42 @@ class CouponServiceTest {
     @Mock
     private MemberRepository memberRepository;
 
+    @Mock
+    private AdminAuditLogWriter adminAuditLogWriter;
+
     @InjectMocks
     private CouponService couponService;
+
+    @Test
+    void createCoupon_성공하면_감사로그를_기록한다() {
+        AdminCouponCreateRequest request = new AdminCouponCreateRequest(
+                "신규쿠폰", "DISCOUNT", 1000, "AMOUNT", 7, "ACTIVE");
+        Coupon saved = mock(Coupon.class);
+        given(saved.getCouponId()).willReturn(1L);
+        given(couponRepository.save(any(Coupon.class))).willReturn(saved);
+
+        Long couponId = couponService.createCoupon(request, 999L);
+
+        assertThat(couponId).isEqualTo(1L);
+        verify(adminAuditLogWriter).record(
+                eq(999L), eq(AdminAuditLogActionType.COUPON_CREATE),
+                eq(AdminAuditLogTargetType.COUPON), eq(1L), any(), any());
+    }
+
+    @Test
+    void issueCoupon_성공하면_감사로그를_기록한다() {
+        Coupon coupon = mock(Coupon.class);
+        Member member = mock(Member.class);
+        given(couponRepository.findById(1L)).willReturn(Optional.of(coupon));
+        given(memberRepository.findById(10L)).willReturn(Optional.of(member));
+
+        int issuedCount = couponService.issueCoupon(1L, List.of(10L), 2, 999L);
+
+        assertThat(issuedCount).isEqualTo(2);
+        verify(adminAuditLogWriter).record(
+                eq(999L), eq(AdminAuditLogActionType.COUPON_ISSUE),
+                eq(AdminAuditLogTargetType.COUPON), eq(1L), any(), any());
+    }
 
     @Test
     void getAdminCoupons_쿠폰상태별_집계를_배치조회해서_매핑한다() {

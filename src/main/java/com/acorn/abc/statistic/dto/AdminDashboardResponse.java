@@ -4,6 +4,8 @@ import java.util.List;
 
 public record AdminDashboardResponse(
         AdminStatisticResponse statistics,
-        List<AdminRecentPaymentResponse> recentPayments
+        List<AdminRecentPaymentResponse> recentPayments,
+        List<AdminRecentReportResponse> recentReports,
+        List<AdminRecentBookRequestResponse> recentBookRequests
 ) {
 }

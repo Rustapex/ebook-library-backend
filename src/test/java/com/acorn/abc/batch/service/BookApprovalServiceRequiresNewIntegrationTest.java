@@ -78,7 +78,7 @@ class BookApprovalServiceRequiresNewIntegrationTest {
         // 실제 프록시 호출: approve()가 REQUIRED로 새 물리 트랜잭션을 시작하고,
         // 그 안에서 알라딘 category 자동 생성이 REQUIRES_NEW로 별도 커밋된다.
         // 수정 전 코드였다면 이 첫 시도에서 CATEGORY_NOT_FOUND로 실패했어야 한다.
-        BookIsbnTempApproveResponse response = bookApprovalService.approve(tempId, request);
+        BookIsbnTempApproveResponse response = bookApprovalService.approve(tempId, request, null);
 
         assertThat(response.bookId()).isNotNull();
         Book book = bookRepository.findById(response.bookId()).orElseThrow();
