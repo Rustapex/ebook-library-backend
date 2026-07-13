@@ -9,11 +9,14 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
+// open-in-view=false 환경에서 progress.rental / rental.book(LAZY) 접근을 조회와 같은 세션에서 하기 위해 필요하다
 @Service
 @RequiredArgsConstructor
+@Transactional(readOnly = true)
 public class ReadingService {
 
     private static final int DEFAULT_LIMIT = 10;

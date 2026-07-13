@@ -32,6 +32,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.util.ArrayList;
@@ -41,8 +42,11 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 
+// open-in-view=false 환경에서 book.publisher 등 지연 로딩 연관관계를 리포지토리 조회 이후에도
+// 안전하게 접근하려면 조회~응답 변환까지 하나의 세션/트랜잭션으로 묶어야 한다.
 @Service
 @RequiredArgsConstructor
+@Transactional(readOnly = true)
 public class BookService {
 
     private static final String AVAILABLE = "AVAILABLE";
