@@ -131,6 +131,38 @@ class BookRentalRepositoryTest {
         assertThat(january.getBucketCount()).isGreaterThanOrEqualTo(2L);
     }
 
+    // 회원용독서통계 구현계획 §5.2 — 회원 단위 대여 수 집계. setUp()에서 만든 memberId(이 테스트 전용)만
+    // 사용하므로 공유 DB라도 절대값 assertion이 안전하다.
+    @Test
+    void countByMemberAndPeriod_null_필터는_해당_회원_전체_건수를_반환한다() {
+        long count = bookRentalRepository.countByMemberAndPeriod(memberId, null, null);
+
+        assertThat(count).isEqualTo(3L);
+    }
+
+    @Test
+    void countByMemberAndPeriod_기간은_시작포함_끝미포함이다() {
+        LocalDateTime from = LocalDateTime.of(2026, 1, 1, 0, 0);
+        LocalDateTime to = LocalDateTime.of(2026, 2, 1, 0, 0);
+
+        long count = bookRentalRepository.countByMemberAndPeriod(memberId, from, to);
+
+        // 1/15, 1/31 23:59:59 포함, 2/1 00:00:00은 endExclusive라 제외
+        assertThat(count).isEqualTo(2L);
+    }
+
+    @Test
+    void countByMemberAndPeriod_다른_회원의_대여는_포함하지_않는다() {
+        Long otherMemberId = insertMember("rental_stat_other", LocalDate.of(2000, 1, 1));
+        insertRental(otherMemberId, freeBookId, LocalDateTime.of(2026, 1, 20, 0, 0));
+        entityManager.flush();
+        entityManager.clear();
+
+        long count = bookRentalRepository.countByMemberAndPeriod(memberId, null, null);
+
+        assertThat(count).isEqualTo(3L);
+    }
+
     private Long insertMember(String loginId, LocalDate birthDate) {
         entityManager.getEntityManager()
                 .createNativeQuery("INSERT INTO member (login_id, password_hash, name, email, birth_date, role, grade_id, point_balance, status, created_at) " +

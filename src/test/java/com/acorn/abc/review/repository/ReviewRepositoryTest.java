@@ -96,6 +96,45 @@ class ReviewRepositoryTest {
         assertThat(count).isEqualTo(baseline + 1);
     }
 
+    // 회원용독서통계 구현계획 §5.2 — 회원 단위 + 기간 조건부 리뷰 수 집계. 이 테스트에서 새로 만든
+    // 회원(statMemberId)만 사용하므로 공유 DB라도 절대값 assertion이 안전하다.
+    @Test
+    void countByMemberAndPeriod_회원과_기간으로_ACTIVE_리뷰_수를_집계한다() {
+        LocalDateTime from = LocalDateTime.of(2026, 1, 1, 0, 0);
+        LocalDateTime to = LocalDateTime.of(2026, 2, 1, 0, 0);
+
+        Long statMemberId = insertMember("review_stat_reader");
+        insertReviewAt(statMemberId, insertBook(), "ACTIVE", LocalDateTime.of(2026, 1, 15, 10, 0));
+        insertReviewAt(statMemberId, insertBook(), "ACTIVE", LocalDateTime.of(2026, 2, 1, 0, 0));
+        insertReviewAt(statMemberId, insertBook(), "DELETED", LocalDateTime.of(2026, 1, 20, 0, 0));
+
+        entityManager.flush();
+        entityManager.clear();
+
+        long count = reviewRepository.countByMemberAndPeriod(statMemberId, "ACTIVE", from, to);
+
+        // 1/15 ACTIVE만 포함, 2/1 00:00:00(endExclusive)과 DELETED 상태는 제외
+        assertThat(count).isEqualTo(1L);
+    }
+
+    @Test
+    void countByMemberAndPeriod_다른_회원의_리뷰는_포함하지_않는다() {
+        LocalDateTime from = LocalDateTime.of(2026, 1, 1, 0, 0);
+        LocalDateTime to = LocalDateTime.of(2026, 2, 1, 0, 0);
+
+        Long targetMemberId = insertMember("review_isolation_target");
+        Long otherMemberId = insertMember("review_isolation_other");
+        insertReviewAt(targetMemberId, insertBook(), "ACTIVE", LocalDateTime.of(2026, 1, 15, 10, 0));
+        insertReviewAt(otherMemberId, insertBook(), "ACTIVE", LocalDateTime.of(2026, 1, 15, 10, 0));
+
+        entityManager.flush();
+        entityManager.clear();
+
+        long count = reviewRepository.countByMemberAndPeriod(targetMemberId, "ACTIVE", from, to);
+
+        assertThat(count).isEqualTo(1L);
+    }
+
     private void insertReviewAt(Long memberId, Long bookId, String status, LocalDateTime createdAt) {
         entityManager.getEntityManager()
                 .createNativeQuery("INSERT INTO review (member_id, book_id, content, status, created_at) VALUES (?, ?, ?, ?, ?)")

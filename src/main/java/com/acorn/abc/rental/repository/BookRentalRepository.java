@@ -32,6 +32,13 @@ public interface BookRentalRepository extends JpaRepository<BookRental, Long> {
                                      @Param("birthDateFrom") LocalDate birthDateFrom,
                                      @Param("birthDateTo") LocalDate birthDateTo);
 
+    // 회원용 독서 통계 기간 조건부 집계(회원용독서통계 구현계획 §5.2). 본인 회원 ID로만 필터링한다.
+    @Query("SELECT COUNT(r) FROM BookRental r WHERE r.member.memberId = :memberId " +
+            "AND (:from IS NULL OR r.createdAt >= :from) AND (:to IS NULL OR r.createdAt < :to)")
+    long countByMemberAndPeriod(@Param("memberId") Long memberId,
+                                 @Param("from") LocalDateTime from,
+                                 @Param("to") LocalDateTime to);
+
     interface DailyCountBucket {
         LocalDate getBucketDate();
         Long getBucketCount();

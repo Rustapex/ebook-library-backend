@@ -160,6 +160,114 @@ class ReadingProgressRepositoryTest {
         assertThat(afterCount).isEqualTo(baseline + 1);
     }
 
+    // 회원용독서통계 구현계획 §5.2 — 회원 단위(memberId) + 기간 조건부 완독 수 집계.
+    // 이 테스트에서 새로 만든 회원(statMemberId)만 사용하므로, 공유 DB라도 절대값 assertion이 안전하다.
+    @Test
+    void countCompletedByMemberAndPeriod_회원과_기간으로_완독_수를_집계한다() {
+        LocalDateTime from = LocalDateTime.of(2026, 5, 1, 0, 0);
+        LocalDateTime to = LocalDateTime.of(2026, 6, 1, 0, 0);
+
+        Long publisherId = insertPublisher("Member Stat Publisher");
+        Long bookId = insertBook("Member Stat Book", "4000000000001", publisherId);
+        Long statMemberId = insertMember("member_stat_reader", 1L);
+
+        Long inRangeRentalId = insertBookRental(statMemberId, bookId);
+        insertCompletedReadingProgress(inRangeRentalId, LocalDateTime.of(2026, 5, 15, 10, 0));
+        Long outOfRangeRentalId = insertBookRental(statMemberId, insertBook("Member Stat Book 2", "4000000000002", publisherId));
+        insertCompletedReadingProgress(outOfRangeRentalId, LocalDateTime.of(2026, 6, 1, 0, 0));
+
+        entityManager.flush();
+        entityManager.clear();
+
+        long count = readingProgressRepository.countCompletedByMemberAndPeriod(statMemberId, from, to);
+
+        // 5/15(기간 안)만 포함, 6/1 00:00:00(endExclusive)은 제외
+        assertThat(count).isEqualTo(1L);
+    }
+
+    @Test
+    void countCompletedByMemberAndPeriod_다른_회원의_완독은_포함하지_않는다() {
+        LocalDateTime from = LocalDateTime.of(2026, 5, 1, 0, 0);
+        LocalDateTime to = LocalDateTime.of(2026, 6, 1, 0, 0);
+
+        Long publisherId = insertPublisher("Isolation Publisher");
+        Long targetMemberId = insertMember("isolation_target", 1L);
+        Long otherMemberId2 = insertMember("isolation_other", 1L);
+
+        Long targetRentalId = insertBookRental(targetMemberId, insertBook("Isolation Book 1", "4000000000003", publisherId));
+        insertCompletedReadingProgress(targetRentalId, LocalDateTime.of(2026, 5, 10, 10, 0));
+        Long otherRentalId = insertBookRental(otherMemberId2, insertBook("Isolation Book 2", "4000000000004", publisherId));
+        insertCompletedReadingProgress(otherRentalId, LocalDateTime.of(2026, 5, 10, 10, 0));
+
+        entityManager.flush();
+        entityManager.clear();
+
+        long count = readingProgressRepository.countCompletedByMemberAndPeriod(targetMemberId, from, to);
+
+        assertThat(count).isEqualTo(1L);
+    }
+
+    // 회원용독서통계 구현계획 §4.2 B1 확정 — last_read_at이 기간 안에 있는 행의 read_page_count만 합산되는지 검증.
+    @Test
+    void sumReadPageCountByMemberAndPeriod_lastReadAt이_기간_안에_있는_행만_합산한다() {
+        LocalDateTime from = LocalDateTime.of(2026, 5, 1, 0, 0);
+        LocalDateTime to = LocalDateTime.of(2026, 6, 1, 0, 0);
+
+        Long publisherId = insertPublisher("Page Sum Publisher");
+        Long statMemberId = insertMember("page_sum_reader", 1L);
+
+        Long inRangeRentalId = insertBookRental(statMemberId, insertBook("Page Sum Book 1", "4000000000005", publisherId));
+        insertReadingProgress(inRangeRentalId, 120, LocalDateTime.of(2026, 5, 15, 9, 0));
+        Long outOfRangeRentalId = insertBookRental(statMemberId, insertBook("Page Sum Book 2", "4000000000006", publisherId));
+        insertReadingProgress(outOfRangeRentalId, 80, LocalDateTime.of(2026, 6, 1, 0, 0));
+
+        entityManager.flush();
+        entityManager.clear();
+
+        long sum = readingProgressRepository.sumReadPageCountByMemberAndPeriod(statMemberId, from, to);
+
+        // 5/15(기간 안) 120만 합산, 6/1 00:00:00(endExclusive)의 80은 제외
+        assertThat(sum).isEqualTo(120L);
+    }
+
+    @Test
+    void groupByDayCompletedByMember_회원_기준으로_일별_완독_수를_집계한다() {
+        LocalDateTime from = LocalDateTime.of(2026, 5, 1, 0, 0);
+        LocalDateTime to = LocalDateTime.of(2026, 6, 1, 0, 0);
+
+        Long publisherId = insertPublisher("Member Trend Publisher Daily");
+        Long statMemberId = insertMember("member_trend_daily", 1L);
+        Long rentalId = insertBookRental(statMemberId, insertBook("Member Trend Book Daily", "4000000000007", publisherId));
+        insertCompletedReadingProgress(rentalId, LocalDateTime.of(2026, 5, 10, 15, 0));
+
+        entityManager.flush();
+        entityManager.clear();
+
+        var buckets = readingProgressRepository.groupByDayCompletedByMember(statMemberId, from, to);
+
+        long may10Count = bucketCountForDate(buckets, java.time.LocalDate.of(2026, 5, 10));
+        assertThat(may10Count).isEqualTo(1L);
+    }
+
+    @Test
+    void groupByMonthCompletedByMember_회원_기준으로_월별_완독_수를_집계한다() {
+        LocalDateTime from = LocalDateTime.of(2026, 5, 1, 0, 0);
+        LocalDateTime to = LocalDateTime.of(2026, 6, 1, 0, 0);
+
+        Long publisherId = insertPublisher("Member Trend Publisher Monthly");
+        Long statMemberId = insertMember("member_trend_monthly", 1L);
+        Long rentalId = insertBookRental(statMemberId, insertBook("Member Trend Book Monthly", "4000000000008", publisherId));
+        insertCompletedReadingProgress(rentalId, LocalDateTime.of(2026, 5, 20, 9, 0));
+
+        entityManager.flush();
+        entityManager.clear();
+
+        var buckets = readingProgressRepository.groupByMonthCompletedByMember(statMemberId, from, to);
+
+        long mayCount = bucketCountForMonth(buckets, "2026-05");
+        assertThat(mayCount).isEqualTo(1L);
+    }
+
     private long bucketCountForDate(List<ReadingProgressRepository.DailyCountBucket> buckets, java.time.LocalDate date) {
         return buckets.stream()
                 .filter(b -> date.equals(b.getBucketDate()))
