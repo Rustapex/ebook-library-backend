@@ -109,6 +109,73 @@ class ReadingProgressRepositoryTest {
         assertThat(count).isEqualTo(baseline + 1);
     }
 
+    // 관리자API후속작업 구현계획 §6 — completedReadTrend 집계 쿼리(PR #42 리뷰 항목 2) 직접 검증.
+    // 실제 공유 MySQL DB이므로 절대 건수 대신 삽입 전/후 차이로 검증한다(countCompletedByStatisticConditions와 동일 패턴).
+    @Test
+    void groupByDayCompletedStatisticConditions_완독_수를_일별로_집계한다() {
+        LocalDateTime from = LocalDateTime.of(2026, 3, 1, 0, 0);
+        LocalDateTime to = LocalDateTime.of(2026, 4, 1, 0, 0);
+        java.time.LocalDate targetDate = java.time.LocalDate.of(2026, 3, 10);
+
+        long baseline = bucketCountForDate(
+                readingProgressRepository.groupByDayCompletedStatisticConditions(from, to, null, null), targetDate);
+
+        Long publisherId = insertPublisher("Trend Publisher Daily");
+        Long bookId = insertBook("Trend Book Daily", "6666666666666", publisherId);
+        // grade_id=1L: grade_level에 UNIQUE 제약이 있어 insertMemberGrade()를 또 호출하면 setUp()의 "Seed Grade"(level 99)와 충돌한다.
+        Long trendMemberId = insertMember("trend_reader_daily", 1L);
+        Long rentalId = insertBookRental(trendMemberId, bookId);
+        insertCompletedReadingProgress(rentalId, LocalDateTime.of(2026, 3, 10, 15, 0));
+
+        entityManager.flush();
+        entityManager.clear();
+
+        long afterCount = bucketCountForDate(
+                readingProgressRepository.groupByDayCompletedStatisticConditions(from, to, null, null), targetDate);
+
+        assertThat(afterCount).isEqualTo(baseline + 1);
+    }
+
+    @Test
+    void groupByMonthCompletedStatisticConditions_완독_수를_월별로_집계한다() {
+        LocalDateTime from = LocalDateTime.of(2026, 3, 1, 0, 0);
+        LocalDateTime to = LocalDateTime.of(2026, 4, 1, 0, 0);
+        String targetMonth = "2026-03";
+
+        long baseline = bucketCountForMonth(
+                readingProgressRepository.groupByMonthCompletedStatisticConditions(from, to, null, null), targetMonth);
+
+        Long publisherId = insertPublisher("Trend Publisher Monthly");
+        Long bookId = insertBook("Trend Book Monthly", "5555555555555", publisherId);
+        Long trendMemberId = insertMember("trend_reader_monthly", 1L);
+        Long rentalId = insertBookRental(trendMemberId, bookId);
+        insertCompletedReadingProgress(rentalId, LocalDateTime.of(2026, 3, 20, 9, 0));
+
+        entityManager.flush();
+        entityManager.clear();
+
+        long afterCount = bucketCountForMonth(
+                readingProgressRepository.groupByMonthCompletedStatisticConditions(from, to, null, null), targetMonth);
+
+        assertThat(afterCount).isEqualTo(baseline + 1);
+    }
+
+    private long bucketCountForDate(List<ReadingProgressRepository.DailyCountBucket> buckets, java.time.LocalDate date) {
+        return buckets.stream()
+                .filter(b -> date.equals(b.getBucketDate()))
+                .mapToLong(ReadingProgressRepository.DailyCountBucket::getBucketCount)
+                .findFirst()
+                .orElse(0L);
+    }
+
+    private long bucketCountForMonth(List<ReadingProgressRepository.MonthlyCountBucket> buckets, String month) {
+        return buckets.stream()
+                .filter(b -> month.equals(b.getBucketMonth()))
+                .mapToLong(ReadingProgressRepository.MonthlyCountBucket::getBucketCount)
+                .findFirst()
+                .orElse(0L);
+    }
+
     private Long insertMemberWithBirthDate(String loginId, Long gradeId, String birthDate) {
         entityManager.getEntityManager()
                 .createNativeQuery("INSERT INTO member (login_id, password_hash, name, email, birth_date, role, " +
