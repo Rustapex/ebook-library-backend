@@ -1,5 +1,7 @@
 package com.acorn.abc.statistic.service;
 
+import com.acorn.abc.common.exception.BusinessException;
+import com.acorn.abc.common.exception.ErrorCode;
 import com.acorn.abc.common.response.PageResponse;
 import com.acorn.abc.statistic.domain.AdminAuditLog;
 import com.acorn.abc.statistic.dto.AdminAuditLogSummaryResponse;
@@ -15,10 +17,12 @@ import org.springframework.data.domain.PageRequest;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verifyNoInteractions;
 
 @ExtendWith(MockitoExtension.class)
 class AdminAuditLogServiceTest {
@@ -53,5 +57,25 @@ class AdminAuditLogServiceTest {
                 adminAuditLogService.getAuditLogs(null, null, null, 0, 500);
 
         assertThat(response.size()).isEqualTo(100);
+    }
+
+    // 관리자API후속작업 구현계획 §7 안 B: 잘못된 actionType/targetType이 조용히 빈 목록으로
+    // 처리되지 않고 fail-fast하는지 확인한다(통계 API periodType/ageBand와 동일 정책).
+    @Test
+    void getAuditLogs_잘못된_actionType은_VALIDATION_ERROR를_던진다() {
+        assertThatThrownBy(() -> adminAuditLogService.getAuditLogs("GARBAGE", null, null, 0, 10))
+                .isInstanceOf(BusinessException.class)
+                .extracting(e -> ((BusinessException) e).getErrorCode())
+                .isEqualTo(ErrorCode.VALIDATION_ERROR);
+        verifyNoInteractions(adminAuditLogRepository);
+    }
+
+    @Test
+    void getAuditLogs_잘못된_targetType은_VALIDATION_ERROR를_던진다() {
+        assertThatThrownBy(() -> adminAuditLogService.getAuditLogs(null, "GARBAGE", null, 0, 10))
+                .isInstanceOf(BusinessException.class)
+                .extracting(e -> ((BusinessException) e).getErrorCode())
+                .isEqualTo(ErrorCode.VALIDATION_ERROR);
+        verifyNoInteractions(adminAuditLogRepository);
     }
 }
