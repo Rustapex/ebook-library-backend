@@ -1,5 +1,7 @@
 package com.acorn.abc.common.config;
 
+import com.acorn.abc.common.security.CustomAccessDeniedHandler;
+import com.acorn.abc.common.security.CustomAuthenticationEntryPoint;
 import com.acorn.abc.common.security.JwtAuthenticationFilter;
 import com.acorn.abc.common.security.JwtTokenProvider;
 import lombok.RequiredArgsConstructor;
@@ -27,6 +29,8 @@ import java.util.Arrays;
 public class SecurityConfig {
 
     private final JwtTokenProvider jwtTokenProvider;
+    private final CustomAuthenticationEntryPoint customAuthenticationEntryPoint;
+    private final CustomAccessDeniedHandler customAccessDeniedHandler;
 
     @Value("${app.cors.allowed-origins}")
     private String allowedOrigins;
@@ -70,6 +74,10 @@ public class SecurityConfig {
                         // 관리자 API
                         .requestMatchers("/api/v1/admin/**").hasRole("ADMIN")
                         .anyRequest().authenticated()
+                )
+                .exceptionHandling(exception -> exception
+                        .authenticationEntryPoint(customAuthenticationEntryPoint)
+                        .accessDeniedHandler(customAccessDeniedHandler)
                 )
                 .addFilterBefore(
                         new JwtAuthenticationFilter(jwtTokenProvider),
