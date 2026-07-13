@@ -20,6 +20,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 class AdminAuditLogControllerTest {
@@ -69,7 +70,8 @@ class AdminAuditLogControllerTest {
                 .thenThrow(new BusinessException(ErrorCode.VALIDATION_ERROR));
 
         validatedMockMvc.perform(get("/api/v1/admin/audit-logs").param("actionType", "GARBAGE"))
-                .andExpect(status().isBadRequest());
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"));
     }
 
     @Test
@@ -78,6 +80,7 @@ class AdminAuditLogControllerTest {
                 .thenThrow(new BusinessException(ErrorCode.VALIDATION_ERROR));
 
         validatedMockMvc.perform(get("/api/v1/admin/audit-logs").param("targetType", "GARBAGE"))
-                .andExpect(status().isBadRequest());
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"));
     }
 }
