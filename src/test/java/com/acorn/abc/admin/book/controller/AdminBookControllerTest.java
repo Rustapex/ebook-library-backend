@@ -1,5 +1,6 @@
 package com.acorn.abc.admin.book.controller;
 
+import com.acorn.abc.admin.book.dto.BookIsbnBulkApproveResponse;
 import com.acorn.abc.admin.book.dto.BookIsbnTempApproveResponse;
 import com.acorn.abc.admin.book.dto.BookIsbnTempFetchResponse;
 import com.acorn.abc.admin.book.dto.ExternalBookDuplicateInfo;
@@ -7,14 +8,22 @@ import com.acorn.abc.admin.book.dto.ExternalBookLookupResponse;
 import com.acorn.abc.admin.book.dto.ExternalBookProviderStatus;
 import com.acorn.abc.batch.domain.BookIsbnTemp;
 import com.acorn.abc.batch.service.BookApprovalService;
+import com.acorn.abc.batch.service.BookBulkApprovalService;
+import com.acorn.abc.batch.service.BookIsbnEnrichService;
+import com.acorn.abc.batch.service.BookIsbnSeedService;
 import com.acorn.abc.batch.service.BookIsbnTempService;
 import com.acorn.abc.common.exception.GlobalExceptionHandler;
+import com.acorn.abc.common.security.CustomUserDetails;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.http.MediaType;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.web.method.annotation.AuthenticationPrincipalArgumentResolver;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
@@ -24,6 +33,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyByte;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -32,8 +42,13 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 class AdminBookControllerTest {
 
+    private static final long ADMIN_MEMBER_ID = 42L;
+
     private final BookIsbnTempService bookIsbnTempService = mock(BookIsbnTempService.class);
     private final BookApprovalService bookApprovalService = mock(BookApprovalService.class);
+    private final BookIsbnSeedService bookIsbnSeedService = mock(BookIsbnSeedService.class);
+    private final BookIsbnEnrichService bookIsbnEnrichService = mock(BookIsbnEnrichService.class);
+    private final BookBulkApprovalService bookBulkApprovalService = mock(BookBulkApprovalService.class);
 
     private MockMvc mockMvc;
 
@@ -41,9 +56,20 @@ class AdminBookControllerTest {
     void setUp() {
         mockMvc = MockMvcBuilders.standaloneSetup(
                         new AdminBookMetadataController(bookIsbnTempService),
-                        new AdminBookIsbnTempController(bookIsbnTempService, bookApprovalService))
+                        new AdminBookIsbnTempController(bookIsbnTempService, bookApprovalService,
+                                bookIsbnSeedService, bookIsbnEnrichService, bookBulkApprovalService))
                 .setControllerAdvice(new GlobalExceptionHandler())
+                .setCustomArgumentResolvers(new AuthenticationPrincipalArgumentResolver())
                 .build();
+
+        CustomUserDetails principal = new CustomUserDetails(ADMIN_MEMBER_ID, "ADMIN");
+        SecurityContextHolder.getContext()
+                .setAuthentication(new UsernamePasswordAuthenticationToken(principal, null, principal.getAuthorities()));
+    }
+
+    @AfterEach
+    void tearDown() {
+        SecurityContextHolder.clearContext();
     }
 
     @Test
@@ -141,6 +167,69 @@ class AdminBookControllerTest {
                 """;
 
         mockMvc.perform(post("/api/v1/admin/book-isbn-temps/35/approve")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"));
+    }
+
+    @Test
+    void bulkApprove_인증된_관리자의_memberId를_그대로_전달한다() throws Exception {
+        when(bookBulkApprovalService.bulkApprove(any(), eq(ADMIN_MEMBER_ID)))
+                .thenReturn(new BookIsbnBulkApproveResponse(1, List.of(100L), List.of()));
+
+        String body = """
+                {
+                  "limit": 30,
+                  "maxCandidates": 100,
+                  "rentalType": "PAID",
+                  "rentalPrice": 5000,
+                  "status": "AVAILABLE",
+                  "dummyPageCount": 3
+                }
+                """;
+
+        mockMvc.perform(post("/api/v1/admin/book-isbn-temps/bulk-approve")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.approvedCount").value(1));
+
+        verify(bookBulkApprovalService).bulkApprove(any(), eq(ADMIN_MEMBER_ID));
+    }
+
+    @Test
+    void bulkApprove_limit이_상한을_초과하면_400을_반환한다() throws Exception {
+        String body = """
+                {
+                  "limit": 31,
+                  "rentalType": "PAID",
+                  "rentalPrice": 5000,
+                  "status": "AVAILABLE",
+                  "dummyPageCount": 3
+                }
+                """;
+
+        mockMvc.perform(post("/api/v1/admin/book-isbn-temps/bulk-approve")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"));
+    }
+
+    @Test
+    void bulkApprove_dummyPageCount가_상한을_초과하면_400을_반환한다() throws Exception {
+        String body = """
+                {
+                  "limit": 30,
+                  "rentalType": "PAID",
+                  "rentalPrice": 5000,
+                  "status": "AVAILABLE",
+                  "dummyPageCount": 11
+                }
+                """;
+
+        mockMvc.perform(post("/api/v1/admin/book-isbn-temps/bulk-approve")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(body))
                 .andExpect(status().isBadRequest())

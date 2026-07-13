@@ -50,6 +50,8 @@ public enum ErrorCode {
     BOOK_ISBN_TEMP_NOT_FOUND(HttpStatus.NOT_FOUND, "BOOK_ISBN_TEMP_NOT_FOUND", "존재하지 않는 수집 후보입니다."),
     BOOK_ISBN_TEMP_NOT_READY(HttpStatus.CONFLICT, "BOOK_ISBN_TEMP_NOT_READY", "승인 가능한 상태(READY)가 아닙니다."),
     BOOK_ISBN_TEMP_ALREADY_MERGED(HttpStatus.CONFLICT, "BOOK_ISBN_TEMP_ALREADY_MERGED", "이미 이관 완료된 수집 후보입니다."),
+    EXTERNAL_BOOK_API_DISABLED(HttpStatus.INTERNAL_SERVER_ERROR, "EXTERNAL_BOOK_API_DISABLED", "외부 도서 API가 비활성화되어 있거나 인증키가 설정되지 않았습니다."),
+    EXTERNAL_BOOK_API_CALL_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "EXTERNAL_BOOK_API_CALL_FAILED", "외부 도서 API 호출에 실패했습니다."),
 
     // Rental
     RENTAL_ALREADY_EXISTS(HttpStatus.CONFLICT, "RENTAL_ALREADY_EXISTS", "이미 대여 중인 도서입니다."),

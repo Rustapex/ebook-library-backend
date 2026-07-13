@@ -1,5 +1,11 @@
 package com.acorn.abc.admin.book.controller;
 
+import com.acorn.abc.admin.book.dto.BookIsbnBulkApproveRequest;
+import com.acorn.abc.admin.book.dto.BookIsbnBulkApproveResponse;
+import com.acorn.abc.admin.book.dto.BookIsbnEnrichRequest;
+import com.acorn.abc.admin.book.dto.BookIsbnEnrichResponse;
+import com.acorn.abc.admin.book.dto.BookIsbnSeedRequest;
+import com.acorn.abc.admin.book.dto.BookIsbnSeedResponse;
 import com.acorn.abc.admin.book.dto.BookIsbnTempApproveRequest;
 import com.acorn.abc.admin.book.dto.BookIsbnTempApproveResponse;
 import com.acorn.abc.admin.book.dto.BookIsbnTempFetchRequest;
@@ -7,6 +13,9 @@ import com.acorn.abc.admin.book.dto.BookIsbnTempFetchResponse;
 import com.acorn.abc.admin.book.dto.BookIsbnTempSummaryResponse;
 import com.acorn.abc.batch.domain.BookIsbnTemp;
 import com.acorn.abc.batch.service.BookApprovalService;
+import com.acorn.abc.batch.service.BookBulkApprovalService;
+import com.acorn.abc.batch.service.BookIsbnEnrichService;
+import com.acorn.abc.batch.service.BookIsbnSeedService;
 import com.acorn.abc.batch.service.BookIsbnTempService;
 import com.acorn.abc.common.response.ApiResponse;
 import com.acorn.abc.common.response.PageResponse;
@@ -37,6 +46,25 @@ public class AdminBookIsbnTempController {
 
     private final BookIsbnTempService bookIsbnTempService;
     private final BookApprovalService bookApprovalService;
+    private final BookIsbnSeedService bookIsbnSeedService;
+    private final BookIsbnEnrichService bookIsbnEnrichService;
+    private final BookBulkApprovalService bookBulkApprovalService;
+
+    @Operation(summary = "ISBN 후보 대량 수집(seed)",
+            description = "정보나루 목록 API로 신규 ISBN 후보를 book_isbn_temp에 PENDING 저장한다.")
+    @PostMapping("/seed")
+    public ResponseEntity<ApiResponse<BookIsbnSeedResponse>> seed(
+            @Valid @RequestBody BookIsbnSeedRequest request) {
+        return ResponseEntity.ok(ApiResponse.ok(bookIsbnSeedService.seed(request)));
+    }
+
+    @Operation(summary = "temp 외부 정보 보강(enrich)",
+            description = "PENDING 후보를 외부 API로 보강해 READY로 전환한다. 건별 실패는 격리되어 나머지 후보는 계속 처리된다.")
+    @PostMapping("/enrich")
+    public ResponseEntity<ApiResponse<BookIsbnEnrichResponse>> enrich(
+            @Valid @RequestBody BookIsbnEnrichRequest request) {
+        return ResponseEntity.ok(ApiResponse.ok(bookIsbnEnrichService.enrich(request.limit())));
+    }
 
     @Operation(summary = "temp 저장/upsert",
             description = "외부 API 병합 결과를 book_isbn_temp에 insert 또는 update한다.")
@@ -73,6 +101,17 @@ public class AdminBookIsbnTempController {
         BookIsbnTempApproveResponse response =
                 bookApprovalService.approve(tempId, request, adminDetails.getMemberId());
         return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.created(response));
+    }
+
+    @Operation(summary = "READY 후보 일괄 승인(bulk-approve)",
+            description = "자동 승인 조건(제목/출판사/저자/알라딘 카테고리 존재, 미등록 ISBN)을 만족하는 READY 후보를 limit 개수만큼 book으로 일괄 전환한다.")
+    @PostMapping("/bulk-approve")
+    public ResponseEntity<ApiResponse<BookIsbnBulkApproveResponse>> bulkApprove(
+            @Valid @RequestBody BookIsbnBulkApproveRequest request,
+            @AuthenticationPrincipal CustomUserDetails adminDetails) {
+        BookIsbnBulkApproveResponse response =
+                bookBulkApprovalService.bulkApprove(request, adminDetails.getMemberId());
+        return ResponseEntity.ok(ApiResponse.ok(response));
     }
 
     private byte toStatusCd(String status) {

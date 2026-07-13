@@ -79,21 +79,36 @@ public class BookIsbnTemp {
         return temp;
     }
 
+    public static BookIsbnTemp createSeed(String isbn13, String bookTitle, String publisher) {
+        BookIsbnTemp temp = create(isbn13);
+        temp.bookTitle = bookTitle;
+        temp.publisher = publisher;
+        return temp;
+    }
+
+    /**
+     * 외부 API 응답값이 null/blank이면 기존 값(seed 값 포함)을 유지한다.
+     * 정보나루/네이버/알라딘 중 일부만 응답해도 이전에 확보한 데이터가 사라지지 않도록 한다.
+     */
     public void applyMetadata(String bookTitle, String publisher, String author,
                               String coverImageUrl, String description, String pubDate,
                               String aladinCategoryId, String aladinCategoryName,
                               byte naverResStatus, byte aladinResStatus) {
-        this.bookTitle = bookTitle;
-        this.publisher = publisher;
-        this.author = author;
-        this.coverImageUrl = coverImageUrl;
-        this.description = description;
-        this.pubDate = pubDate;
-        this.aladinCategoryId = aladinCategoryId;
-        this.aladinCategoryName = aladinCategoryName;
+        this.bookTitle = preserveIfBlank(this.bookTitle, bookTitle);
+        this.publisher = preserveIfBlank(this.publisher, publisher);
+        this.author = preserveIfBlank(this.author, author);
+        this.coverImageUrl = preserveIfBlank(this.coverImageUrl, coverImageUrl);
+        this.description = preserveIfBlank(this.description, description);
+        this.pubDate = preserveIfBlank(this.pubDate, pubDate);
+        this.aladinCategoryId = preserveIfBlank(this.aladinCategoryId, aladinCategoryId);
+        this.aladinCategoryName = preserveIfBlank(this.aladinCategoryName, aladinCategoryName);
         this.naverResStatus = naverResStatus;
         this.aladinResStatus = aladinResStatus;
         this.updatedAt = LocalDateTime.now();
+    }
+
+    private static String preserveIfBlank(String existing, String incoming) {
+        return (incoming == null || incoming.isBlank()) ? existing : incoming;
     }
 
     public void markReady() {
