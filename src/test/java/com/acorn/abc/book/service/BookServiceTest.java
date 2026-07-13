@@ -8,6 +8,7 @@ import com.acorn.abc.book.repository.BookCategoryRepository;
 import com.acorn.abc.book.repository.BookDetailRepository;
 import com.acorn.abc.book.repository.BookKeywordMapRepository;
 import com.acorn.abc.book.repository.BookRepository;
+import com.acorn.abc.category.service.CategoryService;
 import com.acorn.abc.common.response.PageResponse;
 import com.acorn.abc.favorite.repository.FavoriteBookRepository;
 import com.acorn.abc.rental.domain.BookRental;
@@ -53,6 +54,8 @@ class BookServiceTest {
     private FavoriteBookRepository favoriteBookRepository;
     @Mock
     private BookRentalRepository bookRentalRepository;
+    @Mock
+    private CategoryService categoryService;
 
     @InjectMocks
     private BookService bookService;
@@ -62,7 +65,8 @@ class BookServiceTest {
     @BeforeEach
     void setUp() {
         book = mock(Book.class);
-        given(book.getBookId()).willReturn(1L);
+        // parentCategoryId 관련 테스트는 빈 결과라 book을 아예 안 건드려서 unused stub이 될 수 있어 lenient로 둔다
+        org.mockito.Mockito.lenient().when(book.getBookId()).thenReturn(1L);
     }
 
     @Test
@@ -90,6 +94,27 @@ class BookServiceTest {
                 null, null, null, null, null, null, null, null, 10L);
 
         assertThat(result.content().get(0).favoriteYn()).isTrue();
+    }
+
+    @Test
+    void getBooks_parentCategoryId가_있으면_CategoryService로_하위카테고리를_조회한다() {
+        given(bookRepository.findAll(any(Specification.class), any(Pageable.class)))
+                .willReturn(new PageImpl<>(List.of(), PageRequest.of(0, 20), 0));
+        given(categoryService.findDescendantIds(158L)).willReturn(List.of(158L, 159L, 160L));
+
+        bookService.getBooks(null, 158L, null, null, null, null, null, null, null);
+
+        verify(categoryService).findDescendantIds(158L);
+    }
+
+    @Test
+    void getBooks_parentCategoryId가_없으면_CategoryService를_호출하지_않는다() {
+        given(bookRepository.findAll(any(Specification.class), any(Pageable.class)))
+                .willReturn(new PageImpl<>(List.of(), PageRequest.of(0, 20), 0));
+
+        bookService.getBooks(null, null, null, null, null, null, null, null, null);
+
+        verify(categoryService, never()).findDescendantIds(any());
     }
 
     @Test
