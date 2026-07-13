@@ -66,4 +66,38 @@ public interface ReadingProgressRepository extends JpaRepository<ReadingProgress
             "WHERE r.member.memberId = :memberId AND rp.lastReadAt IS NOT NULL " +
             "ORDER BY rp.lastReadAt DESC")
     List<ReadingProgress> findRecentByMemberId(@Param("memberId") Long memberId, Pageable pageable);
+
+    // 회원용 독서 통계 완독 수(회원용독서통계 구현계획 §5.2). 본인 회원 ID + 기간 조건.
+    @Query("SELECT COUNT(rp) FROM ReadingProgress rp WHERE rp.rental.member.memberId = :memberId AND rp.completedYn = true " +
+            "AND (:from IS NULL OR rp.completedAt >= :from) AND (:to IS NULL OR rp.completedAt < :to)")
+    long countCompletedByMemberAndPeriod(@Param("memberId") Long memberId,
+                                          @Param("from") LocalDateTime from,
+                                          @Param("to") LocalDateTime to);
+
+    // 회원용 독서 통계 "읽은 페이지"(구현계획 §4.2 B1 확정) — last_read_at이 기간 안에 있는 행의
+    // read_page_count(누적 최대 도달 페이지)를 합산한 근사치다. 정확한 순수 독서량이 아니다.
+    @Query("SELECT COALESCE(SUM(rp.readPageCount), 0) FROM ReadingProgress rp WHERE rp.rental.member.memberId = :memberId " +
+            "AND (:from IS NULL OR rp.lastReadAt >= :from) AND (:to IS NULL OR rp.lastReadAt < :to)")
+    long sumReadPageCountByMemberAndPeriod(@Param("memberId") Long memberId,
+                                            @Param("from") LocalDateTime from,
+                                            @Param("to") LocalDateTime to);
+
+    // 회원용 독서 통계 완독 추이(readingTrend, 구현계획 §4.3 — completedReadTrend와 동일 개념 재사용). 본인 회원 ID만 필터링.
+    @Query(value = "SELECT DATE(rp.completed_at) AS bucketDate, COUNT(*) AS bucketCount " +
+            "FROM reading_progress rp JOIN book_rental r ON rp.rental_id = r.rental_id " +
+            "WHERE r.member_id = :memberId AND rp.completed_yn = 1 " +
+            "AND (:from IS NULL OR rp.completed_at >= :from) AND (:to IS NULL OR rp.completed_at < :to) " +
+            "GROUP BY DATE(rp.completed_at)", nativeQuery = true)
+    List<DailyCountBucket> groupByDayCompletedByMember(@Param("memberId") Long memberId,
+                                                         @Param("from") LocalDateTime from,
+                                                         @Param("to") LocalDateTime to);
+
+    @Query(value = "SELECT DATE_FORMAT(rp.completed_at, '%Y-%m') AS bucketMonth, COUNT(*) AS bucketCount " +
+            "FROM reading_progress rp JOIN book_rental r ON rp.rental_id = r.rental_id " +
+            "WHERE r.member_id = :memberId AND rp.completed_yn = 1 " +
+            "AND (:from IS NULL OR rp.completed_at >= :from) AND (:to IS NULL OR rp.completed_at < :to) " +
+            "GROUP BY DATE_FORMAT(rp.completed_at, '%Y-%m')", nativeQuery = true)
+    List<MonthlyCountBucket> groupByMonthCompletedByMember(@Param("memberId") Long memberId,
+                                                             @Param("from") LocalDateTime from,
+                                                             @Param("to") LocalDateTime to);
 }

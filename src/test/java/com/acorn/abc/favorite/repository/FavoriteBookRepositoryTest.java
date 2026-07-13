@@ -92,6 +92,27 @@ class FavoriteBookRepositoryTest {
         assertThat(found).isPresent();
     }
 
+    // 회원용독서통계 구현계획 §4.4/§5.2 — 즐겨찾기 수는 현재 상태 기준(기간 조건 없음). setUp()에서
+    // 만든 memberId(이 테스트 전용) 데이터만 사용하므로 공유 DB라도 절대값 assertion이 안전하다.
+    @Test
+    void countByMemberId_현재_즐겨찾기_수를_반환한다() {
+        long count = favoriteBookRepository.countByMember_MemberId(memberId);
+
+        assertThat(count).isEqualTo(2L);
+    }
+
+    @Test
+    void countByMemberId_다른_회원의_즐겨찾기는_포함하지_않는다() {
+        Long otherMemberId = insertMember("favorite_stat_other");
+        insertFavorite(otherMemberId, insertBook("도서3"));
+        entityManager.flush();
+        entityManager.clear();
+
+        long count = favoriteBookRepository.countByMember_MemberId(memberId);
+
+        assertThat(count).isEqualTo(2L);
+    }
+
     private Long insertMember(String loginId) {
         entityManager.getEntityManager()
                 .createNativeQuery("INSERT INTO member (login_id, password_hash, name, email, birth_date, role, grade_id, point_balance, status, created_at) " +

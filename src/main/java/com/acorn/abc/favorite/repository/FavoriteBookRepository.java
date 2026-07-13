@@ -16,6 +16,9 @@ public interface FavoriteBookRepository extends JpaRepository<FavoriteBook, Long
 
     Optional<FavoriteBook> findByMember_MemberIdAndBook_BookId(Long memberId, Long bookId);
 
+    // 회원용 독서 통계 즐겨찾기 수(구현계획 §4.4 확정) — 현재 상태 기준, 기간 조건 없음.
+    long countByMember_MemberId(Long memberId);
+
     @Query("SELECT fb.book.bookId FROM FavoriteBook fb " +
             "WHERE fb.member.memberId = :memberId AND fb.book.bookId IN :bookIds")
     List<Long> findBookIdsByMemberIdAndBookIdIn(@Param("memberId") Long memberId, @Param("bookIds") List<Long> bookIds);
