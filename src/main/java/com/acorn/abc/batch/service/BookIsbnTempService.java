@@ -77,7 +77,7 @@ public class BookIsbnTempService {
                 meta.aladinCategoryId(), meta.aladinCategoryName(),
                 meta.naver().code(), meta.aladin().code());
 
-        if (meta.title() != null && !meta.title().isBlank()) {
+        if (temp.getBookTitle() != null && !temp.getBookTitle().isBlank()) {
             temp.markReady();
         } else {
             temp.markPending();
