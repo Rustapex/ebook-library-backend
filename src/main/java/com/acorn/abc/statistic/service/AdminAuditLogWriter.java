@@ -3,6 +3,8 @@ package com.acorn.abc.statistic.service;
 import com.acorn.abc.member.domain.Member;
 import com.acorn.abc.member.repository.MemberRepository;
 import com.acorn.abc.statistic.domain.AdminAuditLog;
+import com.acorn.abc.statistic.domain.AdminAuditLogActionType;
+import com.acorn.abc.statistic.domain.AdminAuditLogTargetType;
 import com.acorn.abc.statistic.repository.AdminAuditLogRepository;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -28,7 +30,7 @@ public class AdminAuditLogWriter {
     private final MemberRepository memberRepository;
 
     @Transactional
-    public void record(Long adminMemberId, String actionType, String targetType, Long targetId,
+    public void record(Long adminMemberId, AdminAuditLogActionType actionType, AdminAuditLogTargetType targetType, Long targetId,
                         Object beforeSummary, Object afterSummary) {
         // admin_audit_log.admin_member_id는 스키마상 NULL 허용이라, adminMemberId가 없을 때도 기록은 남긴다.
         Member adminMember = adminMemberId == null ? null : memberRepository.getReferenceById(adminMemberId);

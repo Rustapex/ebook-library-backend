@@ -20,7 +20,10 @@ import java.util.List;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -77,5 +80,9 @@ class UserStatisticControllerTest {
 
         mockMvc.perform(get("/api/v1/me/statistics").param("periodType", "TOTAL"))
                 .andExpect(status().isOk());
+
+        // PR #45 리뷰 반영: 인증 principal(memberId=1L)이 그대로 서비스에 전달되는지 실제로 검증한다
+        // (이전에는 anyLong()으로만 스텁해서 어떤 memberId가 넘어갔는지 확인하지 않았다).
+        verify(userStatisticService).getStatistics(eq(1L), eq("TOTAL"), isNull());
     }
 }

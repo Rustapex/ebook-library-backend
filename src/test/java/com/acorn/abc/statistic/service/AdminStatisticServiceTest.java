@@ -16,7 +16,6 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
@@ -69,11 +68,17 @@ class AdminStatisticServiceTest {
     @Mock
     private ReviewReportRepository reviewReportRepository;
 
-    @InjectMocks
     private AdminStatisticService adminStatisticService;
 
     @BeforeEach
     void setUpDefaultStubs() {
+        // 관리자API+사용자통계 전체잔여작업 §3.1-2: 기간/추이 계산이 공통 컴포넌트로 분리됐다.
+        // 이 컴포넌트들은 순수 계산 로직(외부 의존성 없음)이라 mock 대신 실제 인스턴스를 사용한다.
+        adminStatisticService = new AdminStatisticService(
+                memberRepository, bookRepository, bookRentalRepository, readingProgressRepository,
+                paymentRepository, reviewRepository, bookReportRepository, reviewReportRepository,
+                new StatisticPeriodResolver(), new TrendBucketCalculator());
+
         given(memberRepository.countByAgeBand(any(), any())).willReturn(5L);
         given(memberRepository.countByStatusAndAgeBand(anyString(), any(), any())).willReturn(1L);
         given(bookRepository.countByStatus("AVAILABLE")).willReturn(2L);

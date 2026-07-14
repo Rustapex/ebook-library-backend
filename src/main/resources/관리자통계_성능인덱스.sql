@@ -21,3 +21,15 @@ CREATE INDEX idx_reading_progress_completed_at ON reading_progress (completed_at
 -- status='ACTIVE' + created_at 범위를 함께 조건으로 쓰므로 복합 인덱스를 별도로 추가한다.
 -- (기존 idx_review_status와 중복 여부/교체 필요성은 실제 데이터 규모 기준으로 후속 판단)
 CREATE INDEX idx_review_status_created_at ON review (status, created_at);
+
+-- =====================================================================
+-- 관리자API+사용자통계 전체잔여작업(§3.1-3) 추가분 — 2026-07-14
+-- 관련 계획: docs/작업현황/2026-07-13_관리자API+사용자통계_전체잔여작업_구현계획.md §3.1-3
+--
+-- 회원용 독서 통계(PR #45)의 "읽은 페이지" 지표(§4.2 B1)가 reading_progress.last_read_at
+-- 기간 필터를 쓰는데, 이 컬럼에는 인덱스가 없었다. memberId 조회 경로 자체는 이미
+-- book_rental.member_id(FK 인덱스)로 인덱스가 있어(전체잔여작업 §3.1-3 확인 완료),
+-- 이 인덱스는 그 안에서 last_read_at 범위 조건 성능을 보강하기 위한 것이다.
+-- =====================================================================
+
+CREATE INDEX idx_reading_progress_last_read_at ON reading_progress (last_read_at);
