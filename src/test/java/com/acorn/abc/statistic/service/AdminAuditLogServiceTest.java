@@ -4,6 +4,8 @@ import com.acorn.abc.common.exception.BusinessException;
 import com.acorn.abc.common.exception.ErrorCode;
 import com.acorn.abc.common.response.PageResponse;
 import com.acorn.abc.statistic.domain.AdminAuditLog;
+import com.acorn.abc.statistic.domain.AdminAuditLogActionType;
+import com.acorn.abc.statistic.domain.AdminAuditLogTargetType;
 import com.acorn.abc.statistic.dto.AdminAuditLogSummaryResponse;
 import com.acorn.abc.statistic.repository.AdminAuditLogRepository;
 import org.junit.jupiter.api.Test;
@@ -36,7 +38,11 @@ class AdminAuditLogServiceTest {
     @Test
     void getAuditLogs_필터와_페이지_정보를_그대로_전달하고_PageResponse로_변환한다() {
         AdminAuditLog log = mock(AdminAuditLog.class);
-        given(adminAuditLogRepository.search(eq("BOOK_CREATE"), eq("BOOK"), eq(1L), any()))
+        // AdminAuditLogSummaryResponse.from()이 getActionType()/getTargetType()에 .name()을 호출하므로
+        // (enum 전환 이후) mock도 실제 값을 반환하도록 스텁해야 한다 — 그렇지 않으면 null.name()에서 NPE가 난다.
+        given(log.getActionType()).willReturn(AdminAuditLogActionType.BOOK_CREATE);
+        given(log.getTargetType()).willReturn(AdminAuditLogTargetType.BOOK);
+        given(adminAuditLogRepository.search(eq(AdminAuditLogActionType.BOOK_CREATE), eq(AdminAuditLogTargetType.BOOK), eq(1L), any()))
                 .willReturn(new PageImpl<>(List.of(log), PageRequest.of(0, 10), 1));
 
         PageResponse<AdminAuditLogSummaryResponse> response =

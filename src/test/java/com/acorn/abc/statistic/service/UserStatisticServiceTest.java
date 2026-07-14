@@ -11,7 +11,6 @@ import com.acorn.abc.statistic.dto.UserReadingStatisticResponse;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
@@ -27,6 +26,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.Mockito.verify;
 
 /**
  * 회원용독서통계 구현계획(2026-07-13) §5.3/§5.5 기준 테스트.
@@ -50,11 +50,16 @@ class UserStatisticServiceTest {
     @Mock
     private FavoriteBookRepository favoriteBookRepository;
 
-    @InjectMocks
     private UserStatisticService userStatisticService;
 
     @BeforeEach
     void setUpDefaultStubs() {
+        // 관리자API+사용자통계 전체잔여작업 §3.1-2: 기간/추이 계산이 공통 컴포넌트로 분리됐다.
+        // 이 컴포넌트들은 순수 계산 로직(외부 의존성 없음)이라 mock 대신 실제 인스턴스를 사용한다.
+        userStatisticService = new UserStatisticService(
+                bookRentalRepository, readingProgressRepository, reviewRepository, favoriteBookRepository,
+                new StatisticPeriodResolver(), new TrendBucketCalculator());
+
         given(bookRentalRepository.countByMemberAndPeriod(anyLong(), any(), any())).willReturn(3L);
         given(readingProgressRepository.countCompletedByMemberAndPeriod(anyLong(), any(), any())).willReturn(2L);
         given(readingProgressRepository.sumReadPageCountByMemberAndPeriod(anyLong(), any(), any())).willReturn(150L);
@@ -75,6 +80,10 @@ class UserStatisticServiceTest {
         assertThat(response.favoriteCount()).isEqualTo(4L);
         assertThat(response.readingTrend()).hasSize(12);
         assertThat(response.readingTrend().get(11).label()).isEqualTo("2026-07");
+
+        // PR #45 리뷰 반영: memberId가 repository 호출까지 그대로 전달되는지 확인한다(다른 회원 데이터가
+        // 섞이지 않는다는 계약의 핵심이므로, 어느 하나라도 회귀가 생기면 이 검증이 잡아야 한다).
+        verify(bookRentalRepository).countByMemberAndPeriod(eq(MEMBER_ID), any(), any());
     }
 
     @Test

@@ -25,19 +25,37 @@ public class AdminAuditLogService {
 
     public PageResponse<AdminAuditLogSummaryResponse> getAuditLogs(
             String actionType, String targetType, Long targetId, int page, int size) {
-        // 관리자API후속작업 구현계획 §7 안 B: actionType/targetType이 알려진 상수 목록에 없으면
-        // 조용히 빈 목록을 반환하지 않고 fail-fast한다(통계 API periodType/ageBand와 동일 정책).
-        if (actionType != null && !AdminAuditLogActionType.isValid(actionType)) {
-            throw new BusinessException(ErrorCode.VALIDATION_ERROR);
-        }
-        if (targetType != null && !AdminAuditLogTargetType.isValid(targetType)) {
-            throw new BusinessException(ErrorCode.VALIDATION_ERROR);
-        }
+        // 관리자API+사용자통계 전체잔여작업 구현계획 §3.3 안 A: actionType/targetType을 enum으로 파싱한다.
+        // 알려진 값 목록에 없으면 조용히 빈 목록을 반환하지 않고 fail-fast한다(통계 API periodType/ageBand와 동일 정책).
+        AdminAuditLogActionType actionTypeEnum = parseActionType(actionType);
+        AdminAuditLogTargetType targetTypeEnum = parseTargetType(targetType);
 
         int normalizedSize = Math.min(size, MAX_SIZE);
         Page<AdminAuditLogSummaryResponse> result = adminAuditLogRepository
-                .search(actionType, targetType, targetId, PageRequest.of(page, normalizedSize))
+                .search(actionTypeEnum, targetTypeEnum, targetId, PageRequest.of(page, normalizedSize))
                 .map(AdminAuditLogSummaryResponse::from);
         return PageResponse.of(result.getContent(), page, normalizedSize, result.getTotalElements());
+    }
+
+    private AdminAuditLogActionType parseActionType(String actionType) {
+        if (actionType == null) {
+            return null;
+        }
+        try {
+            return AdminAuditLogActionType.valueOf(actionType);
+        } catch (IllegalArgumentException e) {
+            throw new BusinessException(ErrorCode.VALIDATION_ERROR);
+        }
+    }
+
+    private AdminAuditLogTargetType parseTargetType(String targetType) {
+        if (targetType == null) {
+            return null;
+        }
+        try {
+            return AdminAuditLogTargetType.valueOf(targetType);
+        } catch (IllegalArgumentException e) {
+            throw new BusinessException(ErrorCode.VALIDATION_ERROR);
+        }
     }
 }

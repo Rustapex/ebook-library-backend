@@ -1,6 +1,8 @@
 package com.acorn.abc.statistic.repository;
 
 import com.acorn.abc.statistic.domain.AdminAuditLog;
+import com.acorn.abc.statistic.domain.AdminAuditLogActionType;
+import com.acorn.abc.statistic.domain.AdminAuditLogTargetType;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -18,8 +20,8 @@ public interface AdminAuditLogRepository extends JpaRepository<AdminAuditLog, Lo
             "WHERE (:actionType IS NULL OR a.actionType = :actionType) " +
             "AND (:targetType IS NULL OR a.targetType = :targetType) " +
             "AND (:targetId IS NULL OR a.targetId = :targetId)")
-    Page<AdminAuditLog> search(@Param("actionType") String actionType,
-                                @Param("targetType") String targetType,
+    Page<AdminAuditLog> search(@Param("actionType") AdminAuditLogActionType actionType,
+                                @Param("targetType") AdminAuditLogTargetType targetType,
                                 @Param("targetId") Long targetId,
                                 Pageable pageable);
 }
