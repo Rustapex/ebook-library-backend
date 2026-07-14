@@ -1,5 +1,7 @@
 package com.acorn.abc.statistic.service;
 
+import com.acorn.abc.common.exception.BusinessException;
+import com.acorn.abc.common.exception.ErrorCode;
 import org.springframework.stereotype.Component;
 
 import java.time.DayOfWeek;
@@ -23,6 +25,7 @@ public class TrendBucketCalculator {
     private static final String PERIOD_TYPE_WEEKLY = "WEEKLY";
     private static final String PERIOD_TYPE_MONTHLY = "MONTHLY";
     private static final String PERIOD_TYPE_YEARLY = "YEARLY";
+    private static final String PERIOD_TYPE_TOTAL = "TOTAL";
     private static final int TOTAL_TREND_MONTH_COUNT = 12;
 
     // WEEKLY/MONTHLY는 일별 bucket, YEARLY/TOTAL은 월별 bucket이다(resolveBuckets와 동일 기준).
@@ -57,13 +60,18 @@ public class TrendBucketCalculator {
             }
             return buckets;
         }
-        // TOTAL: 최근 12개월 월별(baseDate가 속한 달 포함)
-        YearMonth endMonth = YearMonth.from(baseDate);
-        List<TrendBucket> buckets = new ArrayList<>();
-        for (int i = TOTAL_TREND_MONTH_COUNT - 1; i >= 0; i--) {
-            buckets.add(monthlyBucket(endMonth.minusMonths(i)));
+        if (PERIOD_TYPE_TOTAL.equals(periodType)) {
+            // TOTAL: 최근 12개월 월별(baseDate가 속한 달 포함)
+            YearMonth endMonth = YearMonth.from(baseDate);
+            List<TrendBucket> buckets = new ArrayList<>();
+            for (int i = TOTAL_TREND_MONTH_COUNT - 1; i >= 0; i--) {
+                buckets.add(monthlyBucket(endMonth.minusMonths(i)));
+            }
+            return buckets;
         }
-        return buckets;
+        // StatisticPeriodResolver.resolvePeriodRange()와 동일하게, 재사용/직접 호출 경로에서도
+        // 잘못된 periodType이 조용히 TOTAL로 처리되지 않도록 여기서도 fail-fast한다(PR #46 리뷰 반영).
+        throw new BusinessException(ErrorCode.VALIDATION_ERROR);
     }
 
     // GROUP BY 쿼리 결과(List<T>)를 bucket label(일별: yyyy-MM-dd, 월별: yyyy-MM) 기준 Map으로 변환한다.

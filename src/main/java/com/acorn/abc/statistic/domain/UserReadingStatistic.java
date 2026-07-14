@@ -17,6 +17,12 @@ import lombok.NoArgsConstructor;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 
+/**
+ * 현재 미사용(dormant/legacy 후보) 엔티티다. API-STAT-001(GET /api/v1/me/statistics)은
+ * 이 테이블 대신 book_rental/reading_progress/review/favorite_book을 실시간 집계한다
+ * (회원용독서통계 구현계획 §4.1 확정, PR #46 리뷰 반영). 배치/스냅샷 통계가 필요해지면
+ * 재활성화 또는 제거 여부를 별도로 검토한다.
+ */
 @Entity
 @Table(name = "user_reading_statistic")
 @Getter
