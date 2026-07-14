@@ -64,6 +64,22 @@ class MemberCouponRepositoryTest {
         assertThat(usedCount).isEqualTo(1);
     }
 
+    // 마이페이지 사용 가능 쿠폰 수(PR #48 코드리뷰 대응 §3.2) — ISSUED이고 만료되지 않은 쿠폰만 집계.
+    @Test
+    void countUsableByMember_ISSUED이고_만료되지_않은_쿠폰만_집계한다() {
+        Long usableMemberId = insertMember("coupon_usable_user");
+        Long usableCouponId = insertCoupon("사용가능 쿠폰", "PERCENT_DISCOUNT", 10, "PERCENT", 14, "ACTIVE");
+        insertMemberCouponWithExpiry(usableMemberId, usableCouponId, "ISSUED", LocalDateTime.now().plusDays(1));
+        insertMemberCouponWithExpiry(usableMemberId, usableCouponId, "ISSUED", LocalDateTime.now().minusDays(1));
+        insertMemberCouponWithExpiry(usableMemberId, usableCouponId, "USED", LocalDateTime.now().plusDays(1));
+        entityManager.flush();
+        entityManager.clear();
+
+        long count = memberCouponRepository.countUsableByMember(usableMemberId, "ISSUED", LocalDateTime.now());
+
+        assertThat(count).isEqualTo(1L);
+    }
+
     @Test
     void findByMemberId_EntityGraph로_coupon을_함께_조회한다() {
         entityManager.clear();
@@ -112,6 +128,18 @@ class MemberCouponRepositoryTest {
                 .setParameter(3, status)
                 .setParameter(4, now)
                 .setParameter(5, now.plusDays(14))
+                .executeUpdate();
+    }
+
+    private void insertMemberCouponWithExpiry(Long memberId, Long couponId, String status, LocalDateTime expiresAt) {
+        entityManager.getEntityManager()
+                .createNativeQuery("INSERT INTO member_coupon (member_id, coupon_id, coupon_status, issued_at, expires_at) VALUES (?, ?, ?, ?, ?)")
+                .unwrap(org.hibernate.query.NativeQuery.class)
+                .setParameter(1, memberId)
+                .setParameter(2, couponId)
+                .setParameter(3, status)
+                .setParameter(4, LocalDateTime.now())
+                .setParameter(5, expiresAt)
                 .executeUpdate();
     }
 

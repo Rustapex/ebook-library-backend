@@ -163,6 +163,14 @@ class BookRentalRepositoryTest {
         assertThat(count).isEqualTo(3L);
     }
 
+    // 마이페이지 전체 대여 수(PR #48 코드리뷰 대응 §3.2) — setUp()에서 만든 memberId(이 테스트 전용) 기준.
+    @Test
+    void countByMember_MemberId_해당_회원의_전체_대여_수를_반환한다() {
+        long count = bookRentalRepository.countByMember_MemberId(memberId);
+
+        assertThat(count).isEqualTo(3L);
+    }
+
     private Long insertMember(String loginId, LocalDate birthDate) {
         entityManager.getEntityManager()
                 .createNativeQuery("INSERT INTO member (login_id, password_hash, name, email, birth_date, role, grade_id, point_balance, status, created_at) " +

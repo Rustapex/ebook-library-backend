@@ -100,6 +100,29 @@ class PaymentRepositoryTest {
         assertThat(january.getBucketAmount()).isGreaterThanOrEqualTo(3000L);
     }
 
+    // 마이페이지 등급 달성률(PR #48 코드리뷰 대응 §3.3) — 회원 ID + 산정 시작일 기준 PAID 합계.
+    @Test
+    void sumAmountByMemberAndStatusSince_산정_시작일_이후_해당_회원의_PAID_금액만_합산한다() {
+        Long gradeMemberId = insertMember("payment_grade_user", LocalDate.of(2000, 1, 1));
+        Long gradeRentalId = insertRental(gradeMemberId, insertBook());
+        LocalDateTime startAt = LocalDateTime.of(2026, 5, 1, 0, 0);
+
+        insertPayment(gradeMemberId, gradeRentalId, 5000, startAt.minusDays(1));
+        insertPayment(gradeMemberId, gradeRentalId, 7000, startAt);
+        insertPayment(gradeMemberId, gradeRentalId, 3000, startAt.plusDays(10));
+
+        Long otherMemberId = insertMember("payment_grade_other", LocalDate.of(2000, 1, 1));
+        Long otherRentalId = insertRental(otherMemberId, insertBook());
+        insertPayment(otherMemberId, otherRentalId, 9000, startAt.plusDays(1));
+
+        entityManager.flush();
+        entityManager.clear();
+
+        long sum = paymentRepository.sumAmountByMemberAndStatusSince(gradeMemberId, "PAID", startAt);
+
+        assertThat(sum).isEqualTo(10000L);
+    }
+
     private Long insertMember(String loginId, LocalDate birthDate) {
         entityManager.getEntityManager()
                 .createNativeQuery("INSERT INTO member (login_id, password_hash, name, email, birth_date, role, grade_id, point_balance, status, created_at) " +

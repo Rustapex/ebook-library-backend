@@ -6,6 +6,7 @@ import com.acorn.abc.member.dto.MeInfoResponse;
 import com.acorn.abc.member.dto.MemberUpdateRequest;
 import com.acorn.abc.member.dto.PasswordChangeRequest;
 import com.acorn.abc.member.dto.PasswordChangeResponse;
+import com.acorn.abc.member.service.MeInfoService;
 import com.acorn.abc.member.service.MemberService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -26,12 +27,13 @@ import org.springframework.web.bind.annotation.RestController;
 public class MeController {
 
     private final MemberService memberService;
+    private final MeInfoService meInfoService;
 
-    @Operation(summary = "내 정보 조회", description = "로그인한 회원의 기본 정보를 조회합니다.")
+    @Operation(summary = "내 정보 조회", description = "로그인한 회원의 기본 정보와 마이페이지 요약을 조회합니다.")
     @GetMapping
     public ResponseEntity<ApiResponse<MeInfoResponse>> getMe(
             @AuthenticationPrincipal CustomUserDetails userDetails) {
-        return ResponseEntity.ok(ApiResponse.ok(memberService.getMe(userDetails.getMemberId())));
+        return ResponseEntity.ok(ApiResponse.ok(meInfoService.getMe(userDetails.getMemberId())));
     }
 
     @Operation(summary = "내 정보 수정", description = "로그인한 회원의 이름/이메일/전화번호/성별을 수정합니다.")

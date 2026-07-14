@@ -13,9 +13,18 @@ public record MeInfoResponse(
         LocalDate birthDate,
         String gender,
         String role,
-        String status
+        String status,
+        MemberGradeSummaryResponse grade,
+        int pointBalance,
+        long couponCount,
+        long rentalCount,
+        long completedBookCount,
+        long favoriteCount,
+        long unreadNotificationCount
 ) {
-    public static MeInfoResponse from(Member member) {
+    public static MeInfoResponse of(Member member, MemberGradeSummaryResponse grade, long couponCount,
+                                     long rentalCount, long completedBookCount, long favoriteCount,
+                                     long unreadNotificationCount) {
         return new MeInfoResponse(
                 member.getMemberId(),
                 member.getLoginId(),
@@ -25,7 +34,14 @@ public record MeInfoResponse(
                 member.getBirthDate(),
                 member.getGender(),
                 member.getRole(),
-                member.getStatus()
+                member.getStatus(),
+                grade,
+                member.getPointBalance(),
+                couponCount,
+                rentalCount,
+                completedBookCount,
+                favoriteCount,
+                unreadNotificationCount
         );
     }
 }
