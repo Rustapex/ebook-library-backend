@@ -19,6 +19,8 @@ public interface MemberRepository extends JpaRepository<Member, Long> {
 
     boolean existsByEmail(String email);
 
+    boolean existsByEmailAndMemberIdNot(String email, Long memberId);
+
     long countByStatus(String status);
 
     // birthDateFrom(초과)/birthDateTo(이하) 둘 다 null이면 나이대 필터 없음(관리자 통계 §3.2 나이대 계산 기준)
