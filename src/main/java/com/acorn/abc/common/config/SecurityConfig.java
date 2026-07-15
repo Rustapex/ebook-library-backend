@@ -58,6 +58,7 @@ public class SecurityConfig {
                         ).permitAll()
                         // 도서/카테고리/컬렉션/리뷰/공지 공개 API (GET)
                         .requestMatchers(HttpMethod.GET,
+                                "/api/v1/auth/check-login-id",
                                 "/api/v1/books",
                                 "/api/v1/books/search",
                                 "/api/v1/books/recommendations",

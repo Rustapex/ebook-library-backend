@@ -1,5 +1,6 @@
 package com.acorn.abc.auth.service;
 
+import com.acorn.abc.auth.dto.CheckLoginIdResponse;
 import com.acorn.abc.auth.dto.FindIdRequest;
 import com.acorn.abc.auth.dto.FindIdResponse;
 import com.acorn.abc.auth.dto.LoginRequest;
@@ -83,5 +84,13 @@ public class AuthService {
         return memberRepository.findByNameAndEmail(request.name(), request.email())
                 .map(member -> FindIdResponse.found(member.getLoginId(), member.getCreatedAt()))
                 .orElseGet(FindIdResponse::notFound);
+    }
+
+    // 중복 확인은 아이디를 예약하지 않는다 — 실제 회원가입의 UNIQUE 제약과 signup()의
+    // existsByLoginId 검증이 최종 기준이다(로그인아이디 중복확인 API 구현계획 §2.3, §10).
+    @Transactional(readOnly = true)
+    public CheckLoginIdResponse checkLoginId(String loginId) {
+        boolean exists = memberRepository.existsByLoginId(loginId);
+        return new CheckLoginIdResponse(loginId, !exists);
     }
 }
