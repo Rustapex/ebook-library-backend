@@ -16,9 +16,11 @@ import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
+import static org.hamcrest.Matchers.containsString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -56,6 +58,22 @@ class AuthSecurityIntegrationTest {
         mockMvc.perform(get("/api/v1/auth/check-login-id").param("loginId", "가나다"))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"));
+    }
+
+    // PR49 코드리뷰 후속수정계획 §7.2-7: 응답에 Cache-Control: no-store가 실제로 포함되는지 확인한다.
+    // Spring Security의 기본 HeaderWriterFilter가 permitAll 여부와 무관하게 모든 응답에 붙이므로
+    // 별도 보완 코드는 필요 없다(직접 확인 완료 — 정상/실패 응답 모두 no-cache, no-store 포함).
+    @Test
+    void checkLoginId_응답에_Cache_Control_no_store가_포함된다() throws Exception {
+        given(authService.checkLoginId(eq("newmember1"))).willReturn(new CheckLoginIdResponse("newmember1", true));
+
+        mockMvc.perform(get("/api/v1/auth/check-login-id").param("loginId", "newmember1"))
+                .andExpect(status().isOk())
+                .andExpect(header().string("Cache-Control", containsString("no-store")));
+
+        mockMvc.perform(get("/api/v1/auth/check-login-id").param("loginId", "가나다"))
+                .andExpect(status().isBadRequest())
+                .andExpect(header().string("Cache-Control", containsString("no-store")));
     }
 
     @TestConfiguration

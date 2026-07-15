@@ -1,5 +1,6 @@
 package com.acorn.abc.auth.dto;
 
+import com.acorn.abc.auth.validation.ValidLoginId;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -11,9 +12,9 @@ import java.time.LocalDate;
 
 public record SignupRequest(
 
-        @NotBlank(message = "아이디는 필수입니다.")
-        @Size(min = 5, max = 20, message = "아이디는 5~20자로 입력해주세요.")
-        @Pattern(regexp = "^[a-zA-Z0-9]+$", message = "아이디는 영문과 숫자만 사용할 수 있습니다.")
+        // 로그인 아이디 중복확인(CheckLoginIdRequest)과 동일한 @ValidLoginId 검증 계약을 공유한다
+        // (PR49 코드리뷰 후속수정계획 §4 — 회원가입/중복확인 판정 불일치 방지).
+        @ValidLoginId
         String loginId,
 
         @NotBlank(message = "비밀번호는 필수입니다.")
