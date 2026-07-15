@@ -1,5 +1,7 @@
 package com.acorn.abc.auth.controller;
 
+import com.acorn.abc.auth.dto.CheckLoginIdRequest;
+import com.acorn.abc.auth.dto.CheckLoginIdResponse;
 import com.acorn.abc.auth.dto.FindIdRequest;
 import com.acorn.abc.auth.dto.FindIdResponse;
 import com.acorn.abc.auth.dto.LoginRequest;
@@ -14,6 +16,8 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -45,6 +49,14 @@ public class AuthController {
     @PostMapping("/find-id")
     public ResponseEntity<ApiResponse<FindIdResponse>> findId(@Valid @RequestBody FindIdRequest request) {
         FindIdResponse response = authService.findId(request);
+        return ResponseEntity.ok(ApiResponse.ok(response));
+    }
+
+    @Operation(summary = "로그인 아이디 중복 확인", description = "회원가입 전 로그인 아이디의 형식과 중복 여부를 확인합니다.")
+    @GetMapping("/check-login-id")
+    public ResponseEntity<ApiResponse<CheckLoginIdResponse>> checkLoginId(
+            @Valid @ModelAttribute CheckLoginIdRequest request) {
+        CheckLoginIdResponse response = authService.checkLoginId(request.loginId());
         return ResponseEntity.ok(ApiResponse.ok(response));
     }
 }
