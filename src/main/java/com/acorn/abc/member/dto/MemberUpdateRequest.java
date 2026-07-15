@@ -4,13 +4,17 @@ import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 
+// null은 "변경 안 함"으로 허용하되, 공백만 있는 문자열은 field 오류로 거부한다(회원정보수정 보완계획 §5.2).
+@ValidMemberUpdateRequest
 public record MemberUpdateRequest(
 
         @Size(max = 50, message = "이름은 50자 이하로 입력해주세요.")
+        @Pattern(regexp = ".*\\S.*", message = "이름은 공백일 수 없습니다.")
         String name,
 
         @Email(message = "이메일 형식이 올바르지 않습니다.")
         @Size(max = 255, message = "이메일은 255자 이하로 입력해주세요.")
+        @Pattern(regexp = ".*\\S.*", message = "이메일은 공백일 수 없습니다.")
         String email,
 
         @Size(max = 20, message = "전화번호는 20자 이하로 입력해주세요.")

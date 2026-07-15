@@ -13,8 +13,11 @@ import static org.assertj.core.api.Assertions.assertThat;
 /**
  * 마이페이지 등급 달성률(PR #48 코드리뷰 대응 §3.3) — findByGradeLevel 검증.
  * member_grade는 data.sql로 고정 시드(grade_id 1~4, grade_level 1~4, grade_id 2의 min_payment_amount=20000)되는
- * 참조 데이터라 절대값으로 검증한다. grade_name(한글) 비교는 이 로컬 환경의 data.sql 로딩 인코딩(mojibake) 이슈로
- * 제외하고 인코딩 영향이 없는 grade_id/min_payment_amount만 검증한다.
+ * 참조 데이터라 절대값으로 검증한다.
+ * grade_name(한글) 비교는 회원정보수정 보완계획(2026-07-15) §6.3 대상이다 — spring.sql.init.encoding
+ * 미지정으로 data.sql의 한글 리터럴이 깨져 저장되는 mojibake가 있었고, spring.sql.init.encoding=UTF-8
+ * 추가로 다음 부팅부터 ON DUPLICATE KEY UPDATE가 정상 값으로 덮어쓴다. 이 테스트가 실패하면 인코딩
+ * 설정이 아직 적용되지 않았거나 이 DB가 spring.sql.init.mode=always로 재기동되지 않은 것이다.
  */
 @DataJpaTest
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
@@ -31,6 +34,15 @@ class MemberGradeRepositoryTest {
         assertThat(nextGrade.get().getGradeId()).isEqualTo(2L);
         assertThat(nextGrade.get().getGradeLevel()).isEqualTo(2);
         assertThat(nextGrade.get().getMinPaymentAmount()).isEqualTo(20000);
+        assertThat(nextGrade.get().getGradeName()).isEqualTo("새싹");
+    }
+
+    @Test
+    void findByGradeLevel_기본_등급_씨앗을_정상_한글로_조회한다() {
+        Optional<MemberGrade> baseGrade = memberGradeRepository.findByGradeLevel(1);
+
+        assertThat(baseGrade).isPresent();
+        assertThat(baseGrade.get().getGradeName()).isEqualTo("씨앗");
     }
 
     @Test

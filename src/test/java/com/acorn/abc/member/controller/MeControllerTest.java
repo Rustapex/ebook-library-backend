@@ -146,6 +146,77 @@ class MeControllerTest {
                 .andExpect(jsonPath("$.errors[0].field").value("phone"));
     }
 
+    // 회원정보수정 보완계획 §6.1: 본문 누락은 Swagger UI가 아니라 Postman 등 실제 HTTP
+    // 클라이언트로만 재현 가능하므로, 여기서는 .content() 자체를 생략해 같은 상황을 만든다.
+    @Test
+    void updateMe_요청_본문이_없으면_400과_VALIDATION_ERROR를_반환한다() throws Exception {
+        mockMvc.perform(patch("/api/v1/me").contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"));
+    }
+
+    @Test
+    void updateMe_빈_JSON이면_400과_VALIDATION_ERROR를_반환한다() throws Exception {
+        mockMvc.perform(patch("/api/v1/me")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"));
+    }
+
+    @Test
+    void updateMe_name이_공백만_있으면_400과_errors에_name이_포함된다() throws Exception {
+        mockMvc.perform(patch("/api/v1/me")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"name\":\"   \"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"))
+                .andExpect(jsonPath("$.errors[0].field").value("name"));
+    }
+
+    @Test
+    void updateMe_email이_공백만_있으면_400과_errors에_email이_포함된다() throws Exception {
+        mockMvc.perform(patch("/api/v1/me")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"email\":\"   \"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"))
+                .andExpect(jsonPath("$.errors[0].field").value("email"));
+    }
+
+    @Test
+    void updateMe_phone이_빈문자열이면_200을_반환한다() throws Exception {
+        when(memberService.updateMyInfo(eq(MEMBER_ID), any())).thenReturn(fullInfoResponse());
+
+        mockMvc.perform(patch("/api/v1/me")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"phone\":\"\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true));
+    }
+
+    @Test
+    void updateMe_gender가_빈문자열이면_400과_VALIDATION_ERROR를_반환한다() throws Exception {
+        mockMvc.perform(patch("/api/v1/me")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"gender\":\"\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"));
+    }
+
+    @Test
+    void updateMe_gender가_NONE이면_200을_반환한다() throws Exception {
+        when(memberService.updateMyInfo(eq(MEMBER_ID), any())).thenReturn(fullInfoResponse());
+
+        mockMvc.perform(patch("/api/v1/me")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"gender\":\"NONE\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true));
+    }
+
     @Test
     void updateMe_이메일이_중복이면_409와_MEMBER_EMAIL_DUPLICATED를_반환한다() throws Exception {
         when(memberService.updateMyInfo(eq(MEMBER_ID), any()))
