@@ -8,6 +8,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.time.LocalDateTime;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
@@ -21,6 +22,13 @@ public interface MemberCouponRepository extends JpaRepository<MemberCoupon, Long
 
     @EntityGraph(attributePaths = "coupon")
     Page<MemberCoupon> findByMember_MemberIdAndCouponStatus(Long memberId, String couponStatus, Pageable pageable);
+
+    // 마이페이지 사용 가능 쿠폰 수(PR #48 코드리뷰 대응 §3.2) — 상태 ISSUED이고 아직 만료되지 않은 쿠폰만 집계.
+    @Query("SELECT COUNT(mc) FROM MemberCoupon mc WHERE mc.member.memberId = :memberId " +
+            "AND mc.couponStatus = :couponStatus AND mc.expiresAt > :now")
+    long countUsableByMember(@Param("memberId") Long memberId,
+                              @Param("couponStatus") String couponStatus,
+                              @Param("now") LocalDateTime now);
 
     long countByCoupon_CouponId(Long couponId);
 

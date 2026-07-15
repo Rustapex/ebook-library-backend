@@ -4,6 +4,7 @@ import com.acorn.abc.common.response.ErrorResponse;
 import jakarta.validation.ConstraintViolationException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -44,6 +45,15 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(ConstraintViolationException.class)
     public ResponseEntity<ErrorResponse> handleConstraintViolationException(ConstraintViolationException e) {
+        return ResponseEntity.badRequest()
+                .body(ErrorResponse.of(ErrorCode.VALIDATION_ERROR));
+    }
+
+    // 요청 본문이 없거나 JSON을 읽을 수 없는 경우(회원정보 수정 빈 본문 등)를 500이 아니라
+    // 기존 검증 실패와 동일한 400 공통 JSON으로 응답한다(회원정보수정 보완계획 §5.1).
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    public ResponseEntity<ErrorResponse> handleHttpMessageNotReadableException(HttpMessageNotReadableException e) {
+        log.debug("요청 본문을 읽을 수 없습니다.", e);
         return ResponseEntity.badRequest()
                 .body(ErrorResponse.of(ErrorCode.VALIDATION_ERROR));
     }

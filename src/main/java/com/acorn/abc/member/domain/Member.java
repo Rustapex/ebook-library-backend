@@ -104,6 +104,13 @@ public class Member extends BaseEntity {
         this.passwordHash = newPasswordHash;
     }
 
+    public void updateProfile(String name, String email, String phone, String gender) {
+        this.name = name;
+        this.email = email;
+        this.phone = phone;
+        this.gender = gender;
+    }
+
     public void applyPointChange(int amount) {
         this.pointBalance += amount;
     }

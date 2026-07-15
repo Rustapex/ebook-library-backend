@@ -16,6 +16,13 @@ public interface PaymentRepository extends JpaRepository<Payment, Long> {
     @Query("SELECT COALESCE(SUM(p.amount), 0) FROM Payment p WHERE p.paymentStatus = :paymentStatus")
     long sumAmountByPaymentStatus(@Param("paymentStatus") String paymentStatus);
 
+    // 마이페이지 등급 달성률(PR #48 코드리뷰 대응 §3.3) — 회원의 등급 산정 시작일 이후 PAID 결제액 합계.
+    @Query("SELECT COALESCE(SUM(p.amount), 0) FROM Payment p WHERE p.member.memberId = :memberId " +
+            "AND p.paymentStatus = :paymentStatus AND p.paidAt >= :from")
+    long sumAmountByMemberAndStatusSince(@Param("memberId") Long memberId,
+                                          @Param("paymentStatus") String paymentStatus,
+                                          @Param("from") LocalDateTime from);
+
     // 관리자 통계 결제 기간/나이대 조건부 집계(관리자 통계 확장 §3.1~§3.3)
     @Query("SELECT COALESCE(SUM(p.amount), 0) FROM Payment p WHERE p.paymentStatus = :paymentStatus " +
             "AND (:from IS NULL OR p.paidAt >= :from) AND (:to IS NULL OR p.paidAt < :to) " +

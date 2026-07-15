@@ -71,6 +71,18 @@ class MemberRepositoryTest {
         assertThat(count).isEqualTo(baselineSanctionedAgeBandCount + 1);
     }
 
+    @Test
+    void existsByEmailAndMemberIdNot_자신을_제외한_회원의_이메일_중복만_확인한다() {
+        Long ownerId = memberRepository.findByLoginId("age_boundary_1").orElseThrow().getMemberId();
+        String ownerEmail = "age_boundary_1@test.com";
+
+        boolean excludingSelf = memberRepository.existsByEmailAndMemberIdNot(ownerEmail, ownerId);
+        boolean excludingOther = memberRepository.existsByEmailAndMemberIdNot(ownerEmail, ownerId + 1_000_000L);
+
+        assertThat(excludingSelf).isFalse();
+        assertThat(excludingOther).isTrue();
+    }
+
     private void insertMember(String loginId, LocalDate birthDate, String status) {
         entityManager.getEntityManager()
                 .createNativeQuery("INSERT INTO member (login_id, password_hash, name, email, birth_date, role, grade_id, point_balance, status, created_at) " +
