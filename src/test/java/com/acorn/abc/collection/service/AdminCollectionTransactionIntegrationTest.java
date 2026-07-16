@@ -15,6 +15,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
 
@@ -93,14 +94,22 @@ class AdminCollectionTransactionIntegrationTest {
         AdminCollectionSaveRequest request = new AdminCollectionSaveRequest(
                 NAME_PREFIX + "수정됨_" + UUID.randomUUID(), "SERIES", null, null, null, null, "HIDDEN");
 
-        adminCollectionService.updateAdminCollection(collectionId, request, null);
+        AdminCollectionSaveResponse response = adminCollectionService.updateAdminCollection(collectionId, request, null);
 
         String persistedStatus = jdbcTemplate.queryForObject(
                 "SELECT status FROM collection WHERE collection_id = ?", String.class, collectionId);
+        LocalDateTime persistedUpdatedAt = jdbcTemplate.queryForObject(
+                "SELECT updated_at FROM collection WHERE collection_id = ?",
+                (resultSet, rowNum) -> resultSet.getObject(1, LocalDateTime.class), collectionId);
         Long auditCount = jdbcTemplate.queryForObject(
                 "SELECT COUNT(*) FROM admin_audit_log WHERE action_type = 'COLLECTION_UPDATE' AND target_id = ?",
                 Long.class, collectionId);
         assertThat(persistedStatus).isEqualTo("HIDDEN");
+        assertThat(response.updatedAt()).isNotNull();
+        assertThat(persistedUpdatedAt).isNotNull();
+        assertThat(response.updatedAt())
+                .isAfterOrEqualTo(persistedUpdatedAt.minusSeconds(1))
+                .isBeforeOrEqualTo(persistedUpdatedAt.plusSeconds(1));
         assertThat(auditCount).isEqualTo(1L);
     }
 

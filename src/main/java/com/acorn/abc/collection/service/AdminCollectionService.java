@@ -138,6 +138,7 @@ public class AdminCollectionService {
         adminAuditLogWriter.record(adminMemberId, AdminAuditLogActionType.COLLECTION_UPDATE,
                 AdminAuditLogTargetType.COLLECTION, collectionId, beforeSummary, summaryOf(collection, mappedCount));
 
+        collectionRepository.flush();
         return new AdminCollectionSaveResponse(collection.getCollectionId(), collection.getStatus(),
                 collection.getCreatedAt(), collection.getUpdatedAt());
     }
