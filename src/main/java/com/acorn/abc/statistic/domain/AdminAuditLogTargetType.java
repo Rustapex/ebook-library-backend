@@ -11,6 +11,9 @@ public enum AdminAuditLogTargetType {
     BOOK,
     CHALLENGE,
 
+    // 관리자 컬렉션 API 구현계획(2026-07-16) D-11 확정.
+    COLLECTION,
+
     // 아직 이 target에 쓰는 관리자 변경 API가 없는 항목(§9 후속 작업 대상).
     BOOK_REPORT,
     REVIEW_REPORT,
