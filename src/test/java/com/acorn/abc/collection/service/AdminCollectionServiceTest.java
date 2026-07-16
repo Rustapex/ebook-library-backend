@@ -301,6 +301,41 @@ class AdminCollectionServiceTest {
                 .isEqualTo(ErrorCode.VALIDATION_ERROR);
     }
 
+    // PR50 코드리뷰 MEDIUM 반영 — Controller의 @Valid를 우회하는 직접 서비스 호출도 방어한다.
+    @Test
+    void patchCollection_removeBookIds에_null_원소가_있으면_VALIDATION_ERROR를_던진다() {
+        AdminCollectionService adminCollectionService = newService();
+        AdminCollectionPatchRequest request = new AdminCollectionPatchRequest(null, java.util.Arrays.asList(10L, null));
+
+        assertThatThrownBy(() -> adminCollectionService.patchCollection(1L, request, 1L))
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(ErrorCode.VALIDATION_ERROR);
+        verify(collectionRepository, never()).findByIdForUpdate(anyLong());
+    }
+
+    @Test
+    void patchCollection_removeBookIds에_0이_있으면_VALIDATION_ERROR를_던진다() {
+        AdminCollectionService adminCollectionService = newService();
+        AdminCollectionPatchRequest request = new AdminCollectionPatchRequest(null, List.of(0L));
+
+        assertThatThrownBy(() -> adminCollectionService.patchCollection(1L, request, 1L))
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(ErrorCode.VALIDATION_ERROR);
+    }
+
+    @Test
+    void patchCollection_removeBookIds에_음수가_있으면_VALIDATION_ERROR를_던진다() {
+        AdminCollectionService adminCollectionService = newService();
+        AdminCollectionPatchRequest request = new AdminCollectionPatchRequest(null, List.of(-1L));
+
+        assertThatThrownBy(() -> adminCollectionService.patchCollection(1L, request, 1L))
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(ErrorCode.VALIDATION_ERROR);
+    }
+
     @Test
     void patchCollection_status만_변경해도_성공한다() {
         AdminCollectionService adminCollectionService = newService();

@@ -206,6 +206,40 @@ class AdminCollectionControllerTest {
                 .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"));
     }
 
+    // PR50 코드리뷰 MEDIUM 반영 — removeBookIds 원소 검증.
+    @Test
+    void patchCollection_removeBookIds에_null이_있으면_400을_반환한다() throws Exception {
+        mockMvc.perform(patch("/api/v1/admin/collections/1")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"removeBookIds\":[null]}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"));
+
+        verify(adminCollectionService, never()).patchCollection(anyLong(), any(), anyLong());
+    }
+
+    @Test
+    void patchCollection_removeBookIds에_0이_있으면_400을_반환한다() throws Exception {
+        mockMvc.perform(patch("/api/v1/admin/collections/1")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"removeBookIds\":[0]}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"));
+
+        verify(adminCollectionService, never()).patchCollection(anyLong(), any(), anyLong());
+    }
+
+    @Test
+    void patchCollection_removeBookIds에_음수가_있으면_400을_반환한다() throws Exception {
+        mockMvc.perform(patch("/api/v1/admin/collections/1")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"removeBookIds\":[-1]}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"));
+
+        verify(adminCollectionService, never()).patchCollection(anyLong(), any(), anyLong());
+    }
+
     @Test
     void patchCollection_status만_있어도_200을_반환한다() throws Exception {
         when(adminCollectionService.patchCollection(eq(1L), any(), eq(ADMIN_MEMBER_ID)))

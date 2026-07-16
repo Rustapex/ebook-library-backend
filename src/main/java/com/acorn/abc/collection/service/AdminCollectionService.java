@@ -94,6 +94,10 @@ public class AdminCollectionService {
         return AdminCollectionDetailResponse.of(collection, books);
     }
 
+    // PR50 코드리뷰 HIGH-1 반영: 쓰기 메서드 4개 각각에 명시적 @Transactional을 붙인다.
+    // 이게 없으면 findByIdForUpdate()의 PESSIMISTIC_WRITE lock이 그 호출 자체의 짧은 트랜잭션에서만
+    // 유효하고, 이후 엔티티 변경(dirty checking)이 커밋되지 않거나 lock이 즉시 풀릴 수 있다.
+    @Transactional
     public AdminCollectionSaveResponse createAdminCollection(AdminCollectionSaveRequest request, Long adminMemberId) {
         String name = validateAndTrimName(request.name());
         validateFieldsByType(request.collectionType(), request.discountRate(), request.startDate(), request.endDate());
@@ -110,6 +114,7 @@ public class AdminCollectionService {
                 collection.getCreatedAt(), collection.getUpdatedAt());
     }
 
+    @Transactional
     public AdminCollectionSaveResponse updateAdminCollection(
             Long collectionId, AdminCollectionSaveRequest request, Long adminMemberId) {
         Collection collection = collectionRepository.findByIdForUpdate(collectionId)
@@ -137,6 +142,7 @@ public class AdminCollectionService {
                 collection.getCreatedAt(), collection.getUpdatedAt());
     }
 
+    @Transactional
     public AdminCollectionBooksUpdateResponse upsertCollectionBooks(
             Long collectionId, AdminCollectionBooksUpdateRequest request, Long adminMemberId) {
         Collection collection = collectionRepository.findByIdForUpdate(collectionId)
@@ -185,6 +191,7 @@ public class AdminCollectionService {
         return new AdminCollectionBooksUpdateResponse(collectionId, mappedCount);
     }
 
+    @Transactional
     public AdminCollectionPatchResponse patchCollection(
             Long collectionId, AdminCollectionPatchRequest request, Long adminMemberId) {
         boolean hasStatus = request.status() != null;
@@ -192,9 +199,14 @@ public class AdminCollectionService {
         if (!hasStatus && !hasRemoveBookIds) {
             throw new BusinessException(ErrorCode.VALIDATION_ERROR);
         }
-        if (request.removeBookIds() != null
-                && request.removeBookIds().size() != new HashSet<>(request.removeBookIds()).size()) {
-            throw new BusinessException(ErrorCode.VALIDATION_ERROR);
+        if (request.removeBookIds() != null) {
+            if (request.removeBookIds().size() != new HashSet<>(request.removeBookIds()).size()) {
+                throw new BusinessException(ErrorCode.VALIDATION_ERROR);
+            }
+            // Controller의 @Valid(List<@NotNull @Positive Long>)를 우회하는 직접 호출도 방어한다(PR50 MEDIUM).
+            if (request.removeBookIds().stream().anyMatch(id -> id == null || id <= 0)) {
+                throw new BusinessException(ErrorCode.VALIDATION_ERROR);
+            }
         }
 
         Collection collection = collectionRepository.findByIdForUpdate(collectionId)

@@ -1,6 +1,12 @@
 -- PR #46 후속: admin_audit_log action_type / target_type DB CHECK 제약 수동 적용 SQL
 -- 관련 계획: docs/작업현황/2026-07-14_PR46_감사로그_DB_CHECK제약_후속계획.md
 -- 관련 근거: docs/작업현황/설계문서/2026-07-14_PR46_감사로그_DB_CHECK제약_분리SQL_근거.md
+-- 2026-07-16 갱신: 관리자 컬렉션 API(PR #50) 추가로 AdminAuditLogActionType에
+-- COLLECTION_CREATE/COLLECTION_UPDATE/COLLECTION_BOOKS_UPDATE/COLLECTION_PATCH, AdminAuditLogTargetType에
+-- COLLECTION이 새로 생겼다. 이 CHECK는 schema.sql과 분리된 수동 적용 sidecar라 Java enum이
+-- 바뀔 때마다 이 파일도 함께 갱신하고 재적용해야 한다 — 갱신하지 않으면 새 enum 값으로 감사
+-- 로그를 기록하려는 정상 호출이 전부 CHECK 제약 위반(500)으로 실패한다(이번 라운드에서 실제로
+-- AdminCollectionTransactionIntegrationTest가 이 문제로 실패하는 것을 확인하고 갱신함).
 --
 -- 목적:
 --   Java enum / Swagger / 테스트 레벨에서는 감사 로그 표준값이 검증된다.
@@ -30,6 +36,10 @@ WHERE action_type NOT IN (
   'COUPON_ISSUE',
   'BOOK_CREATE',
   'CHALLENGE_UPDATE',
+  'COLLECTION_CREATE',
+  'COLLECTION_UPDATE',
+  'COLLECTION_BOOKS_UPDATE',
+  'COLLECTION_PATCH',
   'MEMBER_UPDATE',
   'BOOK_UPDATE',
   'REPORT_PROCESS',
@@ -44,6 +54,7 @@ WHERE target_type NOT IN (
   'COUPON',
   'BOOK',
   'CHALLENGE',
+  'COLLECTION',
   'BOOK_REPORT',
   'REVIEW_REPORT',
   'REVIEW',
@@ -94,6 +105,10 @@ ALTER TABLE admin_audit_log
     'COUPON_ISSUE',
     'BOOK_CREATE',
     'CHALLENGE_UPDATE',
+    'COLLECTION_CREATE',
+    'COLLECTION_UPDATE',
+    'COLLECTION_BOOKS_UPDATE',
+    'COLLECTION_PATCH',
     'MEMBER_UPDATE',
     'BOOK_UPDATE',
     'REPORT_PROCESS',
@@ -107,6 +122,7 @@ ALTER TABLE admin_audit_log
     'COUPON',
     'BOOK',
     'CHALLENGE',
+    'COLLECTION',
     'BOOK_REPORT',
     'REVIEW_REPORT',
     'REVIEW',
