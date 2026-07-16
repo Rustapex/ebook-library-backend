@@ -9,6 +9,7 @@ import com.acorn.abc.collection.domain.Collection;
 import com.acorn.abc.collection.domain.CollectionBook;
 import com.acorn.abc.collection.repository.CollectionBookRepository;
 import com.acorn.abc.collection.repository.CollectionRepository;
+import com.acorn.abc.common.domain.BaseEntity;
 import com.acorn.abc.common.exception.BusinessException;
 import com.acorn.abc.common.exception.ErrorCode;
 import com.acorn.abc.member.repository.MemberRepository;
@@ -27,6 +28,7 @@ import org.springframework.data.domain.PageRequest;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
@@ -41,6 +43,8 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.inOrder;
 
 /**
  * 관리자 컬렉션 API 구현계획(2026-07-16) §9.2 — 정책/transaction/감사로그 검증.
@@ -185,6 +189,31 @@ class AdminCollectionServiceTest {
                 .isInstanceOf(BusinessException.class)
                 .extracting("errorCode")
                 .isEqualTo(ErrorCode.VALIDATION_ERROR);
+    }
+
+    @Test
+    void updateAdminCollection_flush_후_updatedAt을_응답에_담는다() {
+        AdminCollectionService adminCollectionService = newService();
+        Collection collection = collectionOf(1L, "SERIES", "ACTIVE");
+        LocalDateTime updatedAt = LocalDateTime.of(2026, 7, 16, 15, 5, 52);
+        given(collectionRepository.findByIdForUpdate(1L)).willReturn(Optional.of(collection));
+        given(collectionBookRepository.countByCollection_CollectionId(1L)).willReturn(0L);
+        doAnswer(invocation -> {
+            setUpdatedAt(collection, updatedAt);
+            return null;
+        }).when(collectionRepository).flush();
+        AdminCollectionSaveRequest request = new AdminCollectionSaveRequest(
+                "수정된 이름", "SERIES", null, "설명", null, null, "HIDDEN");
+
+        var response = adminCollectionService.updateAdminCollection(1L, request, 1L);
+
+        assertThat(response.collectionId()).isEqualTo(1L);
+        assertThat(response.status()).isEqualTo("HIDDEN");
+        assertThat(response.updatedAt()).isEqualTo(updatedAt);
+        var inOrder = inOrder(adminAuditLogWriter, collectionRepository);
+        inOrder.verify(adminAuditLogWriter).record(eq(1L), eq(AdminAuditLogActionType.COLLECTION_UPDATE),
+                eq(AdminAuditLogTargetType.COLLECTION), eq(1L), any(), any());
+        inOrder.verify(collectionRepository).flush();
     }
 
     @Test
@@ -381,6 +410,16 @@ class AdminCollectionServiceTest {
             var field = Collection.class.getDeclaredField("collectionId");
             field.setAccessible(true);
             field.set(collection, id);
+        } catch (ReflectiveOperationException e) {
+            throw new IllegalStateException(e);
+        }
+    }
+
+    private void setUpdatedAt(Collection collection, LocalDateTime updatedAt) {
+        try {
+            var field = BaseEntity.class.getDeclaredField("updatedAt");
+            field.setAccessible(true);
+            field.set(collection, updatedAt);
         } catch (ReflectiveOperationException e) {
             throw new IllegalStateException(e);
         }
