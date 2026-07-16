@@ -40,4 +40,19 @@ public class CollectionBook {
 
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt;
+
+    // collection_book에는 updated_at 컬럼이 없다(schema.sql 기준) — D-15: CollectionBook은
+    // BaseEntity로 전환하지 않고 createdAt만 수동 관리하는 현행 필드를 유지한다.
+    public static CollectionBook create(Collection collection, Book book, Integer displayOrder) {
+        CollectionBook collectionBook = new CollectionBook();
+        collectionBook.collection = collection;
+        collectionBook.book = book;
+        collectionBook.displayOrder = displayOrder;
+        collectionBook.createdAt = LocalDateTime.now();
+        return collectionBook;
+    }
+
+    public void changeDisplayOrder(Integer displayOrder) {
+        this.displayOrder = displayOrder;
+    }
 }

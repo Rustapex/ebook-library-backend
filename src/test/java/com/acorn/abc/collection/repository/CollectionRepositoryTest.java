@@ -49,6 +49,27 @@ class CollectionRepositoryTest {
         assertThat(page.getContent()).extracting(Collection::getName).containsExactly("Summer Event");
     }
 
+    // 관리자 컬렉션 API 구현계획(2026-07-16) §9.3 — 공개 컬렉션 API 회귀 확인.
+    // AdminCollectionService.patchCollection()이 실제로 호출하는 것과 같은 도메인 메서드
+    // (Collection.changeStatus)로 상태를 바꿨을 때, 공개 조회(findByStatus)가 여전히 ACTIVE만
+    // 반환하는지 확인한다.
+    @Test
+    void 관리자가_ACTIVE를_HIDDEN으로_바꾸면_공개_findByStatus에서_제외된다() {
+        Collection springSeries = collectionRepository.findByStatus("ACTIVE", PageRequest.of(0, 10))
+                .getContent().stream()
+                .filter(c -> "Spring Series".equals(c.getName()))
+                .findFirst()
+                .orElseThrow();
+
+        springSeries.changeStatus("HIDDEN");
+        entityManager.flush();
+        entityManager.clear();
+
+        Page<Collection> afterChange = collectionRepository.findByStatus("ACTIVE", PageRequest.of(0, 10));
+        assertThat(afterChange.getContent()).extracting(Collection::getName)
+                .containsExactly("Summer Event");
+    }
+
     private void insertCollection(String name, String collectionType, String status) {
         entityManager.getEntityManager()
                 .createNativeQuery("INSERT INTO collection (name, collection_type, status, created_at) VALUES (?, ?, ?, ?)")
