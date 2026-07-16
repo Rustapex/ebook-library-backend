@@ -44,6 +44,11 @@ public class PointHistory {
     @Column(name = "description", length = 255)
     private String description;
 
+    // 관리자 회원 API 구현계획(2026-07-16) §1.6 — 관리자 포인트 조정(ADMIN_ADJUST)의 회원별 멱등 키.
+    // 기존 이력은 backfill 없이 null로 유지되며, ADMIN_ADJUST만 서비스에서 non-null을 강제한다.
+    @Column(name = "request_id", length = 36)
+    private String requestId;
+
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt;
 
@@ -54,6 +59,17 @@ public class PointHistory {
         pointHistory.pointType = pointType;
         pointHistory.pointAmount = pointAmount;
         pointHistory.description = description;
+        pointHistory.createdAt = LocalDateTime.now();
+        return pointHistory;
+    }
+
+    public static PointHistory createAdminAdjust(Member member, int pointAmount, String description, String requestId) {
+        PointHistory pointHistory = new PointHistory();
+        pointHistory.member = member;
+        pointHistory.pointType = "ADMIN_ADJUST";
+        pointHistory.pointAmount = pointAmount;
+        pointHistory.description = description;
+        pointHistory.requestId = requestId;
         pointHistory.createdAt = LocalDateTime.now();
         return pointHistory;
     }

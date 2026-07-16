@@ -1,5 +1,6 @@
 package com.acorn.abc.member.repository;
 
+import com.acorn.abc.member.domain.Member;
 import com.acorn.abc.member.domain.PointHistory;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -7,12 +8,16 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
 import org.springframework.boot.jdbc.test.autoconfigure.AutoConfigureTestDatabase;
 import org.springframework.boot.jpa.test.autoconfigure.TestEntityManager;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 
 import java.time.LocalDateTime;
+import java.util.Optional;
+import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 @DataJpaTest
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
@@ -50,6 +55,37 @@ class PointHistoryRepositoryTest {
         Page<PointHistory> page = pointHistoryRepository.findByMember_MemberIdAndPointType(memberId, "REVIEW_REWARD", PageRequest.of(0, 10));
         assertThat(page.getTotalElements()).isEqualTo(2);
         assertThat(page.getContent()).allMatch(ph -> "REVIEW_REWARD".equals(ph.getPointType()));
+    }
+
+    // 관리자 회원 API 구현계획(2026-07-16) §2.1 — point_history UNIQUE(member_id, request_id) 검증.
+    // TestEntityManager.persistAndFlush()는 EntityManager를 직접 호출해 Spring의 예외 변환(@Repository
+    // 프록시)을 거치지 않으므로 raw ConstraintViolationException이 나온다. 실제 서비스 코드
+    // (AdminPointAdjustExecutor)는 pointHistoryRepository.save()를 거치므로 repository를 통해
+    // 동일 경로로 검증한다.
+    @Test
+    void 같은_회원의_같은_requestId는_UNIQUE_제약을_위반한다() {
+        String requestId = UUID.randomUUID().toString();
+        Member member = entityManager.find(Member.class, memberId);
+        pointHistoryRepository.save(PointHistory.createAdminAdjust(member, 100, "관리자 지급", requestId));
+        pointHistoryRepository.flush();
+
+        assertThatThrownBy(() -> {
+            pointHistoryRepository.save(PointHistory.createAdminAdjust(member, 200, "관리자 지급2", requestId));
+            pointHistoryRepository.flush();
+        }).isInstanceOf(DataIntegrityViolationException.class);
+    }
+
+    @Test
+    void findByMember_MemberIdAndRequestId_요청ID로_이력을_조회한다() {
+        String requestId = UUID.randomUUID().toString();
+        Member member = entityManager.find(Member.class, memberId);
+        entityManager.persistAndFlush(PointHistory.createAdminAdjust(member, 100, "관리자 지급", requestId));
+        entityManager.clear();
+
+        Optional<PointHistory> found = pointHistoryRepository.findByMember_MemberIdAndRequestId(memberId, requestId);
+
+        assertThat(found).isPresent();
+        assertThat(found.get().getPointAmount()).isEqualTo(100);
     }
 
     private Long insertMember(String loginId) {

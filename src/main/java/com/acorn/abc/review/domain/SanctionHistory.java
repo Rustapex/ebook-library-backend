@@ -49,4 +49,18 @@ public class SanctionHistory {
 
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt;
+
+    // 관리자 회원 API 구현계획(2026-07-16) §1.4 — 관리자가 직접 부여하는 제재(리뷰 신고 경유가 아닌 경우 reviewReport=null).
+    public static SanctionHistory create(Member member, ReviewReport reviewReport, String sanctionType, String reason,
+                                          LocalDateTime startedAt, LocalDateTime endedAt) {
+        SanctionHistory sanctionHistory = new SanctionHistory();
+        sanctionHistory.member = member;
+        sanctionHistory.reviewReport = reviewReport;
+        sanctionHistory.sanctionType = sanctionType;
+        sanctionHistory.reason = reason;
+        sanctionHistory.startedAt = startedAt;
+        sanctionHistory.endedAt = endedAt;
+        sanctionHistory.createdAt = LocalDateTime.now();
+        return sanctionHistory;
+    }
 }
