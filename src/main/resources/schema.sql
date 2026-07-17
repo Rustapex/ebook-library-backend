@@ -158,7 +158,6 @@ CREATE TABLE IF NOT EXISTS member (
   deactivated_at DATETIME NULL,
   anonymized_at DATETIME NULL,
   withdrawal_reason VARCHAR(255) NULL,
-  current_sanction_id BIGINT UNSIGNED NULL,
   created_at DATETIME NOT NULL,
   updated_at DATETIME NULL,
   CONSTRAINT pk_member PRIMARY KEY (member_id),
@@ -201,10 +200,8 @@ CREATE TABLE IF NOT EXISTS point_history (
   point_type VARCHAR(30) NOT NULL,
   point_amount INT NOT NULL,
   description VARCHAR(255) NULL,
-  request_id CHAR(36) NULL,
   created_at DATETIME NOT NULL,
   CONSTRAINT pk_point_history PRIMARY KEY (point_history_id),
-  CONSTRAINT uk_point_history_member_id_request_id UNIQUE (member_id, request_id),
   CONSTRAINT chk_point_history_point_type CHECK (point_type IN ('challenge_reward', 'REVIEW_REWARD', 'PAYBACK', 'EVENT_REWARD', 'PAYMENT_USE', 'ADMIN_ADJUST'))
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
@@ -626,9 +623,6 @@ ALTER TABLE review_report ADD CONSTRAINT fk_review_report_member FOREIGN KEY (re
 ALTER TABLE review_report ADD CONSTRAINT fk_review_report_review FOREIGN KEY (review_id) REFERENCES review(review_id);
 ALTER TABLE sanction_history ADD CONSTRAINT fk_sanction_history_member FOREIGN KEY (member_id) REFERENCES member(member_id);
 ALTER TABLE sanction_history ADD CONSTRAINT fk_sanction_history_review_report FOREIGN KEY (review_report_id) REFERENCES review_report(review_report_id);
--- 관리자 회원 API 구현계획(2026-07-16) §2.1 — 현재 SANCTIONED 상태의 원인이 된 계정 정지 이력 연결값.
--- sanction_history보다 먼저 정의되는 member 테이블에는 인라인으로 넣을 수 없어 다른 FK와 동일하게 이 블록에 배치한다.
-ALTER TABLE member ADD CONSTRAINT fk_member_current_sanction FOREIGN KEY (current_sanction_id) REFERENCES sanction_history(sanction_history_id);
 ALTER TABLE payment ADD CONSTRAINT fk_payment_member FOREIGN KEY (member_id) REFERENCES member(member_id);
 ALTER TABLE payment ADD CONSTRAINT fk_payment_book_rental FOREIGN KEY (rental_id) REFERENCES book_rental(rental_id);
 ALTER TABLE member_coupon ADD CONSTRAINT fk_member_coupon_member FOREIGN KEY (member_id) REFERENCES member(member_id);
