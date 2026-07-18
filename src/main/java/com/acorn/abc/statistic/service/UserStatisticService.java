@@ -46,7 +46,6 @@ public class UserStatisticService {
 
         long rentalCount = bookRentalRepository.countByMemberAndPeriod(memberId, from, to);
         long readBookCount = readingProgressRepository.countCompletedByMemberAndPeriod(memberId, from, to);
-        long readPageCount = readingProgressRepository.sumReadPageCountByMemberAndPeriod(memberId, from, to);
         long reviewCount = reviewRepository.countByMemberAndPeriod(memberId, Review.STATUS_ACTIVE, from, to);
         long favoriteCount = favoriteBookRepository.countByMember_MemberId(memberId);
 
@@ -77,7 +76,6 @@ public class UserStatisticService {
                 periodRange.periodEndDate(),
                 rentalCount,
                 readBookCount,
-                readPageCount,
                 reviewCount,
                 favoriteCount,
                 carbonSavedKg,

@@ -8,6 +8,7 @@ import com.acorn.abc.book.repository.BookCategoryRepository;
 import com.acorn.abc.book.repository.BookDetailRepository;
 import com.acorn.abc.book.repository.BookKeywordMapRepository;
 import com.acorn.abc.book.repository.BookRepository;
+import com.acorn.abc.book.repository.BookEpubRepository;
 import com.acorn.abc.category.service.CategoryService;
 import com.acorn.abc.common.response.PageResponse;
 import com.acorn.abc.favorite.repository.FavoriteBookRepository;
@@ -56,6 +57,8 @@ class BookServiceTest {
     private BookRentalRepository bookRentalRepository;
     @Mock
     private CategoryService categoryService;
+    @Mock
+    private BookEpubRepository bookEpubRepository;
 
     @InjectMocks
     private BookService bookService;

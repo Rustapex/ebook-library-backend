@@ -59,6 +59,7 @@ public class PaymentService {
         if (!"AVAILABLE".equals(book.getStatus())) {
             throw new BusinessException(ErrorCode.BOOK_NOT_FOUND);
         }
+        rentalService.validateContentReady(book.getBookId());
 
         // 2. READY/READING 중복 대여 검증
         rentalService.validateNoActiveRental(memberId, request.bookId());

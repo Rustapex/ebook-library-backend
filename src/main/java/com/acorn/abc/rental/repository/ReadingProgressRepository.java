@@ -4,16 +4,30 @@ import com.acorn.abc.rental.domain.ReadingProgress;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.jpa.repository.Modifying;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.repository.query.Param;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
+import jakarta.persistence.LockModeType;
 
 public interface ReadingProgressRepository extends JpaRepository<ReadingProgress, Long> {
 
     Optional<ReadingProgress> findByRental_RentalId(Long rentalId);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT rp FROM ReadingProgress rp WHERE rp.rental.rentalId = :rentalId")
+    Optional<ReadingProgress> findByRentalIdForUpdate(@Param("rentalId") Long rentalId);
+
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query("UPDATE ReadingProgress rp SET rp.epubVersion = :epubVersion, rp.locationCfi = null, "
+            + "rp.chapterHref = null, rp.spineIndex = null, rp.progression = 0, rp.lastReadAt = null, "
+            + "rp.completedYn = false, rp.completedAt = null, rp.revision = rp.revision + 1 "
+            + "WHERE rp.rental.book.bookId = :bookId")
+    int resetForEpubVersion(@Param("bookId") Long bookId, @Param("epubVersion") int epubVersion);
 
     long countByCompletedYn(Boolean completedYn);
 
@@ -76,8 +90,9 @@ public interface ReadingProgressRepository extends JpaRepository<ReadingProgress
 
     // 회원용 독서 통계 "읽은 페이지"(구현계획 §4.2 B1 확정) — last_read_at이 기간 안에 있는 행의
     // read_page_count(누적 최대 도달 페이지)를 합산한 근사치다. 정확한 순수 독서량이 아니다.
-    @Query("SELECT COALESCE(SUM(rp.readPageCount), 0) FROM ReadingProgress rp WHERE rp.rental.member.memberId = :memberId " +
-            "AND (:from IS NULL OR rp.lastReadAt >= :from) AND (:to IS NULL OR rp.lastReadAt < :to)")
+    @Query("SELECT COALESCE(SUM(rp.readPageCount), 0) FROM ReadingProgress rp "
+            + "WHERE rp.rental.member.memberId = :memberId "
+            + "AND (:from IS NULL OR rp.lastReadAt >= :from) AND (:to IS NULL OR rp.lastReadAt < :to)")
     long sumReadPageCountByMemberAndPeriod(@Param("memberId") Long memberId,
                                             @Param("from") LocalDateTime from,
                                             @Param("to") LocalDateTime to);

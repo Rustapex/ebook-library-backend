@@ -2,6 +2,7 @@ package com.acorn.abc.rental.service;
 
 import com.acorn.abc.book.domain.Book;
 import com.acorn.abc.book.repository.BookRepository;
+import com.acorn.abc.book.repository.BookEpubRepository;
 import com.acorn.abc.common.exception.BusinessException;
 import com.acorn.abc.common.exception.ErrorCode;
 import com.acorn.abc.common.response.PageResponse;
@@ -35,6 +36,7 @@ public class RentalService {
 
     private final BookRentalRepository bookRentalRepository;
     private final BookRepository bookRepository;
+    private final BookEpubRepository bookEpubRepository;
     private final MemberRepository memberRepository;
     private final ReadingProgressRepository readingProgressRepository;
     private final NotificationRepository notificationRepository;
@@ -43,14 +45,29 @@ public class RentalService {
     public BookRental getOwnedRentalOrThrow(Long rentalId, Long memberId) {
         BookRental rental = bookRentalRepository.findById(rentalId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.RENTAL_NOT_FOUND));
+        validateReadableRental(rental, memberId);
+        return rental;
+    }
+
+    @Transactional
+    public BookRental getOwnedRentalForUpdateOrThrow(Long rentalId, Long memberId) {
+        BookRental rental = bookRentalRepository.findByIdForUpdate(rentalId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.RENTAL_NOT_FOUND));
+        validateReadableRental(rental, memberId);
+        return rental;
+    }
+
+    private void validateReadableRental(BookRental rental, Long memberId) {
         if (!rental.getMember().getMemberId().equals(memberId)) {
+            throw new BusinessException(ErrorCode.AUTH_ACCESS_DENIED);
+        }
+        if (!VALID_RENTAL_STATUSES.contains(rental.getRentalStatus())) {
             throw new BusinessException(ErrorCode.AUTH_ACCESS_DENIED);
         }
         // OWNED(소장)는 만료 없음(화면흐름도 02/04 문서 기준). READY/READING만 만료 검증.
         if (!"OWNED".equals(rental.getRentalStatus()) && rental.getRentalEndAt().isBefore(LocalDateTime.now())) {
             throw new BusinessException(ErrorCode.RENTAL_EXPIRED);
         }
-        return rental;
     }
 
     @Transactional
@@ -63,6 +80,7 @@ public class RentalService {
         if (!"AVAILABLE".equals(book.getStatus())) {
             throw new BusinessException(ErrorCode.BOOK_NOT_FOUND);
         }
+        validateContentReady(bookId);
         validateNoActiveRental(memberId, bookId);
 
         Member member = memberRepository.findById(memberId)
@@ -84,6 +102,12 @@ public class RentalService {
                 .ifPresent(r -> {
                     throw new BusinessException(ErrorCode.RENTAL_ALREADY_EXISTS);
                 });
+    }
+
+    public void validateContentReady(Long bookId) {
+        if (!bookEpubRepository.existsByBook_BookId(bookId)) {
+            throw new BusinessException(ErrorCode.BOOK_EPUB_NOT_FOUND);
+        }
     }
 
     public LocalDateTime calcRentalEndAt(Book book) {
@@ -109,7 +133,8 @@ public class RentalService {
     private MyRentalSummaryResponse toSummary(BookRental rental) {
         Book book = rental.getBook();
         ReadingProgress progress = readingProgressRepository.findByRental_RentalId(rental.getRentalId()).orElse(null);
-        int currentPage = progress == null ? 0 : progress.getCurrentPage();
+        double progressRate = progress == null || progress.getProgression() == null
+                ? 0.0 : progress.getProgression().doubleValue() * 100.0;
 
         return new MyRentalSummaryResponse(
                 rental.getRentalId(),
@@ -118,16 +143,8 @@ public class RentalService {
                 book.getCoverImageUrl(),
                 rental.getRentalStatus(),
                 rental.getRentalEndAt(),
-                currentPage,
-                book.getTotalPages(),
-                progressRate(currentPage, book.getTotalPages())
+                progressRate,
+                progress != null && Boolean.TRUE.equals(progress.getCompletedYn())
         );
-    }
-
-    private double progressRate(int currentPage, int totalPages) {
-        if (totalPages <= 0) {
-            return 0;
-        }
-        return Math.min(100.0, currentPage * 100.0 / totalPages);
     }
 }

@@ -58,7 +58,7 @@ class BookBulkApprovalServiceTest {
         given(bookIsbnTempRepository.findAllById(List.of(1L))).willReturn(List.of(missingAuthor));
 
         BookIsbnBulkApproveRequest request =
-                new BookIsbnBulkApproveRequest(List.of(1L), 10, 100, "PAID", 5000, "AVAILABLE", 3);
+                new BookIsbnBulkApproveRequest(List.of(1L), 10, 100, "PAID", 5000, "AVAILABLE");
 
         BookIsbnBulkApproveResponse response = service().bulkApprove(request, 99L);
 
@@ -78,7 +78,7 @@ class BookBulkApprovalServiceTest {
                 .willReturn(new BookIsbnTempApproveResponse(100L, 1L, "AVAILABLE"));
 
         BookIsbnBulkApproveRequest request =
-                new BookIsbnBulkApproveRequest(null, 1, 100, "PAID", 5000, "AVAILABLE", 3);
+                new BookIsbnBulkApproveRequest(null, 1, 100, "PAID", 5000, "AVAILABLE");
 
         BookIsbnBulkApproveResponse response = service().bulkApprove(request, 99L);
 
@@ -95,7 +95,7 @@ class BookBulkApprovalServiceTest {
                 .willReturn(new PageImpl<>(List.of(missingAuthor1, missingAuthor2, eligible)));
 
         BookIsbnBulkApproveRequest request =
-                new BookIsbnBulkApproveRequest(null, 30, 2, "PAID", 5000, "AVAILABLE", 3);
+                new BookIsbnBulkApproveRequest(null, 30, 2, "PAID", 5000, "AVAILABLE");
 
         BookIsbnBulkApproveResponse response = service().bulkApprove(request, 99L);
 
@@ -105,7 +105,7 @@ class BookBulkApprovalServiceTest {
     }
 
     @Test
-    void bulkApprove_더미페이지와_categoryIds를_생성해서_approve에_전달한다() {
+    void bulkApprove_author와_categoryIds를_생성해서_approve에_전달한다() {
         BookIsbnTemp temp = readyTemp(1L, "9788966260003", "클린코드", "인사이트",
                 "마틴 (지은이), 김번역 (옮긴이)", "2724", "카테고리");
         given(bookIsbnTempRepository.findAllById(List.of(1L))).willReturn(List.of(temp));
@@ -113,7 +113,7 @@ class BookBulkApprovalServiceTest {
                 .willReturn(new BookIsbnTempApproveResponse(200L, 1L, "AVAILABLE"));
 
         BookIsbnBulkApproveRequest request =
-                new BookIsbnBulkApproveRequest(List.of(1L), 10, 100, "PAID", 5000, "AVAILABLE", 2);
+                new BookIsbnBulkApproveRequest(List.of(1L), 10, 100, "PAID", 5000, "AVAILABLE");
 
         service().bulkApprove(request, 99L);
 
@@ -123,9 +123,6 @@ class BookBulkApprovalServiceTest {
 
         assertThat(captured.categoryIds()).isEmpty();
         assertThat(captured.authors()).containsExactly("마틴", "김번역");
-        assertThat(captured.pages()).hasSize(2);
-        assertThat(captured.pages().get(0).pageContent()).isEqualTo("클린코드 전자책 시연 페이지 1");
-        assertThat(captured.pages().get(1).pageContent()).isEqualTo("클린코드 전자책 시연 페이지 2");
     }
 
     @Test
@@ -139,7 +136,7 @@ class BookBulkApprovalServiceTest {
                 .willReturn(new BookIsbnTempApproveResponse(300L, 2L, "AVAILABLE"));
 
         BookIsbnBulkApproveRequest request =
-                new BookIsbnBulkApproveRequest(List.of(1L, 2L), 10, 100, "PAID", 5000, "AVAILABLE", 1);
+                new BookIsbnBulkApproveRequest(List.of(1L, 2L), 10, 100, "PAID", 5000, "AVAILABLE");
 
         BookIsbnBulkApproveResponse response = service().bulkApprove(request, 99L);
 
@@ -157,7 +154,7 @@ class BookBulkApprovalServiceTest {
                 .willThrow(new RuntimeException("DB connection lost"));
 
         BookIsbnBulkApproveRequest request =
-                new BookIsbnBulkApproveRequest(List.of(1L), 10, 100, "PAID", 5000, "AVAILABLE", 1);
+                new BookIsbnBulkApproveRequest(List.of(1L), 10, 100, "PAID", 5000, "AVAILABLE");
 
         assertThatThrownBy(() -> service().bulkApprove(request, 99L))
                 .isInstanceOf(RuntimeException.class)

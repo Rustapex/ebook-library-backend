@@ -10,7 +10,6 @@ public record UserReadingStatisticResponse(
         LocalDate periodEndDate,
         long rentalCount,
         long readBookCount,
-        long readPageCount,
         long reviewCount,
         long favoriteCount,
         long carbonSavedKg,

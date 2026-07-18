@@ -1,6 +1,7 @@
 package com.acorn.abc.common.exception;
 
 import com.acorn.abc.common.response.ErrorResponse;
+import com.acorn.abc.rental.service.ProgressRevisionConflictException;
 import jakarta.validation.ConstraintViolationException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
@@ -10,6 +11,9 @@ import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
+import org.springframework.web.multipart.MultipartException;
+import org.springframework.web.multipart.support.MissingServletRequestPartException;
 
 /**
  * 전역 예외 처리 핸들러.
@@ -55,6 +59,33 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ErrorResponse> handleHttpMessageNotReadableException(HttpMessageNotReadableException e) {
         log.debug("요청 본문을 읽을 수 없습니다.", e);
         return ResponseEntity.badRequest()
+                .body(ErrorResponse.of(ErrorCode.VALIDATION_ERROR));
+    }
+
+    @ExceptionHandler(MaxUploadSizeExceededException.class)
+    public ResponseEntity<ErrorResponse> handleMaxUploadSizeExceededException(MaxUploadSizeExceededException e) {
+        return ResponseEntity.status(ErrorCode.BOOK_EPUB_TOO_LARGE.getHttpStatus())
+                .body(ErrorResponse.of(ErrorCode.BOOK_EPUB_TOO_LARGE));
+    }
+
+    @ExceptionHandler(MissingServletRequestPartException.class)
+    public ResponseEntity<ErrorResponse> handleMissingServletRequestPartException(
+            MissingServletRequestPartException e) {
+        return ResponseEntity.badRequest()
+                .body(ErrorResponse.of(ErrorCode.VALIDATION_ERROR));
+    }
+
+    @ExceptionHandler(MultipartException.class)
+    public ResponseEntity<ErrorResponse> handleMultipartException(MultipartException e) {
+        return ResponseEntity.badRequest()
+                .body(ErrorResponse.of(ErrorCode.VALIDATION_ERROR));
+    }
+
+    @ExceptionHandler(ProgressRevisionConflictException.class)
+    public ResponseEntity<ErrorResponse> handleProgressRevisionConflictException(
+            ProgressRevisionConflictException e) {
+        return ResponseEntity.status(409)
+                .header("X-Latest-Revision", Long.toString(e.getLatestRevision()))
                 .body(ErrorResponse.of(ErrorCode.VALIDATION_ERROR));
     }
 

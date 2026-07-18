@@ -7,9 +7,8 @@ public record RecentBookResponse(
         Long bookId,
         String title,
         String coverImageUrl,
-        int currentPage,
-        int totalPages,
         double progressRate,
+        boolean completedYn,
         LocalDateTime lastReadAt
 ) {
 }

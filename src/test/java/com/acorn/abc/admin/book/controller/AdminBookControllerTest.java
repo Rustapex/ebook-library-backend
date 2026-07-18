@@ -184,8 +184,7 @@ class AdminBookControllerTest {
                   "maxCandidates": 100,
                   "rentalType": "PAID",
                   "rentalPrice": 5000,
-                  "status": "AVAILABLE",
-                  "dummyPageCount": 3
+                  "status": "AVAILABLE"
                 }
                 """;
 
@@ -205,8 +204,7 @@ class AdminBookControllerTest {
                   "limit": 31,
                   "rentalType": "PAID",
                   "rentalPrice": 5000,
-                  "status": "AVAILABLE",
-                  "dummyPageCount": 3
+                  "status": "AVAILABLE"
                 }
                 """;
 
@@ -217,22 +215,4 @@ class AdminBookControllerTest {
                 .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"));
     }
 
-    @Test
-    void bulkApprove_dummyPageCount가_상한을_초과하면_400을_반환한다() throws Exception {
-        String body = """
-                {
-                  "limit": 30,
-                  "rentalType": "PAID",
-                  "rentalPrice": 5000,
-                  "status": "AVAILABLE",
-                  "dummyPageCount": 11
-                }
-                """;
-
-        mockMvc.perform(post("/api/v1/admin/book-isbn-temps/bulk-approve")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(body))
-                .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"));
-    }
 }

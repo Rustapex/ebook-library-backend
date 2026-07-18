@@ -14,6 +14,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
+import java.math.BigDecimal;
 
 @Entity
 @Table(name = "bookmark")
@@ -30,8 +31,26 @@ public class Bookmark {
     @JoinColumn(name = "rental_id")
     private BookRental rental;
 
-    @Column(name = "page_no", nullable = false)
-    private int pageNo;
+    @Column(name = "page_no")
+    private Integer pageNo;
+
+    @Column(name = "epub_version")
+    private Integer epubVersion;
+
+    @Column(name = "location_cfi", columnDefinition = "TEXT")
+    private String locationCfi;
+
+    @Column(name = "location_hash", columnDefinition = "BINARY(32)")
+    private byte[] locationHash;
+
+    @Column(name = "chapter_href", length = 1000)
+    private String chapterHref;
+
+    @Column(name = "spine_index")
+    private Integer spineIndex;
+
+    @Column(name = "progression", precision = 6, scale = 5)
+    private BigDecimal progression;
 
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt;
@@ -40,6 +59,20 @@ public class Bookmark {
         Bookmark bookmark = new Bookmark();
         bookmark.rental = rental;
         bookmark.pageNo = pageNo;
+        bookmark.createdAt = LocalDateTime.now();
+        return bookmark;
+    }
+
+    public static Bookmark create(BookRental rental, int epubVersion, String cfi, byte[] locationHash,
+                                  String chapterHref, Integer spineIndex, BigDecimal progression) {
+        Bookmark bookmark = new Bookmark();
+        bookmark.rental = rental;
+        bookmark.epubVersion = epubVersion;
+        bookmark.locationCfi = cfi;
+        bookmark.locationHash = locationHash;
+        bookmark.chapterHref = chapterHref;
+        bookmark.spineIndex = spineIndex;
+        bookmark.progression = progression;
         bookmark.createdAt = LocalDateTime.now();
         return bookmark;
     }

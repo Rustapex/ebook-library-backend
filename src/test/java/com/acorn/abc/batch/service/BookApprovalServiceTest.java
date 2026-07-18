@@ -72,7 +72,7 @@ class BookApprovalServiceTest {
                 new AladinCategoryImportService(new AladinCategoryUpsertService(categoryRepository));
         service = new BookApprovalService(
                 bookIsbnTempRepository, bookRepository, publisherRepository, authorRepository,
-                bookAuthorRepository, bookDetailRepository, bookPageRepository,
+                bookAuthorRepository, bookDetailRepository,
                 bookCategoryRepository, categoryRepository, aladinCategoryImportService,
                 new AdminAuditLogWriter(adminAuditLogRepository, memberRepository));
         categoryId = seedCategory("소설");
@@ -107,16 +107,14 @@ class BookApprovalServiceTest {
     void approve_paidBook_setsDefaults() {
         Long tempId = seedReadyTemp("9788966260959", "2013-12-24");
 
-        BookIsbnTempApproveResponse response = service.approve(tempId, request(
-                "PAID", 5000, List.of(new BookIsbnTempApproveRequest.Page(1, "p1"),
-                        new BookIsbnTempApproveRequest.Page(2, "p2"))), null);
+        BookIsbnTempApproveResponse response = service.approve(tempId, request("PAID", 5000), null);
         entityManager.flush();
 
         Book book = bookRepository.findById(response.bookId()).orElseThrow();
         assertThat(book.getRentalType()).isEqualTo("PAID");
         assertThat(book.getDefaultRentalDays()).isEqualTo(14);
         assertThat(book.getRentalPrice()).isEqualTo(5000);
-        assertThat(book.getTotalPages()).isEqualTo(2);
+        assertThat(book.getTotalPages()).isZero();
         assertThat(book.getRentalCount()).isZero();
         assertThat(book.getReviewCount()).isZero();
         assertThat(book.getAverageRating()).isEqualByComparingTo(BigDecimal.ZERO);
@@ -133,7 +131,7 @@ class BookApprovalServiceTest {
     void approve_freeBook_usesSevenRentalDays() {
         Long tempId = seedReadyTemp("9788966260960", "20131224");
 
-        BookIsbnTempApproveResponse response = service.approve(tempId, request("FREE", 0, List.of()), null);
+        BookIsbnTempApproveResponse response = service.approve(tempId, request("FREE", 0), null);
         entityManager.flush();
 
         Book book = bookRepository.findById(response.bookId()).orElseThrow();
@@ -145,7 +143,7 @@ class BookApprovalServiceTest {
     void approve_emptyPages_totalPagesZeroAndNoRows() {
         Long tempId = seedReadyTemp("9788966260961", null);
 
-        BookIsbnTempApproveResponse response = service.approve(tempId, request("PAID", 5000, List.of()), null);
+        BookIsbnTempApproveResponse response = service.approve(tempId, request("PAID", 5000), null);
         entityManager.flush();
 
         Book book = bookRepository.findById(response.bookId()).orElseThrow();
@@ -159,7 +157,7 @@ class BookApprovalServiceTest {
         temp.applyMetadata(null, null, null, null, null, null, null, null, (byte) 0, (byte) 0); // stays PENDING
         Long tempId = bookIsbnTempRepository.save(temp).getId();
 
-        assertThatThrownBy(() -> service.approve(tempId, request("PAID", 5000, List.of()), null))
+        assertThatThrownBy(() -> service.approve(tempId, request("PAID", 5000), null))
                 .isInstanceOf(BusinessException.class)
                 .extracting(e -> ((BusinessException) e).getErrorCode())
                 .isEqualTo(ErrorCode.BOOK_ISBN_TEMP_NOT_READY);
@@ -172,7 +170,7 @@ class BookApprovalServiceTest {
         temp.markMerged();
         Long tempId = bookIsbnTempRepository.save(temp).getId();
 
-        assertThatThrownBy(() -> service.approve(tempId, request("PAID", 5000, List.of()), null))
+        assertThatThrownBy(() -> service.approve(tempId, request("PAID", 5000), null))
                 .isInstanceOf(BusinessException.class)
                 .extracting(e -> ((BusinessException) e).getErrorCode())
                 .isEqualTo(ErrorCode.BOOK_ISBN_TEMP_ALREADY_MERGED);
@@ -184,24 +182,10 @@ class BookApprovalServiceTest {
         seedBook(isbn);
         Long tempId = seedReadyTemp(isbn, null);
 
-        assertThatThrownBy(() -> service.approve(tempId, request("PAID", 5000, List.of()), null))
+        assertThatThrownBy(() -> service.approve(tempId, request("PAID", 5000), null))
                 .isInstanceOf(BusinessException.class)
                 .extracting(e -> ((BusinessException) e).getErrorCode())
                 .isEqualTo(ErrorCode.BOOK_ISBN_ALREADY_EXISTS);
-    }
-
-    @Test
-    void approve_duplicatePageNo_throwsValidationAndCreatesNoBook() {
-        Long tempId = seedReadyTemp("9788966260965", null);
-
-        assertThatThrownBy(() -> service.approve(tempId, request("PAID", 5000,
-                List.of(new BookIsbnTempApproveRequest.Page(1, "a"),
-                        new BookIsbnTempApproveRequest.Page(1, "b"))), null))
-                .isInstanceOf(BusinessException.class)
-                .extracting(e -> ((BusinessException) e).getErrorCode())
-                .isEqualTo(ErrorCode.VALIDATION_ERROR);
-
-        assertThat(bookRepository.findByIsbn("9788966260965")).isEmpty();
     }
 
     @Test
@@ -210,7 +194,7 @@ class BookApprovalServiceTest {
 
         BookIsbnTempApproveRequest req = new BookIsbnTempApproveRequest(
                 "제목", "출판사", List.of("저자"), List.of(999999L),
-                "PAID", 5000, "AVAILABLE", null, List.of());
+                "PAID", 5000, "AVAILABLE", null);
 
         assertThatThrownBy(() -> service.approve(tempId, req, null))
                 .isInstanceOf(BusinessException.class)
@@ -223,7 +207,7 @@ class BookApprovalServiceTest {
         Long tempId = seedReadyTemp("9788966260967", null, TEST_ALADIN_CATEGORY_ID,
                 "국내도서 > 컴퓨터/모바일 > 프로그래밍 > 개발방법론");
 
-        BookIsbnTempApproveRequest req = requestWithCategoryIds(List.of(), "PAID", 5000, List.of());
+        BookIsbnTempApproveRequest req = requestWithCategoryIds(List.of(), "PAID", 5000);
 
         BookIsbnTempApproveResponse response = service.approve(tempId, req, null);
         entityManager.flush();
@@ -239,7 +223,7 @@ class BookApprovalServiceTest {
     void approve_noCategoryIdsAndNoAladinInfo_throwsValidation() {
         Long tempId = seedReadyTemp("9788966260968", null, null, null);
 
-        BookIsbnTempApproveRequest req = requestWithCategoryIds(List.of(), "PAID", 5000, List.of());
+        BookIsbnTempApproveRequest req = requestWithCategoryIds(List.of(), "PAID", 5000);
 
         assertThatThrownBy(() -> service.approve(tempId, req, null))
                 .isInstanceOf(BusinessException.class)
@@ -249,18 +233,16 @@ class BookApprovalServiceTest {
         assertThat(bookRepository.findByIsbn("9788966260968")).isEmpty();
     }
 
-    private BookIsbnTempApproveRequest request(String rentalType, int rentalPrice,
-                                               List<BookIsbnTempApproveRequest.Page> pages) {
-        return requestWithCategoryIds(List.of(categoryId), rentalType, rentalPrice, pages);
+    private BookIsbnTempApproveRequest request(String rentalType, int rentalPrice) {
+        return requestWithCategoryIds(List.of(categoryId), rentalType, rentalPrice);
     }
 
     private BookIsbnTempApproveRequest requestWithCategoryIds(List<Long> categoryIds, String rentalType,
-                                                               int rentalPrice,
-                                                               List<BookIsbnTempApproveRequest.Page> pages) {
+                                                               int rentalPrice) {
         return new BookIsbnTempApproveRequest(
                 "클린코드", "인사이트", List.of("로버트 마틴", "이해영"), categoryIds,
                 rentalType, rentalPrice, "AVAILABLE",
-                new BookIsbnTempApproveRequest.Detail("설명", null, null, null), pages);
+                new BookIsbnTempApproveRequest.Detail("설명", null, null, null));
     }
 
     private Long seedReadyTemp(String isbn13, String pubDate) {

@@ -41,6 +41,9 @@ public enum ErrorCode {
     AUTH_INVALID_PASSWORD(HttpStatus.BAD_REQUEST, "AUTH_INVALID_PASSWORD", "현재 비밀번호가 올바르지 않습니다."),
 
     // Book
+    BOOK_EPUB_NOT_FOUND(HttpStatus.NOT_FOUND, "BOOK_EPUB_NOT_FOUND", "등록된 EPUB 파일이 없습니다."),
+    BOOK_EPUB_INVALID(HttpStatus.BAD_REQUEST, "BOOK_EPUB_INVALID", "유효하지 않은 EPUB 파일입니다."),
+    BOOK_EPUB_TOO_LARGE(HttpStatus.PAYLOAD_TOO_LARGE, "BOOK_EPUB_TOO_LARGE", "EPUB 파일 크기 제한을 초과했습니다."),
     BOOK_NOT_FOUND(HttpStatus.NOT_FOUND, "BOOK_NOT_FOUND", "존재하지 않는 도서입니다."),
     BOOK_PAGE_NOT_FOUND(HttpStatus.NOT_FOUND, "BOOK_PAGE_NOT_FOUND", "존재하지 않는 페이지입니다."),
     BOOK_ISBN_ALREADY_EXISTS(HttpStatus.CONFLICT, "BOOK_ISBN_ALREADY_EXISTS", "이미 같은 ISBN으로 등록된 도서입니다."),

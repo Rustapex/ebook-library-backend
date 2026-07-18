@@ -259,6 +259,21 @@ CREATE TABLE IF NOT EXISTS book_page (
   CONSTRAINT uk_book_page_book_id_page_no UNIQUE (book_id, page_no)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
+CREATE TABLE IF NOT EXISTS book_epub (
+  book_epub_id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  book_id BIGINT UNSIGNED NOT NULL,
+  original_file_name VARCHAR(255) NOT NULL,
+  content_type VARCHAR(100) NOT NULL,
+  file_size BIGINT UNSIGNED NOT NULL,
+  sha256 CHAR(64) NOT NULL,
+  epub_version INT UNSIGNED NOT NULL DEFAULT 1,
+  epub_data LONGBLOB NOT NULL,
+  created_at DATETIME NOT NULL,
+  updated_at DATETIME NULL,
+  CONSTRAINT pk_book_epub PRIMARY KEY (book_epub_id),
+  CONSTRAINT uk_book_epub_book_version UNIQUE (book_id, epub_version)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
 CREATE TABLE IF NOT EXISTS book_category (
   book_id BIGINT UNSIGNED NOT NULL,
   category_id BIGINT UNSIGNED NOT NULL,
@@ -289,17 +304,30 @@ CREATE TABLE IF NOT EXISTS reading_progress (
   rental_id BIGINT UNSIGNED NOT NULL,
   current_page INT UNSIGNED NOT NULL DEFAULT 1,
   read_page_count INT UNSIGNED NOT NULL DEFAULT 0,
+  epub_version INT UNSIGNED NOT NULL DEFAULT 1,
+  location_cfi TEXT NULL,
+  chapter_href VARCHAR(1000) NULL,
+  spine_index INT UNSIGNED NULL,
+  progression DECIMAL(6,5) NOT NULL DEFAULT 0,
+  revision BIGINT NOT NULL DEFAULT 0,
   last_read_at DATETIME NULL,
   completed_yn TINYINT(1) NOT NULL DEFAULT 0,
   completed_at DATETIME NULL,
   CONSTRAINT pk_reading_progress PRIMARY KEY (progress_id),
-  CONSTRAINT uk_reading_progress_rental_id UNIQUE (rental_id)
+  CONSTRAINT uk_reading_progress_rental_id UNIQUE (rental_id),
+  CONSTRAINT chk_reading_progress_progression CHECK (progression >= 0 AND progression <= 1)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 CREATE TABLE IF NOT EXISTS bookmark (
   bookmark_id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
   rental_id BIGINT UNSIGNED NOT NULL,
-  page_no INT UNSIGNED NOT NULL,
+  page_no INT UNSIGNED NULL,
+  epub_version INT UNSIGNED NULL,
+  location_cfi TEXT NULL,
+  location_hash BINARY(32) NULL,
+  chapter_href VARCHAR(1000) NULL,
+  spine_index INT UNSIGNED NULL,
+  progression DECIMAL(6,5) NULL,
   created_at DATETIME NOT NULL,
 
 
@@ -308,7 +336,9 @@ CREATE TABLE IF NOT EXISTS bookmark (
 
 
   CONSTRAINT pk_bookmark PRIMARY KEY (bookmark_id),
-  CONSTRAINT uk_bookmark_rental_id_page_no UNIQUE (rental_id, page_no)
+  CONSTRAINT uk_bookmark_rental_id_page_no UNIQUE (rental_id, page_no),
+  CONSTRAINT uk_bookmark_rental_epub_location UNIQUE (rental_id, epub_version, location_hash),
+  CONSTRAINT chk_bookmark_progression CHECK (progression IS NULL OR (progression >= 0 AND progression <= 1))
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 CREATE TABLE IF NOT EXISTS favorite_book (
@@ -600,6 +630,7 @@ ALTER TABLE book_author ADD CONSTRAINT fk_book_author_book FOREIGN KEY (book_id)
 ALTER TABLE book_author ADD CONSTRAINT fk_book_author_author FOREIGN KEY (author_id) REFERENCES author(author_id);
 ALTER TABLE book_detail ADD CONSTRAINT fk_book_detail_book FOREIGN KEY (book_id) REFERENCES book(book_id);
 ALTER TABLE book_page ADD CONSTRAINT fk_book_page_book FOREIGN KEY (book_id) REFERENCES book(book_id);
+ALTER TABLE book_epub ADD CONSTRAINT fk_book_epub_book FOREIGN KEY (book_id) REFERENCES book(book_id);
 ALTER TABLE category ADD CONSTRAINT fk_category_category FOREIGN KEY (parent_category_id) REFERENCES category(category_id);
 ALTER TABLE category ADD CONSTRAINT uk_category_aladin_category_id UNIQUE (aladin_category_id);
 ALTER TABLE category ADD CONSTRAINT uk_category_parent_name UNIQUE (parent_category_id, category_name);

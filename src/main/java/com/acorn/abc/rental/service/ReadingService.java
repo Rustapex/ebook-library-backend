@@ -39,18 +39,10 @@ public class ReadingService {
                 book.getBookId(),
                 book.getTitle(),
                 book.getCoverImageUrl(),
-                progress.getCurrentPage(),
-                book.getTotalPages(),
-                progressRate(progress.getCurrentPage(), book.getTotalPages()),
+                progress.getProgression() == null ? 0.0 : progress.getProgression().doubleValue() * 100.0,
+                Boolean.TRUE.equals(progress.getCompletedYn()),
                 progress.getLastReadAt()
         );
-    }
-
-    private double progressRate(int currentPage, int totalPages) {
-        if (totalPages <= 0) {
-            return 0;
-        }
-        return Math.min(100.0, currentPage * 100.0 / totalPages);
     }
 
     private int normalizeLimit(Integer limit) {

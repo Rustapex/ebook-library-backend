@@ -73,7 +73,7 @@ class BookApprovalServiceRequiresNewIntegrationTest {
         BookIsbnTempApproveRequest request = new BookIsbnTempApproveRequest(
                 "실DB REQUIRES_NEW 재현", "테스트출판사", List.of("테스트저자"), List.of(),
                 "PAID", 3000, "AVAILABLE",
-                new BookIsbnTempApproveRequest.Detail("설명", null, null, null), List.of());
+                new BookIsbnTempApproveRequest.Detail("설명", null, null, null));
 
         // 실제 프록시 호출: approve()가 REQUIRED로 새 물리 트랜잭션을 시작하고,
         // 그 안에서 알라딘 category 자동 생성이 REQUIRES_NEW로 별도 커밋된다.

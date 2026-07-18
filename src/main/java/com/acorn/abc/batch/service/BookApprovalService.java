@@ -9,14 +9,12 @@ import com.acorn.abc.book.domain.Book;
 import com.acorn.abc.book.domain.BookAuthor;
 import com.acorn.abc.book.domain.BookCategory;
 import com.acorn.abc.book.domain.BookDetail;
-import com.acorn.abc.book.domain.BookPage;
 import com.acorn.abc.book.domain.Category;
 import com.acorn.abc.book.domain.Publisher;
 import com.acorn.abc.book.repository.AuthorRepository;
 import com.acorn.abc.book.repository.BookAuthorRepository;
 import com.acorn.abc.book.repository.BookCategoryRepository;
 import com.acorn.abc.book.repository.BookDetailRepository;
-import com.acorn.abc.book.repository.BookPageRepository;
 import com.acorn.abc.book.repository.BookRepository;
 import com.acorn.abc.book.repository.PublisherRepository;
 import com.acorn.abc.category.repository.CategoryRepository;
@@ -33,7 +31,6 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -56,7 +53,6 @@ public class BookApprovalService {
     private final AuthorRepository authorRepository;
     private final BookAuthorRepository bookAuthorRepository;
     private final BookDetailRepository bookDetailRepository;
-    private final BookPageRepository bookPageRepository;
     private final BookCategoryRepository bookCategoryRepository;
     private final CategoryRepository categoryRepository;
     private final AladinCategoryImportService aladinCategoryImportService;
@@ -78,14 +74,12 @@ public class BookApprovalService {
         }
 
         validateRentalPrice(request.rentalType(), request.rentalPrice());
-        List<BookIsbnTempApproveRequest.Page> pages = validateAndGetPages(request.pages());
         List<Category> categories = resolveCategories(request.categoryIds(), temp);
 
         Publisher publisher = publisherRepository.findByPublisherName(request.publisherName())
                 .orElseGet(() -> publisherRepository.save(Publisher.create(request.publisherName())));
 
         int defaultRentalDays = "FREE".equals(request.rentalType()) ? FREE_RENTAL_DAYS : PAID_RENTAL_DAYS;
-        int totalPages = pages.stream().mapToInt(BookIsbnTempApproveRequest.Page::pageNo).max().orElse(0);
         LocalDate pubDate = parsePubDate(temp.getPubDate());
 
         Book book = bookRepository.save(Book.create(
@@ -97,12 +91,11 @@ public class BookApprovalService {
                 request.rentalType(),
                 request.rentalPrice(),
                 defaultRentalDays,
-                totalPages,
+                0,
                 request.status()
         ));
 
         saveDetail(book, request.detail());
-        savePages(book, pages);
         saveCategories(book, categories);
         saveAuthors(book, request.authors());
 
@@ -124,33 +117,12 @@ public class BookApprovalService {
         }
     }
 
-    private List<BookIsbnTempApproveRequest.Page> validateAndGetPages(List<BookIsbnTempApproveRequest.Page> pages) {
-        if (pages == null) {
-            return List.of();
-        }
-        Set<Integer> pageNos = new HashSet<>();
-        for (BookIsbnTempApproveRequest.Page page : pages) {
-            if (!pageNos.add(page.pageNo())) {
-                throw new BusinessException(ErrorCode.VALIDATION_ERROR);
-            }
-        }
-        return pages;
-    }
-
     private void saveDetail(Book book, BookIsbnTempApproveRequest.Detail detail) {
         BookDetail bookDetail = (detail == null)
                 ? BookDetail.create(book, null, null, null, null)
                 : BookDetail.create(book, detail.description(), detail.tableOfContents(),
                         detail.publisherReview(), detail.detailContent());
         bookDetailRepository.save(bookDetail);
-    }
-
-    private void savePages(Book book, List<BookIsbnTempApproveRequest.Page> pages) {
-        List<BookPage> bookPages = new ArrayList<>();
-        for (BookIsbnTempApproveRequest.Page page : pages) {
-            bookPages.add(BookPage.create(book, page.pageNo(), page.pageContent()));
-        }
-        bookPageRepository.saveAll(bookPages);
     }
 
     /**
