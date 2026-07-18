@@ -1,9 +1,12 @@
 package com.acorn.abc.batch.service;
 
+import com.acorn.abc.admin.book.dto.BookIsbnTempBulkDeleteRequest;
 import com.acorn.abc.admin.book.dto.ExternalBookDuplicateInfo;
 import com.acorn.abc.admin.book.dto.ExternalBookLookupResponse;
 import com.acorn.abc.batch.domain.BookIsbnTemp;
 import com.acorn.abc.batch.repository.BookIsbnTempRepository;
+import com.acorn.abc.common.exception.BusinessException;
+import com.acorn.abc.common.exception.ErrorCode;
 import com.acorn.abc.external.book.dto.BookMetadataResult;
 import com.acorn.abc.external.book.dto.DuplicateStatus;
 import com.acorn.abc.external.book.dto.ProviderStatus;
@@ -11,6 +14,8 @@ import com.acorn.abc.external.book.service.BookMetadataAggregateService;
 import com.acorn.abc.external.book.service.DuplicateBookDetector;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -25,7 +30,9 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyByte;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 
@@ -218,6 +225,76 @@ class BookIsbnTempServiceTest {
         verifyNoInteractions(bookIsbnTempRepository, duplicateBookDetector);
     }
 
+    @Test
+    void bulkDelete_allPending_deletesDistinctIdsInAscendingOrder() {
+        List<Long> normalizedIds = List.of(1L, 2L);
+        given(bookIsbnTempRepository.findAllByIdInForUpdate(normalizedIds))
+                .willReturn(List.of(temp(1L, BookIsbnTemp.STATUS_PENDING),
+                        temp(2L, BookIsbnTemp.STATUS_PENDING)));
+        given(bookIsbnTempRepository.deleteAllByIdInAndStatusCd(
+                normalizedIds, BookIsbnTemp.STATUS_PENDING)).willReturn(2);
+
+        var response = service().bulkDelete(new BookIsbnTempBulkDeleteRequest(List.of(2L, 1L, 2L)));
+
+        assertThat(response.deletedCount()).isEqualTo(2);
+        assertThat(response.deletedTempIds()).containsExactly(1L, 2L);
+        verify(bookIsbnTempRepository).findAllByIdInForUpdate(normalizedIds);
+        verify(bookIsbnTempRepository).deleteAllByIdInAndStatusCd(
+                normalizedIds, BookIsbnTemp.STATUS_PENDING);
+    }
+
+    @Test
+    void bulkDelete_missingId_throwsNotFoundWithoutDeleting() {
+        List<Long> ids = List.of(1L, 2L);
+        given(bookIsbnTempRepository.findAllByIdInForUpdate(ids))
+                .willReturn(List.of(temp(1L, BookIsbnTemp.STATUS_PENDING)));
+
+        assertThatThrownBy(() -> service().bulkDelete(new BookIsbnTempBulkDeleteRequest(ids)))
+                .isInstanceOfSatisfying(BusinessException.class,
+                        exception -> assertThat(exception.getErrorCode())
+                                .isEqualTo(ErrorCode.BOOK_ISBN_TEMP_NOT_FOUND));
+        verify(bookIsbnTempRepository, never())
+                .deleteAllByIdInAndStatusCd(any(), anyByte());
+    }
+
+    @ParameterizedTest
+    @ValueSource(bytes = {BookIsbnTemp.STATUS_READY, BookIsbnTemp.STATUS_MERGED})
+    void bulkDelete_nonPendingStatus_throwsConflictWithoutDeleting(byte statusCd) {
+        List<Long> ids = List.of(1L);
+        given(bookIsbnTempRepository.findAllByIdInForUpdate(ids))
+                .willReturn(List.of(temp(1L, statusCd)));
+
+        assertThatThrownBy(() -> service().bulkDelete(new BookIsbnTempBulkDeleteRequest(ids)))
+                .isInstanceOfSatisfying(BusinessException.class,
+                        exception -> assertThat(exception.getErrorCode())
+                                .isEqualTo(ErrorCode.BOOK_ISBN_TEMP_DELETE_NOT_ALLOWED));
+        verify(bookIsbnTempRepository, never())
+                .deleteAllByIdInAndStatusCd(any(), anyByte());
+    }
+
+    @Test
+    void bulkDelete_affectedRowsMismatch_throwsInvariantError() {
+        List<Long> ids = List.of(1L, 2L);
+        given(bookIsbnTempRepository.findAllByIdInForUpdate(ids))
+                .willReturn(List.of(temp(1L, BookIsbnTemp.STATUS_PENDING),
+                        temp(2L, BookIsbnTemp.STATUS_PENDING)));
+        given(bookIsbnTempRepository.deleteAllByIdInAndStatusCd(ids, BookIsbnTemp.STATUS_PENDING))
+                .willReturn(1);
+
+        assertThatThrownBy(() -> service().bulkDelete(new BookIsbnTempBulkDeleteRequest(ids)))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("요청 수와 일치하지 않습니다");
+    }
+
+    @Test
+    void bulkDelete_emptyIds_throwsValidationWithoutCallingRepository() {
+        assertThatThrownBy(() -> service().bulkDelete(new BookIsbnTempBulkDeleteRequest(List.of())))
+                .isInstanceOfSatisfying(BusinessException.class,
+                        exception -> assertThat(exception.getErrorCode())
+                                .isEqualTo(ErrorCode.VALIDATION_ERROR));
+        verifyNoInteractions(bookIsbnTempRepository);
+    }
+
     private BookMetadataResult metadata(String title) {
         return new BookMetadataResult(
                 ISBN13,
@@ -237,5 +314,16 @@ class BookIsbnTempServiceTest {
 
     private ExternalBookDuplicateInfo noDuplicate() {
         return new ExternalBookDuplicateInfo(DuplicateStatus.NONE.name(), null, List.of());
+    }
+
+    private BookIsbnTemp temp(long id, byte statusCd) {
+        BookIsbnTemp temp = BookIsbnTemp.create(Long.toString(9780000000000L + id));
+        ReflectionTestUtils.setField(temp, "id", id);
+        if (statusCd == BookIsbnTemp.STATUS_READY) {
+            temp.markReady();
+        } else if (statusCd == BookIsbnTemp.STATUS_MERGED) {
+            temp.markMerged();
+        }
+        return temp;
     }
 }

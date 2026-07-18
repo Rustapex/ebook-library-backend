@@ -2,6 +2,7 @@ package com.acorn.abc.admin.book.controller;
 
 import com.acorn.abc.admin.book.dto.BookIsbnBulkApproveResponse;
 import com.acorn.abc.admin.book.dto.BookIsbnTempApproveResponse;
+import com.acorn.abc.admin.book.dto.BookIsbnTempBulkDeleteResponse;
 import com.acorn.abc.admin.book.dto.BookIsbnTempFetchResponse;
 import com.acorn.abc.admin.book.dto.ExternalBookDuplicateInfo;
 import com.acorn.abc.admin.book.dto.ExternalBookLookupResponse;
@@ -13,6 +14,8 @@ import com.acorn.abc.batch.service.BookIsbnEnrichService;
 import com.acorn.abc.batch.service.BookIsbnSeedService;
 import com.acorn.abc.batch.service.BookIsbnTempService;
 import com.acorn.abc.common.exception.GlobalExceptionHandler;
+import com.acorn.abc.common.exception.BusinessException;
+import com.acorn.abc.common.exception.ErrorCode;
 import com.acorn.abc.common.security.CustomUserDetails;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -213,6 +216,53 @@ class AdminBookControllerTest {
                         .content(body))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"));
+    }
+
+    @Test
+    void bulkDelete_pendingCandidates_returnsDeletedIds() throws Exception {
+        when(bookIsbnTempService.bulkDelete(any()))
+                .thenReturn(new BookIsbnTempBulkDeleteResponse(2, List.of(1L, 2L)));
+
+        mockMvc.perform(post("/api/v1/admin/book-isbn-temps/bulk-delete")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"tempIds\":[2,1,2]}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.deletedCount").value(2))
+                .andExpect(jsonPath("$.data.deletedTempIds[0]").value(1))
+                .andExpect(jsonPath("$.data.deletedTempIds[1]").value(2));
+    }
+
+    @Test
+    void bulkDelete_emptyIds_returnsValidationError() throws Exception {
+        mockMvc.perform(post("/api/v1/admin/book-isbn-temps/bulk-delete")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"tempIds\":[]}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"));
+    }
+
+    @Test
+    void bulkDelete_missingId_returnsNotFound() throws Exception {
+        when(bookIsbnTempService.bulkDelete(any()))
+                .thenThrow(new BusinessException(ErrorCode.BOOK_ISBN_TEMP_NOT_FOUND));
+
+        mockMvc.perform(post("/api/v1/admin/book-isbn-temps/bulk-delete")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"tempIds\":[1,2]}"))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value("BOOK_ISBN_TEMP_NOT_FOUND"));
+    }
+
+    @Test
+    void bulkDelete_readyOrMerged_returnsConflict() throws Exception {
+        when(bookIsbnTempService.bulkDelete(any()))
+                .thenThrow(new BusinessException(ErrorCode.BOOK_ISBN_TEMP_DELETE_NOT_ALLOWED));
+
+        mockMvc.perform(post("/api/v1/admin/book-isbn-temps/bulk-delete")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"tempIds\":[1]}"))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("BOOK_ISBN_TEMP_DELETE_NOT_ALLOWED"));
     }
 
 }
