@@ -45,15 +45,17 @@ class AdminPointAdjustServiceTest {
     }
 
     private PointHistory existingHistory(int amount, String description) {
-        Member member = mock(Member.class);
-        given(member.getPointBalance()).willReturn(1000);
+        return existingHistory(amount, description, 1100);
+    }
+
+    private PointHistory existingHistory(int amount, String description, int balanceAfter) {
         PointHistory history = mock(PointHistory.class);
         given(history.getPointHistoryId()).willReturn(1L);
         given(history.getPointAmount()).willReturn(amount);
         given(history.getPointType()).willReturn("ADMIN_ADJUST");
         given(history.getDescription()).willReturn(description);
         given(history.getCreatedAt()).willReturn(LocalDateTime.now());
-        given(history.getMember()).willReturn(member);
+        given(history.getBalanceAfter()).willReturn(balanceAfter);
         return history;
     }
 
@@ -74,7 +76,23 @@ class AdminPointAdjustServiceTest {
 
         assertThat(response.pointHistoryId()).isEqualTo(1L);
         assertThat(response.pointAmount()).isEqualTo(100);
+        assertThat(response.pointBalance()).isEqualTo(1100);
         verify(executor, never()).applyNewAdjustment(any(), any(), any(Integer.class), any(), any());
+    }
+
+    // PR51 코드리뷰 대응(2026-07-18) §2.2-4 회귀 테스트 — 재시도 시점에 회원 잔액이 이미 달라져 있어도
+    // 재시도 응답은 조회 시점의 현재 잔액이 아니라 최초 조정 직후 저장된 balanceAfter를 그대로 반환해야 한다.
+    @Test
+    void adjustPoint_재시도_시점에_잔액이_달라져도_최초_조정_직후_balanceAfter를_반환한다() {
+        PointHistory existing = existingHistory(100, "지급", 1100);
+        Member currentMember = mock(Member.class);
+        given(currentMember.getPointBalance()).willReturn(9999);
+        given(existing.getMember()).willReturn(currentMember);
+        given(pointHistoryRepository.findByMember_MemberIdAndRequestId(1L, "req-1")).willReturn(Optional.of(existing));
+
+        AdminPointAdjustResponse response = newService().adjustPoint(1L, "req-1", 100, "지급", 999L);
+
+        assertThat(response.pointBalance()).isEqualTo(1100);
     }
 
     @Test

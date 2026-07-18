@@ -1,15 +1,23 @@
 package com.acorn.abc.admin.member.controller;
 
+import com.acorn.abc.admin.member.dto.AdminMemberDetailResponse;
 import com.acorn.abc.admin.member.dto.AdminMemberDetailTab;
+import com.acorn.abc.admin.member.dto.AdminMemberPaymentTabItemResponse;
+import com.acorn.abc.admin.member.dto.AdminMemberRentalTabItemResponse;
+import com.acorn.abc.admin.member.dto.AdminMemberReportTabItemResponse;
+import com.acorn.abc.admin.member.dto.AdminMemberSanctionTabItemResponse;
 import com.acorn.abc.admin.member.dto.AdminMemberStatusChangeRequest;
 import com.acorn.abc.admin.member.dto.AdminMemberStatusChangeResponse;
 import com.acorn.abc.admin.member.dto.AdminMemberSummaryResponse;
 import com.acorn.abc.common.response.ApiResponse;
 import com.acorn.abc.common.response.PageResponse;
 import com.acorn.abc.common.security.CustomUserDetails;
+import com.acorn.abc.member.dto.PointHistoryResponse;
 import com.acorn.abc.member.service.AdminMemberService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
@@ -50,7 +58,18 @@ public class AdminMemberController {
         return ResponseEntity.ok(ApiResponse.ok(response));
     }
 
-    @Operation(summary = "회원 상세 조회", description = "tab 파라미터로 기본 상세 또는 대여/결제/신고/포인트/제재 이력을 조회합니다.")
+    // PR51 코드리뷰 대응 §2.3-2 — 실제 반환 타입은 tab에 따라 달라져 제네릭 하나로 표현할 수 없으므로,
+    // Swagger 문서에는 탭별 실제 DTO를 oneOf로 명시해 모호한 Object 노출을 없앤다.
+    @Operation(summary = "회원 상세 조회", description = "tab 파라미터로 기본 상세 또는 대여/결제/신고/포인트/제재 이력을 조회합니다.",
+            responses = @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200",
+                    content = @Content(schema = @Schema(oneOf = {
+                            AdminMemberDetailResponse.class,
+                            AdminMemberRentalTabItemResponse.class,
+                            AdminMemberPaymentTabItemResponse.class,
+                            AdminMemberReportTabItemResponse.class,
+                            PointHistoryResponse.class,
+                            AdminMemberSanctionTabItemResponse.class
+                    }))))
     @GetMapping("/{memberId}")
     public ResponseEntity<ApiResponse<?>> getMemberDetail(
             @PathVariable Long memberId,

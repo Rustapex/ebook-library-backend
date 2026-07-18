@@ -66,26 +66,28 @@ class PointHistoryRepositoryTest {
     void 같은_회원의_같은_requestId는_UNIQUE_제약을_위반한다() {
         String requestId = UUID.randomUUID().toString();
         Member member = entityManager.find(Member.class, memberId);
-        pointHistoryRepository.save(PointHistory.createAdminAdjust(member, 100, "관리자 지급", requestId));
+        pointHistoryRepository.save(PointHistory.createAdminAdjust(member, 100, "관리자 지급", requestId, 1100));
         pointHistoryRepository.flush();
 
         assertThatThrownBy(() -> {
-            pointHistoryRepository.save(PointHistory.createAdminAdjust(member, 200, "관리자 지급2", requestId));
+            pointHistoryRepository.save(PointHistory.createAdminAdjust(member, 200, "관리자 지급2", requestId, 1300));
             pointHistoryRepository.flush();
         }).isInstanceOf(DataIntegrityViolationException.class);
     }
 
+    // PR51 코드리뷰 대응(2026-07-18) §2.2 — balanceAfter가 조회에서도 그대로 유지되는지 확인한다.
     @Test
-    void findByMember_MemberIdAndRequestId_요청ID로_이력을_조회한다() {
+    void findByMember_MemberIdAndRequestId_요청ID로_이력을_조회하고_balanceAfter를_포함한다() {
         String requestId = UUID.randomUUID().toString();
         Member member = entityManager.find(Member.class, memberId);
-        entityManager.persistAndFlush(PointHistory.createAdminAdjust(member, 100, "관리자 지급", requestId));
+        entityManager.persistAndFlush(PointHistory.createAdminAdjust(member, 100, "관리자 지급", requestId, 1100));
         entityManager.clear();
 
         Optional<PointHistory> found = pointHistoryRepository.findByMember_MemberIdAndRequestId(memberId, requestId);
 
         assertThat(found).isPresent();
         assertThat(found.get().getPointAmount()).isEqualTo(100);
+        assertThat(found.get().getBalanceAfter()).isEqualTo(1100);
     }
 
     private Long insertMember(String loginId) {

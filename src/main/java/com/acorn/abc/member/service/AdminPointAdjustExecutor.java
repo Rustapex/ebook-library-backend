@@ -36,19 +36,20 @@ public class AdminPointAdjustExecutor {
                                                          String description, Long adminMemberId) {
         Member member = memberRepository.findByIdForUpdate(memberId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.MEMBER_NOT_FOUND));
-        if (member.isAdmin()) {
+        // PR51 코드리뷰 대응 §2.2-1 — isAdmin() 단독 검사 대신 ADMIN/WITHDRAWN/DEACTIVATED를 모두 거부한다.
+        if (member.isProtectedFromAdminChanges()) {
             throw new BusinessException(ErrorCode.AUTH_ACCESS_DENIED);
         }
 
         member.applyAdminPointAdjustment(pointAmount);
         PointHistory history = pointHistoryRepository.save(
-                PointHistory.createAdminAdjust(member, pointAmount, description, requestId));
+                PointHistory.createAdminAdjust(member, pointAmount, description, requestId, member.getPointBalance()));
 
         adminAuditLogWriter.record(adminMemberId, AdminAuditLogActionType.MEMBER_POINT_ADJUST,
                 AdminAuditLogTargetType.MEMBER, memberId, null,
-                Map.of("pointAmount", pointAmount, "balanceAfter", member.getPointBalance(), "requestId", requestId));
+                Map.of("pointAmount", pointAmount, "balanceAfter", history.getBalanceAfter(), "requestId", requestId));
 
         return new AdminPointAdjustResponse(history.getPointHistoryId(), history.getPointAmount(),
-                history.getPointType(), member.getPointBalance(), history.getCreatedAt());
+                history.getPointType(), history.getBalanceAfter(), history.getCreatedAt());
     }
 }

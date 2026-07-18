@@ -53,8 +53,10 @@ public class AdminPointAdjustService {
         if (!samePayload) {
             throw new BusinessException(ErrorCode.IDEMPOTENCY_KEY_CONFLICT);
         }
+        // PR51 코드리뷰 대응 §2.2-4 — 재시도 응답은 현재 회원 잔액이 아니라 최초 조정 직후 저장한
+        // balanceAfter를 그대로 반환한다. 조회 시점 사이에 다른 포인트 변경이 있어도 값이 달라지지 않는다.
         return new AdminPointAdjustResponse(existing.getPointHistoryId(), existing.getPointAmount(),
-                existing.getPointType(), existing.getMember().getPointBalance(), existing.getCreatedAt());
+                existing.getPointType(), existing.getBalanceAfter(), existing.getCreatedAt());
     }
 
     private String normalize(String value) {

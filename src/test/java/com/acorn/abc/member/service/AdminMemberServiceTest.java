@@ -6,6 +6,7 @@ import com.acorn.abc.admin.member.dto.AdminMemberStatusChangeRequest;
 import com.acorn.abc.admin.member.dto.AdminMemberStatusChangeResponse;
 import com.acorn.abc.admin.member.dto.AdminMemberSummaryResponse;
 import com.acorn.abc.admin.member.dto.AdminMemberTabResponse;
+import com.acorn.abc.admin.member.repository.AdminMemberReportRepository;
 import com.acorn.abc.common.exception.BusinessException;
 import com.acorn.abc.common.exception.ErrorCode;
 import com.acorn.abc.common.response.PageResponse;
@@ -15,8 +16,6 @@ import com.acorn.abc.member.repository.MemberRepository;
 import com.acorn.abc.member.repository.PointHistoryRepository;
 import com.acorn.abc.payment.repository.PaymentRepository;
 import com.acorn.abc.rental.repository.BookRentalRepository;
-import com.acorn.abc.review.domain.BookReport;
-import com.acorn.abc.review.domain.ReviewReport;
 import com.acorn.abc.review.domain.SanctionHistory;
 import com.acorn.abc.review.repository.BookReportRepository;
 import com.acorn.abc.review.repository.ReviewReportRepository;
@@ -31,6 +30,7 @@ import org.mockito.quality.Strictness;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -59,13 +59,14 @@ class AdminMemberServiceTest {
     @Mock private PaymentRepository paymentRepository;
     @Mock private BookReportRepository bookReportRepository;
     @Mock private ReviewReportRepository reviewReportRepository;
+    @Mock private AdminMemberReportRepository adminMemberReportRepository;
     @Mock private PointHistoryRepository pointHistoryRepository;
     @Mock private AdminAuditLogWriter adminAuditLogWriter;
 
     private AdminMemberService newService() {
         return new AdminMemberService(memberRepository, sanctionHistoryRepository, bookRentalRepository,
-                paymentRepository, bookReportRepository, reviewReportRepository, pointHistoryRepository,
-                adminAuditLogWriter);
+                paymentRepository, bookReportRepository, reviewReportRepository, adminMemberReportRepository,
+                pointHistoryRepository, adminAuditLogWriter);
     }
 
     private MemberGrade grade(String name) {
@@ -158,24 +159,29 @@ class AdminMemberServiceTest {
                 .extracting("errorCode").isEqualTo(ErrorCode.MEMBER_NOT_FOUND);
     }
 
+    // PR51 코드리뷰 대응(2026-07-18) §2.3-3 — REPORTS 탭은 DB UNION ALL 조회 결과(이미 정렬·페이지된 상태)를
+    // 그대로 DTO로 옮기기만 하는지 확인한다(정렬 자체는 AdminMemberReportRepository 책임).
     @Test
-    void getAdminMemberReports_book_report와_review_report를_createdAt_내림차순으로_합친다() {
+    void getAdminMemberReports_UNION_ALL_조회_결과를_그대로_응답으로_변환한다() {
         given(memberRepository.existsById(1L)).willReturn(true);
 
-        BookReport bookReport = mock(BookReport.class);
-        given(bookReport.getBookReportId()).willReturn(10L);
-        given(bookReport.getReportType()).willReturn("SPOILER");
-        given(bookReport.getStatus()).willReturn("WAITING");
-        given(bookReport.getCreatedAt()).willReturn(LocalDateTime.of(2026, 7, 1, 0, 0));
+        AdminMemberReportRepository.AdminMemberReportRow reviewRow = mock(AdminMemberReportRepository.AdminMemberReportRow.class);
+        given(reviewRow.getReportId()).willReturn(20L);
+        given(reviewRow.getReportSourceType()).willReturn("REVIEW_REPORT");
+        given(reviewRow.getReportType()).willReturn("ABUSE");
+        given(reviewRow.getStatus()).willReturn("WAITING");
+        given(reviewRow.getCreatedAt()).willReturn(LocalDateTime.of(2026, 7, 2, 0, 0));
 
-        ReviewReport reviewReport = mock(ReviewReport.class);
-        given(reviewReport.getReviewReportId()).willReturn(20L);
-        given(reviewReport.getReportType()).willReturn("ABUSE");
-        given(reviewReport.getStatus()).willReturn("WAITING");
-        given(reviewReport.getCreatedAt()).willReturn(LocalDateTime.of(2026, 7, 2, 0, 0));
+        AdminMemberReportRepository.AdminMemberReportRow bookRow = mock(AdminMemberReportRepository.AdminMemberReportRow.class);
+        given(bookRow.getReportId()).willReturn(10L);
+        given(bookRow.getReportSourceType()).willReturn("BOOK_REPORT");
+        given(bookRow.getReportType()).willReturn("SPOILER");
+        given(bookRow.getStatus()).willReturn("WAITING");
+        given(bookRow.getCreatedAt()).willReturn(LocalDateTime.of(2026, 7, 1, 0, 0));
 
-        given(bookReportRepository.findByReporterIdForAdmin(1L)).willReturn(List.of(bookReport));
-        given(reviewReportRepository.findByReporterIdForAdmin(1L)).willReturn(List.of(reviewReport));
+        Pageable pageable = PageRequest.of(0, 20);
+        given(adminMemberReportRepository.findByReporterId(1L, pageable))
+                .willReturn(new PageImpl<>(List.of(reviewRow, bookRow), pageable, 2));
 
         AdminMemberTabResponse<AdminMemberReportTabItemResponse> response = newService().getAdminMemberReports(1L, 0, 20);
 

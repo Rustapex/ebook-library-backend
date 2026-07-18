@@ -1,6 +1,7 @@
 package com.acorn.abc.member.service;
 
 import com.acorn.abc.admin.member.dto.AdminMemberDetailResponse;
+import com.acorn.abc.admin.member.repository.AdminMemberReportRepository;
 import com.acorn.abc.admin.member.dto.AdminMemberPaymentTabItemResponse;
 import com.acorn.abc.admin.member.dto.AdminMemberProfileResponse;
 import com.acorn.abc.admin.member.dto.AdminMemberRentalTabItemResponse;
@@ -39,8 +40,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -63,6 +62,7 @@ public class AdminMemberService {
     private final PaymentRepository paymentRepository;
     private final BookReportRepository bookReportRepository;
     private final ReviewReportRepository reviewReportRepository;
+    private final AdminMemberReportRepository adminMemberReportRepository;
     private final PointHistoryRepository pointHistoryRepository;
     private final AdminAuditLogWriter adminAuditLogWriter;
 
@@ -150,23 +150,16 @@ public class AdminMemberService {
         ensureMemberExists(memberId);
         validatePaging(page, size);
 
-        List<AdminMemberReportTabItemResponse> merged = new ArrayList<>();
-        bookReportRepository.findByReporterIdForAdmin(memberId).forEach(br -> merged.add(new AdminMemberReportTabItemResponse(
-                br.getBookReportId(), "BOOK_REPORT", br.getReportType(), br.getStatus(), br.getProcessedAt(), br.getCreatedAt())));
-        reviewReportRepository.findByReporterIdForAdmin(memberId).forEach(rr -> merged.add(new AdminMemberReportTabItemResponse(
-                rr.getReviewReportId(), "REVIEW_REPORT", rr.getReportType(), rr.getStatus(), rr.getProcessedAt(), rr.getCreatedAt())));
-
-        // book_report/review_report를 DB UNION 대신 서비스에서 병합 정렬한다 — 관리자 화면 단일 회원 기준 규모라 허용(§1.3 공통 tie-breaker).
-        merged.sort(Comparator.comparing(AdminMemberReportTabItemResponse::createdAt).reversed()
-                .thenComparing(Comparator.comparing(AdminMemberReportTabItemResponse::reportId).reversed()));
-
-        long total = merged.size();
-        List<AdminMemberReportTabItemResponse> pageContent = merged.stream()
-                .skip((long) page * size)
-                .limit(size)
+        // PR51 코드리뷰 대응 §2.3-3 — book_report/review_report 전체를 메모리에 적재해 합치지 않고,
+        // UNION ALL 쿼리 자체에 정렬·페이지(LIMIT/OFFSET)를 적용한다.
+        Page<AdminMemberReportRepository.AdminMemberReportRow> result =
+                adminMemberReportRepository.findByReporterId(memberId, PageRequest.of(page, size));
+        List<AdminMemberReportTabItemResponse> content = result.getContent().stream()
+                .map(row -> new AdminMemberReportTabItemResponse(row.getReportId(), row.getReportSourceType(),
+                        row.getReportType(), row.getStatus(), row.getProcessedAt(), row.getCreatedAt()))
                 .toList();
 
-        return new AdminMemberTabResponse<>(memberId, PageResponse.of(pageContent, page, size, total));
+        return new AdminMemberTabResponse<>(memberId, PageResponse.of(content, page, size, result.getTotalElements()));
     }
 
     @Transactional(readOnly = true)
