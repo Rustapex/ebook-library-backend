@@ -15,6 +15,8 @@ public interface BookReportRepository extends JpaRepository<BookReport, Long> {
     @Query("SELECT br FROM BookReport br JOIN FETCH br.reporter JOIN FETCH br.book ORDER BY br.createdAt DESC")
     List<BookReport> findRecent(Pageable pageable);
 
+    long countByReporter_MemberId(Long reporterId);
+
     // 관리자 통계 도서 신고 기간/나이대 조건부 집계(관리자 통계 확장 §3.1~§3.3, §6 — 나이대는 reporter 기준)
     @Query("SELECT COUNT(br) FROM BookReport br WHERE " +
             "(:from IS NULL OR br.createdAt >= :from) AND (:to IS NULL OR br.createdAt < :to) " +

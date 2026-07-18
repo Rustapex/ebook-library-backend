@@ -3,6 +3,7 @@ package com.acorn.abc.common.exception;
 import com.acorn.abc.common.response.ErrorResponse;
 import jakarta.validation.ConstraintViolationException;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.PessimisticLockingFailureException;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -56,6 +57,14 @@ public class GlobalExceptionHandler {
         log.debug("요청 본문을 읽을 수 없습니다.", e);
         return ResponseEntity.badRequest()
                 .body(ErrorResponse.of(ErrorCode.VALIDATION_ERROR));
+    }
+
+    // PESSIMISTIC_WRITE 잠금 대기 초과·deadlock(관리자 회원 API 구현계획 §1.5-8, §1.6.2-5) — 재시도 없이 409로 응답한다.
+    @ExceptionHandler(PessimisticLockingFailureException.class)
+    public ResponseEntity<ErrorResponse> handlePessimisticLockingFailureException(PessimisticLockingFailureException e) {
+        log.warn("비관적 잠금 획득 실패", e);
+        return ResponseEntity.status(ErrorCode.CONCURRENT_UPDATE.getHttpStatus())
+                .body(ErrorResponse.of(ErrorCode.CONCURRENT_UPDATE));
     }
 
     @ExceptionHandler(Exception.class)

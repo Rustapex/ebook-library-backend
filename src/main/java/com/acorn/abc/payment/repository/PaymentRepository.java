@@ -89,4 +89,12 @@ public interface PaymentRepository extends JpaRepository<Payment, Long> {
             @Param("to") LocalDateTime to,
             Pageable pageable
     );
+
+    // 관리자 회원 상세 PAYMENTS 탭(구현계획 §1.3) — paidAt DESC, paymentId DESC 고정.
+    @Query(value = "SELECT p FROM Payment p JOIN FETCH p.rental r JOIN FETCH r.book WHERE p.member.memberId = :memberId " +
+            "ORDER BY p.paidAt DESC, p.paymentId DESC",
+            countQuery = "SELECT COUNT(p) FROM Payment p WHERE p.member.memberId = :memberId")
+    Page<Payment> findByMemberIdForAdmin(@Param("memberId") Long memberId, Pageable pageable);
+
+    long countByMember_MemberId(Long memberId);
 }
