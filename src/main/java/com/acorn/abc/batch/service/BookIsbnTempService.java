@@ -77,10 +77,12 @@ public class BookIsbnTempService {
                 meta.aladinCategoryId(), meta.aladinCategoryName(),
                 meta.naver().code(), meta.aladin().code());
 
-        if (temp.getBookTitle() != null && !temp.getBookTitle().isBlank()) {
-            temp.markReady();
-        } else {
-            temp.markPending();
+        if (temp.getStatusCd() != BookIsbnTemp.STATUS_MERGED) {
+            if (temp.getBookTitle() != null && !temp.getBookTitle().isBlank()) {
+                temp.markReady();
+            } else {
+                temp.markPending();
+            }
         }
 
         BookIsbnTemp saved = bookIsbnTempRepository.save(temp);
