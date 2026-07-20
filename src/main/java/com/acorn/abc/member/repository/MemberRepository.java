@@ -59,4 +59,9 @@ public interface MemberRepository extends JpaRepository<Member, Long> {
     @Query("UPDATE Member m SET m.pointBalance = m.pointBalance + :amount "
             + "WHERE m.memberId = :memberId AND m.pointBalance + :amount >= 0")
     int applyPointChangeIfSufficient(@Param("memberId") Long memberId, @Param("amount") int amount);
+
+    // 공지 알림 fan-out 대상(재직 회원, 일반 사용자)을 memberId 기준 keyset으로 chunk 조회한다.
+    @Query("SELECT m.memberId FROM Member m WHERE m.status = 'JOINED' AND m.role = 'USER' AND m.memberId > :afterId " +
+            "ORDER BY m.memberId ASC")
+    java.util.List<Long> findFanOutTargetIds(@Param("afterId") Long afterId, Pageable pageable);
 }

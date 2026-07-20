@@ -72,4 +72,23 @@ public class BookRequest {
 
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt;
+
+    public static BookRequest create(BookRequestCandidate requestCandidate, Member member,
+                                      String requestTitle, String requestAuthor, String requestPublisher,
+                                      String normalizedTitle, String normalizedAuthor, String normalizedPublisher,
+                                      String reason, LocalDateTime createdAt) {
+        BookRequest request = new BookRequest();
+        request.requestCandidate = requestCandidate;
+        request.member = member;
+        request.requestTitle = requestTitle;
+        request.requestAuthor = requestAuthor;
+        request.requestPublisher = requestPublisher;
+        request.normalizedTitle = normalizedTitle;
+        request.normalizedAuthor = normalizedAuthor;
+        request.normalizedPublisher = normalizedPublisher;
+        request.reason = reason;
+        request.requestStatus = "REQUESTED";
+        request.createdAt = createdAt;
+        return request;
+    }
 }

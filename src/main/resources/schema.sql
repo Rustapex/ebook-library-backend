@@ -552,7 +552,7 @@ CREATE TABLE IF NOT EXISTS notification (
   created_at DATETIME NOT NULL,
   read_at DATETIME NULL,
   CONSTRAINT pk_notification PRIMARY KEY (notification_id),
-  CONSTRAINT chk_notification_notification_type CHECK (notification_type IN ('RENTAL', 'payment', 'notice', 'EVENT', 'REPORT', 'book_request', 'coupon', 'challenge'))
+  CONSTRAINT chk_notification_notification_type CHECK (notification_type IN ('RENTAL', 'PAYMENT', 'NOTICE', 'EVENT', 'REPORT', 'BOOK_REQUEST', 'COUPON', 'CHALLENGE'))
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 CREATE TABLE IF NOT EXISTS notice (
@@ -731,7 +731,7 @@ CREATE INDEX idx_member_coupon_member_id ON member_coupon (member_id);
 CREATE INDEX idx_member_coupon_coupon_status ON member_coupon (coupon_status);
 CREATE INDEX idx_member_coupon_expires_at ON member_coupon (expires_at);
 CREATE INDEX idx_coupon_usage_rental_id ON coupon_usage (rental_id);
-CREATE INDEX idx_book_request_candidate_normalized ON book_request_candidate (normalized_title, normalized_author, normalized_publisher);
+CREATE UNIQUE INDEX idx_book_request_candidate_normalized ON book_request_candidate (normalized_title, normalized_author, normalized_publisher);
 CREATE INDEX idx_book_request_candidate_candidate_status ON book_request_candidate (candidate_status);
 CREATE INDEX idx_book_request_request_candidate_id ON book_request (request_candidate_id);
 CREATE INDEX idx_book_request_request_status ON book_request (request_status);

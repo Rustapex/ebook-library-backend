@@ -33,12 +33,12 @@ public class AdminAuditLogController {
                     schema = @Schema(allowableValues = {
                             "MEMBER_POINT_ADJUST", "COUPON_CREATE", "COUPON_ISSUE", "BOOK_CREATE", "CHALLENGE_UPDATE",
                             "COLLECTION_CREATE", "COLLECTION_UPDATE", "COLLECTION_BOOKS_UPDATE", "COLLECTION_PATCH",
-                            "MEMBER_UPDATE", "BOOK_UPDATE", "REPORT_PROCESS", "NOTICE_WRITE"}))
+                            "MEMBER_UPDATE", "BOOK_UPDATE", "REPORT_PROCESS", "NOTICE_WRITE", "BOOK_REQUEST_STATUS_UPDATE"}))
             @RequestParam(required = false) String actionType,
             @Parameter(description = "감사 로그 대상 유형 필터입니다. 생략 가능. 목록에 없는 값은 400을 반환합니다.",
                     schema = @Schema(allowableValues = {
                             "MEMBER", "COUPON", "BOOK", "CHALLENGE", "COLLECTION",
-                            "BOOK_REPORT", "REVIEW_REPORT", "REVIEW", "NOTICE", "SANCTION_HISTORY"}))
+                            "BOOK_REPORT", "REVIEW_REPORT", "REVIEW", "NOTICE", "SANCTION_HISTORY", "BOOK_REQUEST_CANDIDATE"}))
             @RequestParam(required = false) String targetType,
             @RequestParam(required = false) Long targetId,
             @RequestParam(defaultValue = "0") @Min(value = 0, message = "page는 0 이상이어야 합니다.") int page,

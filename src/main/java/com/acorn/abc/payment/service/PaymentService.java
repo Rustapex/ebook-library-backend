@@ -109,9 +109,9 @@ public class PaymentService {
         // 9. Book.increaseRentalCount()
         book.increaseRentalCount();
 
-        // 10. Notification 저장 (알림 유형 값은 notification.notification_type CHECK 제약의 기존 대소문자 표기를 그대로 따른다)
+        // 10. Notification 저장 (notification_type은 V002 마이그레이션 이후 전부 대문자로 통일됨)
         notificationRepository.save(Notification.create(member, "RENTAL", "유료 대여가 시작되었습니다.", "RENTAL", rental.getRentalId(), now));
-        notificationRepository.save(Notification.create(member, "payment", "결제가 완료되었습니다.", "PAYMENT", payment.getPaymentId(), now));
+        notificationRepository.save(Notification.create(member, "PAYMENT", "결제가 완료되었습니다.", "PAYMENT", payment.getPaymentId(), now));
 
         return new PaymentCreateResponse(
                 rental.getRentalId(),

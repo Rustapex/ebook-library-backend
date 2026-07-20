@@ -19,5 +19,8 @@ public enum AdminAuditLogTargetType {
     REVIEW_REPORT,
     REVIEW,
     NOTICE,
-    SANCTION_HISTORY
+    SANCTION_HISTORY,
+
+    // 희망도서/알림/공지 구현계획 — 관리자 후보 상태 변경의 대상.
+    BOOK_REQUEST_CANDIDATE
 }
