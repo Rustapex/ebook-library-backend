@@ -1,10 +1,12 @@
 package com.acorn.abc.book.repository;
 
 import com.acorn.abc.book.domain.Book;
+import jakarta.persistence.LockModeType;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -18,6 +20,11 @@ public interface BookRepository extends JpaRepository<Book, Long>, JpaSpecificat
     Optional<Book> findByIsbn(String isbn);
 
     long countByStatus(String status);
+
+    // 관리자 도서 수정/상태변경(API-ADMIN-BOOK-003/004) write 경로 전용 잠금 조회(관리자 도서 API 설계문서 §6).
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT b FROM Book b WHERE b.bookId = :bookId")
+    Optional<Book> findByIdForUpdate(@Param("bookId") Long bookId);
 
     @Query("SELECT DISTINCT b FROM Book b LEFT JOIN b.publisher p " +
             "WHERE (b.isbn IS NULL OR b.isbn <> :isbn) " +

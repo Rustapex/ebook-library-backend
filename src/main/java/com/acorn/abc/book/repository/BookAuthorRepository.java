@@ -19,4 +19,14 @@ public interface BookAuthorRepository extends JpaRepository<BookAuthor, BookAuth
             "WHERE ba.book.bookId IN :bookIds AND a.status = 'ACTIVE' " +
             "ORDER BY ba.book.bookId ASC, ba.authorOrder ASC, a.authorName ASC")
     List<BookAuthor> findActiveByBookIds(@Param("bookIds") List<Long> bookIds);
+
+    // 관리자 도서 목록(API-ADMIN-BOOK-001) 전용 — 공개 조회의 author.status='ACTIVE' 필터 없이 전부 반환한다
+    // (관리자 도서 API 설계문서 §5, 공개 findActiveByBookIds는 재사용하지 않음).
+    @Query("SELECT ba FROM BookAuthor ba JOIN FETCH ba.author a " +
+            "WHERE ba.book.bookId IN :bookIds " +
+            "ORDER BY ba.book.bookId ASC, ba.authorOrder ASC, a.authorName ASC")
+    List<BookAuthor> findAllByBookIdIn(@Param("bookIds") List<Long> bookIds);
+
+    // 관리자 도서 수정(API-ADMIN-BOOK-003) 전용 — 기존 author 매핑 전체 교체용 삭제.
+    void deleteByBook_BookId(Long bookId);
 }
