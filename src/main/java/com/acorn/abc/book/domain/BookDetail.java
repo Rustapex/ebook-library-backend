@@ -59,4 +59,12 @@ public class BookDetail {
         detail.createdAt = LocalDateTime.now();
         return detail;
     }
+
+    // 관리자 도서 수정(API-ADMIN-BOOK-003) 전용 — 안내성 상세만 교체한다. detailContent(실 열람 원문)는 건드리지 않는다.
+    public void updateGuideContent(String description, String tableOfContents, String publisherReview) {
+        this.description = description;
+        this.tableOfContents = tableOfContents;
+        this.publisherReview = publisherReview;
+        this.updatedAt = LocalDateTime.now();
+    }
 }

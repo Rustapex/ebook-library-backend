@@ -96,6 +96,26 @@ public class Book {
         return book;
     }
 
+    // 관리자 도서 수정(API-ADMIN-BOOK-003) 전용 — 허용 메타정보만 전체 교체한다.
+    // pubDate·totalPages·rentalCount·averageRating·reviewCount는 이 API의 보호 대상이라 여기서 건드리지 않는다.
+    public void updateBasicInfo(Publisher publisher, String title, String isbn, String coverImageUrl,
+                                 String rentalType, int rentalPrice, int defaultRentalDays) {
+        this.publisher = publisher;
+        this.title = title;
+        this.isbn = isbn;
+        this.coverImageUrl = coverImageUrl;
+        this.rentalType = rentalType;
+        this.rentalPrice = rentalPrice;
+        this.defaultRentalDays = defaultRentalDays;
+        this.updatedAt = LocalDateTime.now();
+    }
+
+    // 관리자 도서 상태 변경(API-ADMIN-BOOK-004) 전용 — 물리 삭제 없이 상태만 바꾼다.
+    public void changeStatus(String status) {
+        this.status = status;
+        this.updatedAt = LocalDateTime.now();
+    }
+
     public void increaseRentalCount() {
         this.rentalCount++;
     }
