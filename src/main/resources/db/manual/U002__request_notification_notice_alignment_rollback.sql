@@ -14,10 +14,33 @@ SELECT DATABASE() AS current_database;
 -- 0-1. maintenance mode 활성 여부는 애플리케이션 레벨에서 수동 확인한다(운영 절차 문서 참고).
 --      이 스크립트는 DB 레벨 가드만 자동화한다.
 
-DROP PROCEDURE IF EXISTS sp_u002_guard;
+-- bootstrap은 이 migration 전용의 일회성 routine이므로 이전 실패 뒤 남은 같은 이름은
+-- 안전하게 정리한다. 실제 guard routine은 절대 DROP하지 않으며 아래 bootstrap이
+-- 존재를 감지하면 SIGNAL로 중단한다.
+DROP PROCEDURE IF EXISTS sp_abc_u002_request_notification_notice_guard_bootstrap;
+DELIMITER $$
+CREATE PROCEDURE sp_abc_u002_request_notification_notice_guard_bootstrap()
+BEGIN
+  DECLARE target_procedure_exists INT;
+
+  SELECT COUNT(*) INTO target_procedure_exists
+  FROM information_schema.routines
+  WHERE ROUTINE_SCHEMA = DATABASE()
+    AND ROUTINE_TYPE = 'PROCEDURE'
+    AND ROUTINE_NAME = 'sp_abc_u002_request_notification_notice_guard';
+
+  IF target_procedure_exists > 0 THEN
+    SIGNAL SQLSTATE '45000'
+      SET MESSAGE_TEXT = 'U002 guard failed: existing U002 guard procedure found. Inspect it; do not overwrite it.';
+  END IF;
+END$$
+DELIMITER ;
+
+CALL sp_abc_u002_request_notification_notice_guard_bootstrap();
+DROP PROCEDURE sp_abc_u002_request_notification_notice_guard_bootstrap;
 
 DELIMITER $$
-CREATE PROCEDURE sp_u002_guard()
+CREATE PROCEDURE sp_abc_u002_request_notification_notice_guard()
 BEGIN
   DECLARE meta_exists INT;
   DECLARE candidate_backup_expected INT;
@@ -94,8 +117,8 @@ BEGIN
 END$$
 DELIMITER ;
 
-CALL sp_u002_guard();
-DROP PROCEDURE sp_u002_guard;
+CALL sp_abc_u002_request_notification_notice_guard();
+DROP PROCEDURE sp_abc_u002_request_notification_notice_guard;
 
 -- 위 guard를 통과했을 때만(프로시저가 SIGNAL 없이 정상 종료했을 때만) 아래 1번부터 진행된다.
 
@@ -158,12 +181,8 @@ CREATE INDEX idx_book_request_candidate_normalized
 -- ============================================================
 -- 6. notification_type 값/CHECK 원상복구
 -- ============================================================
-UPDATE notification SET notification_type = 'payment' WHERE notification_type = 'PAYMENT';
-UPDATE notification SET notification_type = 'notice' WHERE notification_type = 'NOTICE';
-UPDATE notification SET notification_type = 'book_request' WHERE notification_type = 'BOOK_REQUEST';
-UPDATE notification SET notification_type = 'coupon' WHERE notification_type = 'COUPON';
-UPDATE notification SET notification_type = 'challenge' WHERE notification_type = 'CHALLENGE';
-
+-- V002의 CHECK는 PAYMENT/NOTICE 등 대문자만 허용한다. 따라서 값을 기존 소문자로
+-- 되돌리기 전에 현재 CHECK를 반드시 제거한다. 반대로 하면 첫 UPDATE가 CHECK 위반으로 실패한다.
 SET @notif_check_exists := (
   SELECT COUNT(*) FROM information_schema.check_constraints
   WHERE CONSTRAINT_SCHEMA = DATABASE() AND CONSTRAINT_NAME = 'chk_notification_notification_type'
@@ -176,6 +195,13 @@ PREPARE stmt FROM @drop_notif_check_sql;
 EXECUTE stmt;
 DEALLOCATE PREPARE stmt;
 
+UPDATE notification SET notification_type = 'payment' WHERE notification_type = 'PAYMENT';
+UPDATE notification SET notification_type = 'notice' WHERE notification_type = 'NOTICE';
+UPDATE notification SET notification_type = 'book_request' WHERE notification_type = 'BOOK_REQUEST';
+UPDATE notification SET notification_type = 'coupon' WHERE notification_type = 'COUPON';
+UPDATE notification SET notification_type = 'challenge' WHERE notification_type = 'CHALLENGE';
+
+-- V002 적용 전 main schema의 legacy mixed/lowercase CHECK를 다시 만든다.
 ALTER TABLE notification
   ADD CONSTRAINT chk_notification_notification_type
   CHECK (notification_type IN ('RENTAL', 'payment', 'notice', 'EVENT', 'REPORT', 'book_request', 'coupon', 'challenge'));

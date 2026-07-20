@@ -185,4 +185,22 @@ class AdminBookRequestServiceTest {
 
         verify(candidateRepository, never()).finalizeIfEligible(any(), any());
     }
+
+    @Test
+    void updateStatus_IN_REVIEW에_공백_반려사유_키가_있으면_VALIDATION_ERROR() {
+        assertThatThrownBy(() -> adminBookRequestService.updateStatus(
+                9L, 1L, new AdminBookRequestStatusUpdateRequest("IN_REVIEW", null, "   ")))
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(ErrorCode.VALIDATION_ERROR);
+    }
+
+    @Test
+    void updateStatus_APPROVED에_공백_반려사유_키가_있으면_VALIDATION_ERROR() {
+        assertThatThrownBy(() -> adminBookRequestService.updateStatus(
+                9L, 1L, new AdminBookRequestStatusUpdateRequest("APPROVED", 5L, "   ")))
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(ErrorCode.VALIDATION_ERROR);
+    }
 }

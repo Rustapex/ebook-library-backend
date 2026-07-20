@@ -47,13 +47,37 @@ SELECT @action_check_existed AS action_check_existed, @target_check_existed AS t
 --    SIGNAL은 저장 프로시저 안에서만 쓸 수 있어 임시 프로시저로 감싼다 — mysql 클라이언트/SOURCE는
 --    기본적으로 처리되지 않은 오류를 만나면 이후 문장을 실행하지 않고 중단한다.)
 -- ============================================================
-DROP PROCEDURE IF EXISTS sp_v002_audit_log_preflight;
+-- bootstrap은 이 migration 전용의 일회성 routine이므로 이전 실패 뒤 남은 같은 이름은
+-- 안전하게 정리한다. 실제 preflight routine은 절대 DROP하지 않으며 아래 bootstrap이
+-- 존재를 감지하면 SIGNAL로 중단한다.
+DROP PROCEDURE IF EXISTS sp_abc_v002_request_notification_notice_preflight_bootstrap;
+DELIMITER $$
+CREATE PROCEDURE sp_abc_v002_request_notification_notice_preflight_bootstrap()
+BEGIN
+  DECLARE target_procedure_exists INT;
+
+  SELECT COUNT(*) INTO target_procedure_exists
+  FROM information_schema.routines
+  WHERE ROUTINE_SCHEMA = DATABASE()
+    AND ROUTINE_TYPE = 'PROCEDURE'
+    AND ROUTINE_NAME = 'sp_abc_v002_request_notification_notice_preflight';
+
+  IF target_procedure_exists > 0 THEN
+    SIGNAL SQLSTATE '45000'
+      SET MESSAGE_TEXT = 'V002 preflight failed: existing V002 preflight procedure found. Inspect it; do not overwrite it.';
+  END IF;
+END$$
+DELIMITER ;
+
+CALL sp_abc_v002_request_notification_notice_preflight_bootstrap();
+DROP PROCEDURE sp_abc_v002_request_notification_notice_preflight_bootstrap;
 
 DELIMITER $$
-CREATE PROCEDURE sp_v002_audit_log_preflight()
+CREATE PROCEDURE sp_abc_v002_request_notification_notice_preflight()
 BEGIN
   DECLARE invalid_action_count INT;
   DECLARE invalid_target_count INT;
+  DECLARE backup_table_count INT;
 
   SELECT COUNT(*) INTO invalid_action_count FROM admin_audit_log
   WHERE action_type NOT IN (
@@ -77,24 +101,39 @@ BEGIN
     SIGNAL SQLSTATE '45000'
       SET MESSAGE_TEXT = 'V002 preflight failed: admin_audit_log has target_type values outside the allowed set. Clean up before proceeding.';
   END IF;
+
+  -- V002는 1회성 migration이다. 기존 백업/메타 테이블을 DROP하면 정상 V002의
+  -- rollback snapshot을 파괴하므로, 셋 중 하나라도 있으면 CREATE 전에 즉시 중단한다.
+  SELECT COUNT(*) INTO backup_table_count
+  FROM information_schema.tables
+  WHERE TABLE_SCHEMA = DATABASE()
+    AND TABLE_NAME IN (
+      'book_request_candidate_v002_backup',
+      'book_request_v002_backup_mapping',
+      'book_request_v002_migration_meta'
+    );
+
+  IF backup_table_count > 0 THEN
+    SIGNAL SQLSTATE '45000'
+      SET MESSAGE_TEXT = 'V002 preflight failed: existing V002 backup/meta table found. Do not overwrite the rollback snapshot.';
+  END IF;
 END$$
 DELIMITER ;
 
-CALL sp_v002_audit_log_preflight();
-DROP PROCEDURE sp_v002_audit_log_preflight;
+CALL sp_abc_v002_request_notification_notice_preflight();
+DROP PROCEDURE sp_abc_v002_request_notification_notice_preflight;
 
 -- ============================================================
 -- 3. 백업 테이블 + 메타 테이블 생성 (U002 복원용)
 -- ============================================================
-DROP TABLE IF EXISTS book_request_candidate_v002_backup;
+-- IF NOT EXISTS를 사용하지 않는다. preflight와 CREATE 사이에 동일 테이블이 생기면
+-- CREATE 실패로 중단되어야 하며, 기존 snapshot을 덮어쓰면 안 된다.
 CREATE TABLE book_request_candidate_v002_backup AS
 SELECT * FROM book_request_candidate;
 
-DROP TABLE IF EXISTS book_request_v002_backup_mapping;
 CREATE TABLE book_request_v002_backup_mapping AS
 SELECT request_id, request_candidate_id AS original_request_candidate_id FROM book_request;
 
-DROP TABLE IF EXISTS book_request_v002_migration_meta;
 CREATE TABLE book_request_v002_migration_meta (
   applied_at DATETIME NOT NULL,
   candidate_backup_row_count INT NOT NULL,
@@ -135,14 +174,15 @@ JOIN tmp_candidate_representative rep
 SET br.request_candidate_id = rep.representative_id
 WHERE c.request_candidate_id <> rep.representative_id;
 
--- 4-3. 대표 후보의 request_count 재계산
+-- 4-3. 모든 후보의 request_count 재계산
+-- 신청 row가 0건인 후보도 stale count를 남기지 않도록 LEFT JOIN + COALESCE를 사용한다.
 UPDATE book_request_candidate c
-JOIN (
+LEFT JOIN (
   SELECT request_candidate_id, COUNT(*) AS actual_count
   FROM book_request
   GROUP BY request_candidate_id
 ) actual ON c.request_candidate_id = actual.request_candidate_id
-SET c.request_count = actual.actual_count;
+SET c.request_count = COALESCE(actual.actual_count, 0);
 
 -- 4-4. 비대표 후보 삭제
 DELETE c FROM book_request_candidate c
@@ -260,25 +300,53 @@ WHERE c.request_candidate_id IS NULL;
 -- 기대 결과: 0
 
 -- 8-2. request_count 일치 검증
-SELECT c.request_candidate_id, c.request_count, actual.actual_count
+SELECT c.request_candidate_id, c.request_count, COALESCE(actual.actual_count, 0) AS actual_count
 FROM book_request_candidate c
-JOIN (
+LEFT JOIN (
   SELECT request_candidate_id, COUNT(*) AS actual_count
   FROM book_request GROUP BY request_candidate_id
 ) actual ON c.request_candidate_id = actual.request_candidate_id
-WHERE c.request_count <> actual.actual_count;
+WHERE c.request_count <> COALESCE(actual.actual_count, 0);
 -- 기대 결과: 0행
 
 -- 8-3. 감사 로그 CHECK self-cleaning smoke test.
---      반드시 COMMIT하지 않는다 — 커밋된 row가 남으면 U002 guard(신규값 사용 row 0건 확인)가
---      정상 상황에서도 항상 실패해 rollback이 영구히 막힌다. action_check_existed=0인 DB는
---      CHECK 자체가 없으므로 이 smoke test를 생략한다.
-SELECT @action_check_existed AS run_smoke_test_if_1;
--- 아래 3줄은 @action_check_existed = 1 일 때만 수동으로 실행한다(동적 분기 대상 아님 — 트랜잭션 문은 PREPARE로 감쌀 수 없음).
--- START TRANSACTION;
--- INSERT INTO admin_audit_log (admin_member_id, action_type, target_type, target_id, before_summary, after_summary, created_at)
---   VALUES (NULL, 'BOOK_REQUEST_STATUS_UPDATE', 'BOOK_REQUEST_CANDIDATE', NULL, NULL, 'V002 smoke test', NOW());
--- ROLLBACK;
+--      각 CHECK가 V002 전에도 존재했던 경우에만 신규 enum을 INSERT로 검증한다.
+--      예외가 나도 EXIT HANDLER가 ROLLBACK 후 재전파하므로, 정상/실패 어느 경우에도
+--      admin_audit_log row가 남지 않는다. 커밋된 row가 남으면 U002 guard가 rollback을 막는다.
+DROP PROCEDURE IF EXISTS sp_abc_v002_request_notification_notice_audit_check_smoke;
+DELIMITER $$
+CREATE PROCEDURE sp_abc_v002_request_notification_notice_audit_check_smoke()
+BEGIN
+  DECLARE EXIT HANDLER FOR SQLEXCEPTION
+  BEGIN
+    ROLLBACK;
+    RESIGNAL;
+  END;
+
+  START TRANSACTION;
+
+  IF @action_check_existed = 1 THEN
+    INSERT INTO admin_audit_log (
+      admin_member_id, action_type, target_type, target_id, before_summary, after_summary, created_at
+    ) VALUES (
+      NULL, 'BOOK_REQUEST_STATUS_UPDATE', 'MEMBER', NULL, NULL, 'V002 action CHECK smoke test', NOW()
+    );
+  END IF;
+
+  IF @target_check_existed = 1 THEN
+    INSERT INTO admin_audit_log (
+      admin_member_id, action_type, target_type, target_id, before_summary, after_summary, created_at
+    ) VALUES (
+      NULL, 'NOTICE_WRITE', 'BOOK_REQUEST_CANDIDATE', NULL, NULL, 'V002 target CHECK smoke test', NOW()
+    );
+  END IF;
+
+  ROLLBACK;
+END$$
+DELIMITER ;
+
+CALL sp_abc_v002_request_notification_notice_audit_check_smoke();
+DROP PROCEDURE sp_abc_v002_request_notification_notice_audit_check_smoke;
 
 -- ============================================================
 -- V002 적용 완료. 다음: 신규 코드 배포/기동 -> smoke test(11개 엔드포인트) -> write 재개.

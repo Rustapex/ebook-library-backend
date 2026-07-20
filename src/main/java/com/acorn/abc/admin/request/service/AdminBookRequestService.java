@@ -181,11 +181,12 @@ public class AdminBookRequestService {
 
     private void validateFields(String status, Long approvedBookId, String rejectReason) {
         boolean hasApprovedBookId = approvedBookId != null;
+        boolean hasRejectReasonField = rejectReason != null;
         boolean hasRejectReason = rejectReason != null && !rejectReason.isBlank();
 
         switch (status) {
             case "IN_REVIEW" -> {
-                if (hasApprovedBookId || hasRejectReason) {
+                if (hasApprovedBookId || hasRejectReasonField) {
                     throw new BusinessException(ErrorCode.VALIDATION_ERROR);
                 }
             }
@@ -193,7 +194,7 @@ public class AdminBookRequestService {
                 if (!hasApprovedBookId || approvedBookId <= 0) {
                     throw new BusinessException(ErrorCode.VALIDATION_ERROR);
                 }
-                if (hasRejectReason) {
+                if (hasRejectReasonField) {
                     throw new BusinessException(ErrorCode.VALIDATION_ERROR);
                 }
             }
