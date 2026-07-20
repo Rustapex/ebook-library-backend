@@ -96,11 +96,14 @@ public class AdminBookRequestService {
                     .orElseThrow(() -> new BusinessException(ErrorCode.BOOK_NOT_FOUND));
         }
 
-        // 벌크 UPDATE로 개별 row가 바뀌기 전에, 알림을 받을 대상(이번 회차 REQUESTED 회원)을 미리 확보한다.
-        List<BookRequest> targetRequests = bookRequestRepository.findRequestedByCandidateId(candidateId);
-
+        // candidate 조건부 UPDATE를 먼저 실행해 해당 후보 row의 InnoDB 잠금을 우리 트랜잭션이 보유한 뒤에
+        // 알림 대상(이번 회차 REQUESTED 회원)을 조회한다. 잠금 이전에 조회하면, 동시에 들어온 신규 신청이
+        // candidate/book_request에 반영된 뒤 우리가 그 신규 row를 놓친 채로 나머지를 승인 처리하면서
+        // 새로 들어온 신청자에게는 알림이 누락되는 경쟁 상태가 생길 수 있다.
         int candidateUpdated = candidateRepository.finalizeIfEligible(candidateId, status);
         ensureUpdated(candidateId, candidateUpdated);
+
+        List<BookRequest> targetRequests = bookRequestRepository.findRequestedByCandidateId(candidateId);
 
         int affectedRequestCount = bookRequestRepository.updateStatusForRequestedByCandidateId(
                 candidateId, status, approvedBook, rejectReason, LocalDateTime.now());

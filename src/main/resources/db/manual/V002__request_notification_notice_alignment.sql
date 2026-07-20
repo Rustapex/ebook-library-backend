@@ -42,21 +42,46 @@ SELECT @action_check_existed AS action_check_existed, @target_check_existed AS t
 
 -- ============================================================
 -- 2. 감사 로그 CHECK preflight: 신규 값 추가 전 invalid 데이터 확인
---    기대 결과: 두 쿼리 모두 0행. 0행이 아니면 여기서 중단한다
---    (DROP 후 ADD가 실패하면 MySQL implicit commit 때문에 CHECK가 제거된 채로 남을 수 있음).
+--    (DROP 후 ADD가 실패하면 MySQL implicit commit 때문에 CHECK가 제거된 채로 남을 수 있으므로,
+--    단순 SELECT로 사람이 판단하게 두지 않고 SIGNAL로 스크립트 자체를 중단시킨다.
+--    SIGNAL은 저장 프로시저 안에서만 쓸 수 있어 임시 프로시저로 감싼다 — mysql 클라이언트/SOURCE는
+--    기본적으로 처리되지 않은 오류를 만나면 이후 문장을 실행하지 않고 중단한다.)
 -- ============================================================
-SELECT audit_log_id, action_type FROM admin_audit_log
-WHERE action_type NOT IN (
-  'MEMBER_POINT_ADJUST', 'COUPON_CREATE', 'COUPON_ISSUE', 'BOOK_CREATE', 'CHALLENGE_UPDATE',
-  'COLLECTION_CREATE', 'COLLECTION_UPDATE', 'COLLECTION_BOOKS_UPDATE', 'COLLECTION_PATCH',
-  'MEMBER_UPDATE', 'BOOK_UPDATE', 'REPORT_PROCESS', 'NOTICE_WRITE', 'BOOK_REQUEST_STATUS_UPDATE'
-);
+DROP PROCEDURE IF EXISTS sp_v002_audit_log_preflight;
 
-SELECT audit_log_id, target_type FROM admin_audit_log
-WHERE target_type NOT IN (
-  'MEMBER', 'COUPON', 'BOOK', 'CHALLENGE', 'COLLECTION', 'BOOK_REPORT', 'REVIEW_REPORT', 'REVIEW',
-  'NOTICE', 'SANCTION_HISTORY', 'BOOK_REQUEST_CANDIDATE'
-);
+DELIMITER $$
+CREATE PROCEDURE sp_v002_audit_log_preflight()
+BEGIN
+  DECLARE invalid_action_count INT;
+  DECLARE invalid_target_count INT;
+
+  SELECT COUNT(*) INTO invalid_action_count FROM admin_audit_log
+  WHERE action_type NOT IN (
+    'MEMBER_POINT_ADJUST', 'COUPON_CREATE', 'COUPON_ISSUE', 'BOOK_CREATE', 'CHALLENGE_UPDATE',
+    'COLLECTION_CREATE', 'COLLECTION_UPDATE', 'COLLECTION_BOOKS_UPDATE', 'COLLECTION_PATCH',
+    'MEMBER_UPDATE', 'BOOK_UPDATE', 'REPORT_PROCESS', 'NOTICE_WRITE', 'BOOK_REQUEST_STATUS_UPDATE'
+  );
+
+  IF invalid_action_count > 0 THEN
+    SIGNAL SQLSTATE '45000'
+      SET MESSAGE_TEXT = 'V002 preflight failed: admin_audit_log has action_type values outside the allowed set. Clean up before proceeding.';
+  END IF;
+
+  SELECT COUNT(*) INTO invalid_target_count FROM admin_audit_log
+  WHERE target_type NOT IN (
+    'MEMBER', 'COUPON', 'BOOK', 'CHALLENGE', 'COLLECTION', 'BOOK_REPORT', 'REVIEW_REPORT', 'REVIEW',
+    'NOTICE', 'SANCTION_HISTORY', 'BOOK_REQUEST_CANDIDATE'
+  );
+
+  IF invalid_target_count > 0 THEN
+    SIGNAL SQLSTATE '45000'
+      SET MESSAGE_TEXT = 'V002 preflight failed: admin_audit_log has target_type values outside the allowed set. Clean up before proceeding.';
+  END IF;
+END$$
+DELIMITER ;
+
+CALL sp_v002_audit_log_preflight();
+DROP PROCEDURE sp_v002_audit_log_preflight;
 
 -- ============================================================
 -- 3. 백업 테이블 + 메타 테이블 생성 (U002 복원용)

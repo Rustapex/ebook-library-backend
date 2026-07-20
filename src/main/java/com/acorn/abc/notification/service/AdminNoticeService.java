@@ -84,8 +84,9 @@ public class AdminNoticeService {
         Notice notice = noticeRepository.findById(noticeId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.NOTICE_NOT_FOUND));
 
-        // 수정/숨김 시엔 notifyYn 값과 무관하게 알림을 재발송하지 않는다(신규 등록에서만 발송).
-        notice.update(request.title(), request.content(), status, LocalDateTime.now());
+        // notifyYn 값 자체는 요청대로 저장하지만(최종 명세 §API-ADMIN-NOTICE-003), 이 경로에서는
+        // fan-out을 호출하지 않는다 — 알림 재발송은 신규 등록에서만 발생한다.
+        notice.update(request.title(), request.content(), status, request.notifyYn(), LocalDateTime.now());
 
         Map<String, Object> afterSummary = new LinkedHashMap<>();
         afterSummary.put("title", notice.getTitle());

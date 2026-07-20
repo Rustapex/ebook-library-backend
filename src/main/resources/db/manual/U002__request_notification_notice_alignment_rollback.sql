@@ -6,49 +6,98 @@
 SELECT DATABASE() AS current_database;
 
 -- ============================================================
--- 0. 전체 guard: 하나라도 기대와 다르면 즉시 중단하고 1번 이후를 실행하지 않는다.
+-- 0. 전체 guard: 하나라도 기대와 다르면 SIGNAL로 즉시 중단하고 1번 이후를 실행하지 않는다.
+--    SIGNAL은 저장 프로시저 안에서만 쓸 수 있어 임시 프로시저로 감싼다 — mysql 클라이언트/SOURCE는
+--    기본적으로 처리되지 않은 오류를 만나면 이후 문장을 실행하지 않고 중단한다.
 -- ============================================================
 
 -- 0-1. maintenance mode 활성 여부는 애플리케이션 레벨에서 수동 확인한다(운영 절차 문서 참고).
 --      이 스크립트는 DB 레벨 가드만 자동화한다.
 
--- 0-2. 메타 테이블 존재 확인
-SELECT COUNT(*) AS meta_table_exists
-FROM information_schema.tables
-WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'book_request_v002_migration_meta';
--- 기대 결과: 1. 0이면 V002가 적용되지 않았거나 이미 정리된 상태이므로 중단한다.
+DROP PROCEDURE IF EXISTS sp_u002_guard;
 
--- 0-3. 백업 테이블 row count가 메타 기록과 일치하는지 확인(단순 "row count > 0"이 아님 —
---      원본 데이터가 0건이었던 정상 DB도 있으므로 "기록값과 일치"가 기준이다)
-SELECT
-  (SELECT candidate_backup_row_count FROM book_request_v002_migration_meta LIMIT 1)
-    = (SELECT COUNT(*) FROM book_request_candidate_v002_backup) AS candidate_backup_count_matches,
-  (SELECT mapping_backup_row_count FROM book_request_v002_migration_meta LIMIT 1)
-    = (SELECT COUNT(*) FROM book_request_v002_backup_mapping) AS mapping_backup_count_matches;
--- 기대 결과: 둘 다 1. 아니면 백업 테이블 손상/변조 의심 — 중단.
+DELIMITER $$
+CREATE PROCEDURE sp_u002_guard()
+BEGIN
+  DECLARE meta_exists INT;
+  DECLARE candidate_backup_expected INT;
+  DECLARE candidate_backup_actual INT;
+  DECLARE mapping_backup_expected INT;
+  DECLARE mapping_backup_actual INT;
+  DECLARE new_action_value_rows INT;
+  DECLARE new_target_value_rows INT;
+  DECLARE new_book_request_rows INT;
+  DECLARE new_candidate_rows INT;
 
--- 0-4. 신규 감사로그 값 사용 row 0건 확인
-SELECT COUNT(*) AS new_action_value_rows
-FROM admin_audit_log WHERE action_type = 'BOOK_REQUEST_STATUS_UPDATE';
-SELECT COUNT(*) AS new_target_value_rows
-FROM admin_audit_log WHERE target_type = 'BOOK_REQUEST_CANDIDATE';
--- 기대 결과: 둘 다 0. 0이 아니면 write 재개 이후 정상적으로 쌓인 데이터가 있다는 뜻이므로 중단.
+  -- 0-2. 메타 테이블 존재 확인. 0이면 V002가 적용되지 않았거나 이미 정리된 상태이므로 중단한다.
+  SELECT COUNT(*) INTO meta_exists FROM information_schema.tables
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'book_request_v002_migration_meta';
 
--- 0-5. anti-join: V002 이후 신규 쓰기 여부 확인
--- (candidate에 createdAt 컬럼이 없고 백업에 watermark도 없어 "최신 생성 시각 비교"는 불가능하므로 이 방식 사용)
-SELECT COUNT(*) AS new_book_request_rows
-FROM book_request br
-LEFT JOIN book_request_v002_backup_mapping m ON br.request_id = m.request_id
-WHERE m.request_id IS NULL;
--- 기대 결과: 0
+  IF meta_exists = 0 THEN
+    SIGNAL SQLSTATE '45000'
+      SET MESSAGE_TEXT = 'U002 guard failed: book_request_v002_migration_meta not found. V002 was not applied or was already cleaned up.';
+  END IF;
 
-SELECT COUNT(*) AS new_candidate_rows
-FROM book_request_candidate c
-LEFT JOIN book_request_candidate_v002_backup b ON c.request_candidate_id = b.request_candidate_id
-WHERE b.request_candidate_id IS NULL;
--- 기대 결과: 0
+  -- 0-3. 백업 테이블 row count가 메타 기록과 일치하는지 확인(단순 "row count > 0"이 아님 —
+  --      원본 데이터가 0건이었던 정상 DB도 있으므로 "기록값과 일치"가 기준이다)
+  SELECT candidate_backup_row_count, mapping_backup_row_count
+    INTO candidate_backup_expected, mapping_backup_expected
+  FROM book_request_v002_migration_meta LIMIT 1;
 
--- 위 0-2 ~ 0-5의 모든 결과가 기대값과 일치할 때만 아래 1번부터 진행한다.
+  SELECT COUNT(*) INTO candidate_backup_actual FROM book_request_candidate_v002_backup;
+  SELECT COUNT(*) INTO mapping_backup_actual FROM book_request_v002_backup_mapping;
+
+  IF candidate_backup_expected <> candidate_backup_actual THEN
+    SIGNAL SQLSTATE '45000'
+      SET MESSAGE_TEXT = 'U002 guard failed: candidate backup row count does not match the value recorded at V002 time. Backup table may be damaged.';
+  END IF;
+
+  IF mapping_backup_expected <> mapping_backup_actual THEN
+    SIGNAL SQLSTATE '45000'
+      SET MESSAGE_TEXT = 'U002 guard failed: mapping backup row count does not match the value recorded at V002 time. Backup table may be damaged.';
+  END IF;
+
+  -- 0-4. 신규 감사로그 값 사용 row 0건 확인. 0이 아니면 write 재개 이후 정상적으로 쌓인 데이터가 있다는 뜻이므로 중단.
+  SELECT COUNT(*) INTO new_action_value_rows FROM admin_audit_log WHERE action_type = 'BOOK_REQUEST_STATUS_UPDATE';
+  IF new_action_value_rows > 0 THEN
+    SIGNAL SQLSTATE '45000'
+      SET MESSAGE_TEXT = 'U002 guard failed: admin_audit_log already has rows using BOOK_REQUEST_STATUS_UPDATE. Rolling back now would hide real audit data.';
+  END IF;
+
+  SELECT COUNT(*) INTO new_target_value_rows FROM admin_audit_log WHERE target_type = 'BOOK_REQUEST_CANDIDATE';
+  IF new_target_value_rows > 0 THEN
+    SIGNAL SQLSTATE '45000'
+      SET MESSAGE_TEXT = 'U002 guard failed: admin_audit_log already has rows using BOOK_REQUEST_CANDIDATE. Rolling back now would hide real audit data.';
+  END IF;
+
+  -- 0-5. anti-join: V002 이후 신규 쓰기 여부 확인
+  -- (candidate에 createdAt 컬럼이 없고 백업에 watermark도 없어 "최신 생성 시각 비교"는 불가능하므로 이 방식 사용)
+  SELECT COUNT(*) INTO new_book_request_rows
+  FROM book_request br
+  LEFT JOIN book_request_v002_backup_mapping m ON br.request_id = m.request_id
+  WHERE m.request_id IS NULL;
+
+  IF new_book_request_rows > 0 THEN
+    SIGNAL SQLSTATE '45000'
+      SET MESSAGE_TEXT = 'U002 guard failed: book_request has rows created after V002. Rolling back now would lose this data.';
+  END IF;
+
+  SELECT COUNT(*) INTO new_candidate_rows
+  FROM book_request_candidate c
+  LEFT JOIN book_request_candidate_v002_backup b ON c.request_candidate_id = b.request_candidate_id
+  WHERE b.request_candidate_id IS NULL;
+
+  IF new_candidate_rows > 0 THEN
+    SIGNAL SQLSTATE '45000'
+      SET MESSAGE_TEXT = 'U002 guard failed: book_request_candidate has rows created after V002. Rolling back now would lose this data.';
+  END IF;
+END$$
+DELIMITER ;
+
+CALL sp_u002_guard();
+DROP PROCEDURE sp_u002_guard;
+
+-- 위 guard를 통과했을 때만(프로시저가 SIGNAL 없이 정상 종료했을 때만) 아래 1번부터 진행된다.
 
 -- ============================================================
 -- 1. 정규화 UNIQUE 제약 제거
