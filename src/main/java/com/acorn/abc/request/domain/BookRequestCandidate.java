@@ -40,4 +40,16 @@ public class BookRequestCandidate {
 
     @Column(name = "candidate_status", nullable = false, length = 20)
     private String candidateStatus;
+
+    public static BookRequestCandidate createNew(String normalizedTitle, String normalizedAuthor, String normalizedPublisher,
+                                                   LocalDateTime firstRequestedAt) {
+        BookRequestCandidate candidate = new BookRequestCandidate();
+        candidate.normalizedTitle = normalizedTitle;
+        candidate.normalizedAuthor = normalizedAuthor;
+        candidate.normalizedPublisher = normalizedPublisher;
+        candidate.requestCount = 1;
+        candidate.firstRequestedAt = firstRequestedAt;
+        candidate.candidateStatus = "REQUESTED";
+        return candidate;
+    }
 }

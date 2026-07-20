@@ -7,6 +7,11 @@
 -- 바뀔 때마다 이 파일도 함께 갱신하고 재적용해야 한다 — 갱신하지 않으면 새 enum 값으로 감사
 -- 로그를 기록하려는 정상 호출이 전부 CHECK 제약 위반(500)으로 실패한다(이번 라운드에서 실제로
 -- AdminCollectionTransactionIntegrationTest가 이 문제로 실패하는 것을 확인하고 갱신함).
+-- 2026-07-20 갱신: 희망도서/알림/공지 구현계획으로 AdminAuditLogActionType에
+-- BOOK_REQUEST_STATUS_UPDATE, AdminAuditLogTargetType에 BOOK_REQUEST_CANDIDATE가 새로 생겼다.
+-- 이 CHECK가 이미 적용된 DB는 db/manual/V002__request_notification_notice_alignment.sql이
+-- 존재 여부를 information_schema로 확인한 뒤 이 값들을 포함해 재생성한다(V002 §감사로그 단계 참고).
+-- 이 파일 자체는 신규 DB에 처음 sidecar를 적용할 때 기준이 되는 최신 소스로 유지한다.
 --
 -- 목적:
 --   Java enum / Swagger / 테스트 레벨에서는 감사 로그 표준값이 검증된다.
@@ -43,7 +48,8 @@ WHERE action_type NOT IN (
   'MEMBER_UPDATE',
   'BOOK_UPDATE',
   'REPORT_PROCESS',
-  'NOTICE_WRITE'
+  'NOTICE_WRITE',
+  'BOOK_REQUEST_STATUS_UPDATE'
 );
 
 -- §1-2. target_type invalid 데이터 점검
@@ -59,7 +65,8 @@ WHERE target_type NOT IN (
   'REVIEW_REPORT',
   'REVIEW',
   'NOTICE',
-  'SANCTION_HISTORY'
+  'SANCTION_HISTORY',
+  'BOOK_REQUEST_CANDIDATE'
 );
 
 -- §2. 같은 이름의 CHECK 제약이 이미 있으면 제거한다.
@@ -112,7 +119,8 @@ ALTER TABLE admin_audit_log
     'MEMBER_UPDATE',
     'BOOK_UPDATE',
     'REPORT_PROCESS',
-    'NOTICE_WRITE'
+    'NOTICE_WRITE',
+    'BOOK_REQUEST_STATUS_UPDATE'
   ));
 
 ALTER TABLE admin_audit_log
@@ -127,7 +135,8 @@ ALTER TABLE admin_audit_log
     'REVIEW_REPORT',
     'REVIEW',
     'NOTICE',
-    'SANCTION_HISTORY'
+    'SANCTION_HISTORY',
+    'BOOK_REQUEST_CANDIDATE'
   ));
 
 -- §4. 적용 후 확인
@@ -140,6 +149,8 @@ WHERE CONSTRAINT_SCHEMA = DATABASE()
     'chk_admin_audit_log_target_type'
   )
 ORDER BY CONSTRAINT_NAME;
+
+-- 기대 CHECK_CLAUSE에 'BOOK_REQUEST_STATUS_UPDATE'/'BOOK_REQUEST_CANDIDATE'가 포함되어야 한다(2026-07-20 갱신분).
 
 -- §5. 실패 기대 테스트(선택 실행, 로컬/롤백 가능 환경에서만)
 -- 아래 INSERT는 CHECK 제약으로 실패해야 정상이다.

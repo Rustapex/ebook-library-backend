@@ -97,7 +97,18 @@ public enum ErrorCode {
 
     // Admin Member (관리자 회원 API 구현계획 2026-07-16 §2.2)
     CONCURRENT_UPDATE(HttpStatus.CONFLICT, "CONCURRENT_UPDATE", "다른 요청과 동시에 처리되어 실패했습니다. 다시 시도해주세요."),
-    IDEMPOTENCY_KEY_CONFLICT(HttpStatus.CONFLICT, "IDEMPOTENCY_KEY_CONFLICT", "동일한 요청 키로 이전과 다른 내용의 요청이 이미 처리되었습니다.");
+    IDEMPOTENCY_KEY_CONFLICT(HttpStatus.CONFLICT, "IDEMPOTENCY_KEY_CONFLICT", "동일한 요청 키로 이전과 다른 내용의 요청이 이미 처리되었습니다."),
+
+    // BookRequest (희망도서, 팀장 승인 완료)
+    BOOK_REQUEST_ALREADY_EXISTS(HttpStatus.CONFLICT, "BOOK_REQUEST_ALREADY_EXISTS", "이미 신청한 희망도서입니다."),
+    BOOK_REQUEST_CANDIDATE_NOT_FOUND(HttpStatus.NOT_FOUND, "BOOK_REQUEST_CANDIDATE_NOT_FOUND", "존재하지 않는 희망도서 후보입니다."),
+    BOOK_REQUEST_INVALID_STATUS(HttpStatus.CONFLICT, "BOOK_REQUEST_INVALID_STATUS", "현재 상태에서는 처리할 수 없는 요청입니다."),
+
+    // Notification (팀장 승인 완료)
+    NOTIFICATION_NOT_FOUND(HttpStatus.NOT_FOUND, "NOTIFICATION_NOT_FOUND", "존재하지 않는 알림입니다."),
+
+    // Notice (팀장 승인 완료)
+    NOTICE_NOT_FOUND(HttpStatus.NOT_FOUND, "NOTICE_NOT_FOUND", "존재하지 않는 공지사항입니다.");
 
     private final HttpStatus httpStatus;
     private final String code;

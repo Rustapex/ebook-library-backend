@@ -40,4 +40,21 @@ public class Notice {
 
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
+
+    public static Notice create(String title, String content, String noticeStatus, Boolean notifyYn, LocalDateTime createdAt) {
+        Notice notice = new Notice();
+        notice.title = title;
+        notice.content = content;
+        notice.noticeStatus = noticeStatus;
+        notice.notifyYn = notifyYn;
+        notice.createdAt = createdAt;
+        return notice;
+    }
+
+    public void update(String title, String content, String noticeStatus, LocalDateTime updatedAt) {
+        this.title = title;
+        this.content = content;
+        this.noticeStatus = noticeStatus;
+        this.updatedAt = updatedAt;
+    }
 }

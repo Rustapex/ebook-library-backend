@@ -63,4 +63,9 @@ public class Notification {
         notification.createdAt = createdAt;
         return notification;
     }
+
+    public void markAsRead(LocalDateTime readAt) {
+        this.readYn = true;
+        this.readAt = readAt;
+    }
 }

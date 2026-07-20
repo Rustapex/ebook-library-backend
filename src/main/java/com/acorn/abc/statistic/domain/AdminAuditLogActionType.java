@@ -23,5 +23,8 @@ public enum AdminAuditLogActionType {
     MEMBER_UPDATE,
     BOOK_UPDATE,
     REPORT_PROCESS,
-    NOTICE_WRITE
+    NOTICE_WRITE,
+
+    // 희망도서/알림/공지 구현계획 — 관리자 후보 상태 변경(승인/반려/검토중 전환) 시 기록.
+    BOOK_REQUEST_STATUS_UPDATE
 }
