@@ -1,5 +1,6 @@
 package com.acorn.abc.book.service;
 
+import com.acorn.abc.admin.book.dto.AdminBookDetailResponse;
 import com.acorn.abc.admin.book.dto.AdminBookSaveRequest;
 import com.acorn.abc.admin.book.dto.AdminBookSaveResponse;
 import com.acorn.abc.admin.book.dto.AdminBookStatusChangeRequest;
@@ -66,7 +67,6 @@ public class AdminBookService {
     private final AuthorRepository authorRepository;
     private final CategoryRepository categoryRepository;
     private final AdminAuditLogWriter adminAuditLogWriter;
-    private final BookLockTimeoutSupport lockTimeoutSupport;
 
     @Transactional(readOnly = true)
     public PageResponse<AdminBookSummaryResponse> getAdminBooks(
@@ -103,6 +103,26 @@ public class AdminBookService {
                 .toList();
 
         return PageResponse.of(content, books.getNumber(), books.getSize(), books.getTotalElements());
+    }
+
+    // API-ADMIN-BOOK-005: read-only, 감사 로그 없음. BookPage/키워드/파일/집계값 Repository는 호출하지 않는다
+    // (관리자 도서 API PR52 코드리뷰 대응계획 §2.1).
+    @Transactional(readOnly = true)
+    public AdminBookDetailResponse getAdminBookDetail(Long bookId) {
+        Book book = bookRepository.findById(bookId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.BOOK_NOT_FOUND));
+
+        List<AdminBookDetailResponse.AuthorItem> authors = bookAuthorRepository.findForAdminDetail(bookId).stream()
+                .map(ba -> new AdminBookDetailResponse.AuthorItem(
+                        ba.getAuthor().getAuthorId(), ba.getAuthor().getAuthorName(), ba.getAuthor().getStatus()))
+                .toList();
+        List<AdminBookDetailResponse.CategoryItem> categories = bookCategoryRepository.findForAdminDetail(bookId).stream()
+                .map(bc -> new AdminBookDetailResponse.CategoryItem(
+                        bc.getCategory().getCategoryId(), bc.getCategory().getCategoryName(), bc.getCategory().getStatus()))
+                .toList();
+        BookDetail bookDetail = bookDetailRepository.findByBook_BookId(bookId).orElse(null);
+
+        return AdminBookDetailResponse.of(book, authors, categories, bookDetail);
     }
 
     @Transactional
@@ -153,9 +173,8 @@ public class AdminBookService {
         Publisher publisher = resolvePublisher(publisherName);
         List<Author> authors = resolveAuthors(authorNames);
 
-        return lockTimeoutSupport.withShortLockTimeout(() ->
-                applyUpdate(bookId, title, isbn, publisher, authors, categories,
-                        authorNames, categoryIds, request, adminMemberId));
+        return applyUpdate(bookId, title, isbn, publisher, authors, categories,
+                authorNames, categoryIds, request, adminMemberId);
     }
 
     private AdminBookSaveResponse applyUpdate(Long bookId, String title, String isbn, Publisher publisher,
@@ -186,27 +205,31 @@ public class AdminBookService {
         return new AdminBookSaveResponse(book.getBookId(), book.getStatus(), book.getCreatedAt(), book.getUpdatedAt());
     }
 
+    // 대응계획 §2.2: 동일 상태 요청은 사유 없이도 200 no-op — 상태·updatedAt·감사 로그를 바꾸지 않는다.
+    // 실제로 상태가 바뀔 때만 사유를 trim해서 검증한다(빈 값이면 VALIDATION_ERROR).
     @Transactional
     public AdminBookStatusChangeResponse changeAdminBookStatus(
-            Long bookId, AdminBookStatusChangeRequest request, Long adminMemberId) {
-        return lockTimeoutSupport.withShortLockTimeout(() -> applyStatusChange(bookId, request, adminMemberId));
-    }
-
-    private AdminBookStatusChangeResponse applyStatusChange(
             Long bookId, AdminBookStatusChangeRequest request, Long adminMemberId) {
         Book book = bookRepository.findByIdForUpdate(bookId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.BOOK_NOT_FOUND));
 
-        Map<String, Object> beforeSummary = Map.of("bookId", bookId, "status", book.getStatus());
+        String previousStatus = book.getStatus();
+        if (previousStatus.equals(request.status())) {
+            return new AdminBookStatusChangeResponse(book.getBookId(), book.getStatus());
+        }
+
+        String reason = trimToNull(request.reason());
+        if (reason == null) {
+            throw new BusinessException(ErrorCode.VALIDATION_ERROR);
+        }
+
         book.changeStatus(request.status());
 
+        Map<String, Object> beforeSummary = Map.of("bookId", bookId, "status", previousStatus);
         Map<String, Object> afterSummary = new LinkedHashMap<>();
         afterSummary.put("bookId", bookId);
         afterSummary.put("status", book.getStatus());
-        String reason = trimToNull(request.reason());
-        if (reason != null) {
-            afterSummary.put("reason", reason);
-        }
+        afterSummary.put("reason", reason);
 
         adminAuditLogWriter.record(adminMemberId, AdminAuditLogActionType.BOOK_UPDATE, AdminAuditLogTargetType.BOOK,
                 bookId, beforeSummary, afterSummary);

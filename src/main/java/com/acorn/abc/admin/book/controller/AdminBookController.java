@@ -1,5 +1,6 @@
 package com.acorn.abc.admin.book.controller;
 
+import com.acorn.abc.admin.book.dto.AdminBookDetailResponse;
 import com.acorn.abc.admin.book.dto.AdminBookSaveRequest;
 import com.acorn.abc.admin.book.dto.AdminBookSaveResponse;
 import com.acorn.abc.admin.book.dto.AdminBookStatusChangeRequest;
@@ -52,6 +53,12 @@ public class AdminBookController {
         PageResponse<AdminBookSummaryResponse> response =
                 adminBookService.getAdminBooks(q, categoryId, rentalType, status, page, size);
         return ResponseEntity.ok(ApiResponse.ok(response));
+    }
+
+    @Operation(summary = "도서 상세 조회", description = "허용된 메타정보·작가·카테고리·안내성 상세를 반환합니다. HIDDEN/INACTIVE도 조회됩니다.")
+    @GetMapping("/{bookId}")
+    public ResponseEntity<ApiResponse<AdminBookDetailResponse>> getBookDetail(@PathVariable Long bookId) {
+        return ResponseEntity.ok(ApiResponse.ok(adminBookService.getAdminBookDetail(bookId)));
     }
 
     @Operation(summary = "도서 등록", description = "허용된 메타정보만으로 신규 도서를 등록합니다. 신규 도서는 항상 INACTIVE로 생성됩니다.")

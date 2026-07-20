@@ -27,6 +27,13 @@ public interface BookAuthorRepository extends JpaRepository<BookAuthor, BookAuth
             "ORDER BY ba.book.bookId ASC, ba.authorOrder ASC, a.authorName ASC")
     List<BookAuthor> findAllByBookIdIn(@Param("bookIds") List<Long> bookIds);
 
+    // 관리자 도서 상세(API-ADMIN-BOOK-005) 전용 — status 무관 전체 반환, authorOrder ASC/authorId ASC 고정 정렬
+    // (관리자 도서 API PR52 코드리뷰 대응계획 §2.1).
+    @Query("SELECT ba FROM BookAuthor ba JOIN FETCH ba.author a " +
+            "WHERE ba.book.bookId = :bookId " +
+            "ORDER BY ba.authorOrder ASC, a.authorId ASC")
+    List<BookAuthor> findForAdminDetail(@Param("bookId") Long bookId);
+
     // 관리자 도서 수정(API-ADMIN-BOOK-003) 전용 — 기존 author 매핑 전체 교체용 삭제.
     void deleteByBook_BookId(Long bookId);
 }

@@ -1,5 +1,6 @@
 package com.acorn.abc.admin.book.controller;
 
+import com.acorn.abc.admin.book.dto.AdminBookDetailResponse;
 import com.acorn.abc.admin.book.dto.AdminBookSaveResponse;
 import com.acorn.abc.admin.book.dto.AdminBookStatusChangeResponse;
 import com.acorn.abc.book.service.AdminBookService;
@@ -96,6 +97,31 @@ class AdminBookCrudControllerTest {
     void getBooks_page가_음수이면_400을_반환한다() throws Exception {
         mockMvc.perform(get("/api/v1/admin/books").param("page", "-1"))
                 .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void getBookDetail_없는_도서면_404를_반환한다() throws Exception {
+        when(adminBookService.getAdminBookDetail(999L)).thenThrow(new BusinessException(ErrorCode.BOOK_NOT_FOUND));
+
+        mockMvc.perform(get("/api/v1/admin/books/999"))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value("BOOK_NOT_FOUND"));
+    }
+
+    @Test
+    void getBookDetail_정상_요청은_200을_반환한다() throws Exception {
+        when(adminBookService.getAdminBookDetail(1L)).thenReturn(new AdminBookDetailResponse(
+                1L, "제목", null, "출판사",
+                List.of(new AdminBookDetailResponse.AuthorItem(2L, "작가", "ACTIVE")),
+                List.of(new AdminBookDetailResponse.CategoryItem(3L, "카테고리", "INACTIVE")),
+                "FREE", 0, 7, null,
+                new AdminBookDetailResponse.DetailInfo(null, null, null),
+                "AVAILABLE", LocalDateTime.now(), null));
+
+        mockMvc.perform(get("/api/v1/admin/books/1"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.bookId").value(1))
+                .andExpect(jsonPath("$.data.categories[0].status").value("INACTIVE"));
     }
 
     @Test

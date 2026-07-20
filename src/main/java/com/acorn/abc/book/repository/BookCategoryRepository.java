@@ -22,6 +22,13 @@ public interface BookCategoryRepository extends JpaRepository<BookCategory, Book
             "ORDER BY bc.book.bookId ASC, c.displayOrder ASC, c.categoryId ASC")
     List<BookCategory> findAllByBookIdIn(@Param("bookIds") List<Long> bookIds);
 
+    // 관리자 도서 상세(API-ADMIN-BOOK-005) 전용 — status 무관 전체 반환, categoryId ASC 고정 정렬
+    // (관리자 도서 API PR52 코드리뷰 대응계획 §2.1).
+    @Query("SELECT bc FROM BookCategory bc JOIN FETCH bc.category c " +
+            "WHERE bc.book.bookId = :bookId " +
+            "ORDER BY c.categoryId ASC")
+    List<BookCategory> findForAdminDetail(@Param("bookId") Long bookId);
+
     // 관리자 도서 수정(API-ADMIN-BOOK-003) 전용 — 기존 category 매핑 전체 교체용 삭제.
     void deleteByBook_BookId(Long bookId);
 }
