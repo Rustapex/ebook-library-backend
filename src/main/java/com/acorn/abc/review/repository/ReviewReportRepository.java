@@ -15,6 +15,8 @@ public interface ReviewReportRepository extends JpaRepository<ReviewReport, Long
     @Query("SELECT rr FROM ReviewReport rr JOIN FETCH rr.reporter JOIN FETCH rr.review rv JOIN FETCH rv.book ORDER BY rr.createdAt DESC")
     List<ReviewReport> findRecent(Pageable pageable);
 
+    long countByReporter_MemberId(Long reporterId);
+
     // 관리자 통계 리뷰 신고 기간/나이대 조건부 집계(관리자 통계 확장 §3.1~§3.3, §6 — 나이대는 reporter 기준)
     @Query("SELECT COUNT(rr) FROM ReviewReport rr WHERE " +
             "(:from IS NULL OR rr.createdAt >= :from) AND (:to IS NULL OR rr.createdAt < :to) " +

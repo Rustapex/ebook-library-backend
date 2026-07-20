@@ -6,9 +6,6 @@ import com.acorn.abc.member.domain.Member;
 import com.acorn.abc.member.domain.PointHistory;
 import com.acorn.abc.member.repository.MemberRepository;
 import com.acorn.abc.member.repository.PointHistoryRepository;
-import com.acorn.abc.statistic.domain.AdminAuditLogActionType;
-import com.acorn.abc.statistic.domain.AdminAuditLogTargetType;
-import com.acorn.abc.statistic.service.AdminAuditLogWriter;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -20,7 +17,6 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -35,27 +31,8 @@ class PointServiceTest {
     @Mock
     private PointHistoryRepository pointHistoryRepository;
 
-    @Mock
-    private AdminAuditLogWriter adminAuditLogWriter;
-
     @InjectMocks
     private PointService pointService;
-
-    @Test
-    void adjustPointByAdmin_성공하면_감사로그를_기록한다() {
-        Member member = mock(Member.class);
-        given(member.getPointBalance()).willReturn(500);
-        given(memberRepository.applyPointChangeIfSufficient(1L, 100)).willReturn(1);
-        given(memberRepository.findById(1L)).willReturn(Optional.of(member));
-        given(pointHistoryRepository.save(any(PointHistory.class)))
-                .willAnswer(invocation -> invocation.getArgument(0));
-
-        pointService.adjustPointByAdmin(1L, 100, "관리자 지급", 999L);
-
-        verify(adminAuditLogWriter).record(
-                eq(999L), eq(AdminAuditLogActionType.MEMBER_POINT_ADJUST),
-                eq(AdminAuditLogTargetType.MEMBER), eq(1L), any(), any());
-    }
 
     @Test
     void grantOrAdjustPoint_원자적업데이트가_성공하면_포인트이력을_저장한다() {

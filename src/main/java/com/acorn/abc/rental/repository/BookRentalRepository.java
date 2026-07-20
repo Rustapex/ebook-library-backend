@@ -91,4 +91,10 @@ public interface BookRentalRepository extends JpaRepository<BookRental, Long> {
             countQuery = "SELECT COUNT(r) FROM BookRental r " +
             "WHERE r.member.memberId = :memberId AND (:status IS NULL OR r.rentalStatus = :status)")
     Page<BookRental> findMyRentals(@Param("memberId") Long memberId, @Param("status") String status, Pageable pageable);
+
+    // 관리자 회원 상세 RENTALS 탭(구현계획 §1.3) — createdAt DESC, rentalId DESC 고정.
+    @Query(value = "SELECT r FROM BookRental r JOIN FETCH r.book WHERE r.member.memberId = :memberId " +
+            "ORDER BY r.createdAt DESC, r.rentalId DESC",
+            countQuery = "SELECT COUNT(r) FROM BookRental r WHERE r.member.memberId = :memberId")
+    Page<BookRental> findByMemberIdForAdmin(@Param("memberId") Long memberId, Pageable pageable);
 }

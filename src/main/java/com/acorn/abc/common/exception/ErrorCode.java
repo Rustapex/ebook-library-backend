@@ -93,7 +93,11 @@ public enum ErrorCode {
 
     // Favorite
     FAVORITE_ALREADY_EXISTS(HttpStatus.CONFLICT, "FAVORITE_ALREADY_EXISTS", "이미 즐겨찾기한 도서입니다."),
-    FAVORITE_NOT_FOUND(HttpStatus.NOT_FOUND, "FAVORITE_NOT_FOUND", "즐겨찾기 내역이 없습니다.");
+    FAVORITE_NOT_FOUND(HttpStatus.NOT_FOUND, "FAVORITE_NOT_FOUND", "즐겨찾기 내역이 없습니다."),
+
+    // Admin Member (관리자 회원 API 구현계획 2026-07-16 §2.2)
+    CONCURRENT_UPDATE(HttpStatus.CONFLICT, "CONCURRENT_UPDATE", "다른 요청과 동시에 처리되어 실패했습니다. 다시 시도해주세요."),
+    IDEMPOTENCY_KEY_CONFLICT(HttpStatus.CONFLICT, "IDEMPOTENCY_KEY_CONFLICT", "동일한 요청 키로 이전과 다른 내용의 요청이 이미 처리되었습니다.");
 
     private final HttpStatus httpStatus;
     private final String code;
