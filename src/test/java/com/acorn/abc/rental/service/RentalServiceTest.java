@@ -2,6 +2,7 @@ package com.acorn.abc.rental.service;
 
 import com.acorn.abc.book.domain.Book;
 import com.acorn.abc.book.repository.BookRepository;
+import com.acorn.abc.book.repository.BookEpubRepository;
 import com.acorn.abc.common.exception.BusinessException;
 import com.acorn.abc.common.exception.ErrorCode;
 import com.acorn.abc.common.response.PageResponse;
@@ -46,6 +47,8 @@ class RentalServiceTest {
     @Mock
     private BookRepository bookRepository;
     @Mock
+    private BookEpubRepository bookEpubRepository;
+    @Mock
     private MemberRepository memberRepository;
     @Mock
     private ReadingProgressRepository readingProgressRepository;
@@ -71,6 +74,7 @@ class RentalServiceTest {
         given(book.getStatus()).willReturn("AVAILABLE");
         given(book.getDefaultRentalDays()).willReturn(7);
         given(bookRepository.findById(1L)).willReturn(Optional.of(book));
+        given(bookEpubRepository.existsByBook_BookId(1L)).willReturn(true);
         given(bookRentalRepository.findFirstByMember_MemberIdAndBook_BookIdOrderByCreatedAtDescRentalIdDesc(10L, 1L))
                 .willReturn(Optional.empty());
         given(memberRepository.findById(10L)).willReturn(Optional.of(member));
@@ -122,6 +126,7 @@ class RentalServiceTest {
         given(book.getRentalType()).willReturn("FREE");
         given(book.getStatus()).willReturn("AVAILABLE");
         given(bookRepository.findById(1L)).willReturn(Optional.of(book));
+        given(bookEpubRepository.existsByBook_BookId(1L)).willReturn(true);
 
         BookRental existingRental = mock(BookRental.class);
         given(existingRental.getRentalStatus()).willReturn("READING");
@@ -157,8 +162,6 @@ class RentalServiceTest {
         given(book.getBookId()).willReturn(1L);
         given(book.getTitle()).willReturn("title");
         given(book.getCoverImageUrl()).willReturn("cover.jpg");
-        given(book.getTotalPages()).willReturn(100);
-
         given(bookRentalRepository.findMyRentals(10L, "READY", PageRequest.of(0, 10)))
                 .willReturn(new PageImpl<>(List.of(rental), PageRequest.of(0, 10), 1));
         given(readingProgressRepository.findByRental_RentalId(5L)).willReturn(Optional.empty());
@@ -168,7 +171,33 @@ class RentalServiceTest {
         assertThat(result.content()).hasSize(1);
         MyRentalSummaryResponse summary = result.content().get(0);
         assertThat(summary.rentalId()).isEqualTo(5L);
-        assertThat(summary.currentPage()).isZero();
         assertThat(summary.progressRate()).isZero();
+    }
+
+    @Test
+    void getOwnedRentalOrThrow_열람상태가_아니면_ACCESS_DENIED() {
+        BookRental rental = mock(BookRental.class);
+        given(rental.getMember()).willReturn(member);
+        given(member.getMemberId()).willReturn(10L);
+        given(rental.getRentalStatus()).willReturn("CANCELLED");
+        given(bookRentalRepository.findById(5L)).willReturn(Optional.of(rental));
+
+        assertThatThrownBy(() -> rentalService.getOwnedRentalOrThrow(5L, 10L))
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(ErrorCode.AUTH_ACCESS_DENIED);
+    }
+
+    @Test
+    void getOwnedRentalForUpdateOrThrow_대여행을_lock조회한다() {
+        BookRental rental = mock(BookRental.class);
+        given(rental.getMember()).willReturn(member);
+        given(member.getMemberId()).willReturn(10L);
+        given(rental.getRentalStatus()).willReturn("READY");
+        given(rental.getRentalEndAt()).willReturn(LocalDateTime.now().plusDays(1));
+        given(bookRentalRepository.findByIdForUpdate(5L)).willReturn(Optional.of(rental));
+
+        assertThat(rentalService.getOwnedRentalForUpdateOrThrow(5L, 10L)).isSameAs(rental);
+        verify(bookRentalRepository).findByIdForUpdate(5L);
     }
 }

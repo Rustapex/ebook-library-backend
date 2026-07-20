@@ -17,6 +17,7 @@ import com.acorn.abc.book.repository.BookCategoryRepository;
 import com.acorn.abc.book.repository.BookDetailRepository;
 import com.acorn.abc.book.repository.BookKeywordMapRepository;
 import com.acorn.abc.book.repository.BookRepository;
+import com.acorn.abc.book.repository.BookEpubRepository;
 import com.acorn.abc.book.repository.BookSpecifications;
 import com.acorn.abc.category.service.CategoryService;
 import com.acorn.abc.common.exception.BusinessException;
@@ -57,6 +58,7 @@ public class BookService {
     private static final int MAX_RECOMMENDATION_LIMIT = 50;
 
     private final BookRepository bookRepository;
+    private final BookEpubRepository bookEpubRepository;
     private final BookAuthorRepository bookAuthorRepository;
     private final BookCategoryRepository bookCategoryRepository;
     private final BookKeywordMapRepository bookKeywordMapRepository;
@@ -183,7 +185,8 @@ public class BookService {
                 book.getTotalPages(),
                 reviewSummary,
                 myRentalState,
-                myFavoriteYn
+                myFavoriteYn,
+                bookEpubRepository.existsByBook_BookId(bookId)
         );
     }
 

@@ -20,6 +20,7 @@ public record BookDetailResponse(
         Integer totalPages,
         BookReviewSummaryResponse reviewSummary,
         String myRentalState,
-        Boolean myFavoriteYn
+        Boolean myFavoriteYn,
+        boolean contentReady
 ) {
 }

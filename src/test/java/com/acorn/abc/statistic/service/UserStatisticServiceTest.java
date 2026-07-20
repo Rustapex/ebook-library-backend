@@ -62,7 +62,6 @@ class UserStatisticServiceTest {
 
         given(bookRentalRepository.countByMemberAndPeriod(anyLong(), any(), any())).willReturn(3L);
         given(readingProgressRepository.countCompletedByMemberAndPeriod(anyLong(), any(), any())).willReturn(2L);
-        given(readingProgressRepository.sumReadPageCountByMemberAndPeriod(anyLong(), any(), any())).willReturn(150L);
         given(reviewRepository.countByMemberAndPeriod(anyLong(), eq(Review.STATUS_ACTIVE), any(), any())).willReturn(1L);
         given(favoriteBookRepository.countByMember_MemberId(anyLong())).willReturn(4L);
     }
@@ -75,7 +74,6 @@ class UserStatisticServiceTest {
         assertThat(response.periodType()).isEqualTo("TOTAL");
         assertThat(response.rentalCount()).isEqualTo(3L);
         assertThat(response.readBookCount()).isEqualTo(2L);
-        assertThat(response.readPageCount()).isEqualTo(150L);
         assertThat(response.reviewCount()).isEqualTo(1L);
         assertThat(response.favoriteCount()).isEqualTo(4L);
         assertThat(response.readingTrend()).hasSize(12);

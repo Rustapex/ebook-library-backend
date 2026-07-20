@@ -9,8 +9,7 @@ public record MyRentalSummaryResponse(
         String coverImageUrl,
         String rentalStatus,
         LocalDateTime rentalEndAt,
-        int currentPage,
-        int totalPages,
-        double progressRate
+        double progressRate,
+        boolean completedYn
 ) {
 }

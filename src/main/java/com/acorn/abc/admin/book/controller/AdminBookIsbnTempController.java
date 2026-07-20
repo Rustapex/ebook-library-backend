@@ -8,6 +8,8 @@ import com.acorn.abc.admin.book.dto.BookIsbnSeedRequest;
 import com.acorn.abc.admin.book.dto.BookIsbnSeedResponse;
 import com.acorn.abc.admin.book.dto.BookIsbnTempApproveRequest;
 import com.acorn.abc.admin.book.dto.BookIsbnTempApproveResponse;
+import com.acorn.abc.admin.book.dto.BookIsbnTempBulkDeleteRequest;
+import com.acorn.abc.admin.book.dto.BookIsbnTempBulkDeleteResponse;
 import com.acorn.abc.admin.book.dto.BookIsbnTempFetchRequest;
 import com.acorn.abc.admin.book.dto.BookIsbnTempFetchResponse;
 import com.acorn.abc.admin.book.dto.BookIsbnTempSummaryResponse;
@@ -112,6 +114,14 @@ public class AdminBookIsbnTempController {
         BookIsbnBulkApproveResponse response =
                 bookBulkApprovalService.bulkApprove(request, adminDetails.getMemberId());
         return ResponseEntity.ok(ApiResponse.ok(response));
+    }
+
+    @Operation(summary = "PENDING 후보 일괄 삭제",
+            description = "선택한 후보가 모두 PENDING 상태일 때만 atomic하게 삭제한다.")
+    @PostMapping("/bulk-delete")
+    public ResponseEntity<ApiResponse<BookIsbnTempBulkDeleteResponse>> bulkDelete(
+            @Valid @RequestBody BookIsbnTempBulkDeleteRequest request) {
+        return ResponseEntity.ok(ApiResponse.ok(bookIsbnTempService.bulkDelete(request)));
     }
 
     private byte toStatusCd(String status) {

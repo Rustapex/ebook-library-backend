@@ -105,11 +105,6 @@ public class BookBulkApprovalService {
 
     private BookIsbnTempApproveRequest buildApproveRequest(BookIsbnTemp temp, List<String> authors,
                                                             BookIsbnBulkApproveRequest request) {
-        List<BookIsbnTempApproveRequest.Page> pages = new ArrayList<>();
-        for (int pageNo = 1; pageNo <= request.dummyPageCount(); pageNo++) {
-            pages.add(new BookIsbnTempApproveRequest.Page(
-                    pageNo, temp.getBookTitle() + " 전자책 시연 페이지 " + pageNo));
-        }
         BookIsbnTempApproveRequest.Detail detail =
                 new BookIsbnTempApproveRequest.Detail(temp.getDescription(), null, null, null);
 
@@ -121,8 +116,7 @@ public class BookBulkApprovalService {
                 request.rentalType(),
                 request.rentalPrice(),
                 request.status(),
-                detail,
-                pages
+                detail
         );
     }
 

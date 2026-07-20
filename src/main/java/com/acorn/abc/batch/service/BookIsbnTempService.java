@@ -1,11 +1,15 @@
 package com.acorn.abc.batch.service;
 
+import com.acorn.abc.admin.book.dto.BookIsbnTempBulkDeleteRequest;
+import com.acorn.abc.admin.book.dto.BookIsbnTempBulkDeleteResponse;
 import com.acorn.abc.admin.book.dto.BookIsbnTempFetchResponse;
 import com.acorn.abc.admin.book.dto.ExternalBookDuplicateInfo;
 import com.acorn.abc.admin.book.dto.ExternalBookLookupResponse;
 import com.acorn.abc.admin.book.dto.ExternalBookProviderStatus;
 import com.acorn.abc.batch.domain.BookIsbnTemp;
 import com.acorn.abc.batch.repository.BookIsbnTempRepository;
+import com.acorn.abc.common.exception.BusinessException;
+import com.acorn.abc.common.exception.ErrorCode;
 import com.acorn.abc.external.book.dto.BookMetadataResult;
 import com.acorn.abc.external.book.dto.DuplicateStatus;
 import com.acorn.abc.external.book.service.BookMetadataAggregateService;
@@ -77,10 +81,12 @@ public class BookIsbnTempService {
                 meta.aladinCategoryId(), meta.aladinCategoryName(),
                 meta.naver().code(), meta.aladin().code());
 
-        if (temp.getBookTitle() != null && !temp.getBookTitle().isBlank()) {
-            temp.markReady();
-        } else {
-            temp.markPending();
+        if (temp.getStatusCd() != BookIsbnTemp.STATUS_MERGED) {
+            if (temp.getBookTitle() != null && !temp.getBookTitle().isBlank()) {
+                temp.markReady();
+            } else {
+                temp.markPending();
+            }
         }
 
         BookIsbnTemp saved = bookIsbnTempRepository.save(temp);
@@ -96,5 +102,33 @@ public class BookIsbnTempService {
     @Transactional(readOnly = true)
     public Page<BookIsbnTemp> list(byte statusCd, Pageable pageable) {
         return bookIsbnTempRepository.findByStatusCd(statusCd, pageable);
+    }
+
+    @Transactional
+    public BookIsbnTempBulkDeleteResponse bulkDelete(BookIsbnTempBulkDeleteRequest request) {
+        if (request == null || request.tempIds() == null || request.tempIds().isEmpty()) {
+            throw new BusinessException(ErrorCode.VALIDATION_ERROR);
+        }
+
+        List<Long> tempIds = request.tempIds().stream()
+                .distinct()
+                .sorted()
+                .toList();
+        List<BookIsbnTemp> temps = bookIsbnTempRepository.findAllByIdInForUpdate(tempIds);
+
+        if (temps.size() != tempIds.size()) {
+            throw new BusinessException(ErrorCode.BOOK_ISBN_TEMP_NOT_FOUND);
+        }
+        if (temps.stream().anyMatch(temp -> temp.getStatusCd() != BookIsbnTemp.STATUS_PENDING)) {
+            throw new BusinessException(ErrorCode.BOOK_ISBN_TEMP_DELETE_NOT_ALLOWED);
+        }
+
+        int deletedCount = bookIsbnTempRepository.deleteAllByIdInAndStatusCd(
+                tempIds, BookIsbnTemp.STATUS_PENDING);
+        if (deletedCount != tempIds.size()) {
+            throw new IllegalStateException("삭제된 수집 후보 수가 요청 수와 일치하지 않습니다.");
+        }
+
+        return new BookIsbnTempBulkDeleteResponse(deletedCount, tempIds);
     }
 }

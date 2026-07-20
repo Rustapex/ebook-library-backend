@@ -75,7 +75,7 @@ class UserStatisticControllerTest {
         when(userStatisticService.getStatistics(anyLong(), anyString(), any()))
                 .thenReturn(new UserReadingStatisticResponse(
                         "TOTAL", LocalDate.of(2000, 1, 1), LocalDate.of(2026, 7, 15),
-                        3L, 2L, 150L, 1L, 4L, 4L, 0.08,
+                        3L, 2L, 1L, 4L, 4L, 0.08,
                         List.of(), java.time.LocalDateTime.now()));
 
         mockMvc.perform(get("/api/v1/me/statistics").param("periodType", "TOTAL"))

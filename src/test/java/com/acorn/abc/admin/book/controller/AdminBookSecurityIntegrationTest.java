@@ -1,6 +1,7 @@
 package com.acorn.abc.admin.book.controller;
 
 import com.acorn.abc.admin.book.dto.BookIsbnBulkApproveResponse;
+import com.acorn.abc.admin.book.dto.BookIsbnTempBulkDeleteResponse;
 import com.acorn.abc.batch.service.BookApprovalService;
 import com.acorn.abc.batch.service.BookBulkApprovalService;
 import com.acorn.abc.batch.service.BookIsbnEnrichService;
@@ -57,6 +58,10 @@ class AdminBookSecurityIntegrationTest {
               "status": "AVAILABLE",
               "dummyPageCount": 3
             }
+            """;
+
+    private static final String BULK_DELETE_BODY = """
+            {"tempIds": [1, 2]}
             """;
 
     @Autowired
@@ -120,6 +125,43 @@ class AdminBookSecurityIntegrationTest {
                 .andExpect(status().isOk());
 
         verify(bookBulkApprovalService).bulkApprove(any(), eq(99L));
+    }
+
+    @Test
+    void bulkDelete_미인증이면_401을_반환한다() throws Exception {
+        mockMvc.perform(post("/api/v1/admin/book-isbn-temps/bulk-delete")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(BULK_DELETE_BODY))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code").value("AUTH_TOKEN_EXPIRED"));
+    }
+
+    @Test
+    void bulkDelete_USER_토큰이면_403을_반환한다() throws Exception {
+        String token = jwtTokenProvider.generateToken(1L, "USER");
+
+        mockMvc.perform(post("/api/v1/admin/book-isbn-temps/bulk-delete")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(BULK_DELETE_BODY))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value("AUTH_ACCESS_DENIED"));
+    }
+
+    @Test
+    void bulkDelete_ADMIN_토큰이면_200을_반환한다() throws Exception {
+        String token = jwtTokenProvider.generateToken(99L, "ADMIN");
+        given(bookIsbnTempService.bulkDelete(any()))
+                .willReturn(new BookIsbnTempBulkDeleteResponse(2, List.of(1L, 2L)));
+
+        mockMvc.perform(post("/api/v1/admin/book-isbn-temps/bulk-delete")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(BULK_DELETE_BODY))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.deletedCount").value(2));
+
+        verify(bookIsbnTempService).bulkDelete(any());
     }
 
     @TestConfiguration
