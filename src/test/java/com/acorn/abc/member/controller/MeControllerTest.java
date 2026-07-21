@@ -23,6 +23,8 @@ import java.time.LocalDate;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
@@ -83,7 +85,7 @@ class MeControllerTest {
 
         mockMvc.perform(patch("/api/v1/me")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"name\":\"회원A수정\",\"email\":\"updated@example.com\",\"phone\":\"010-0714-9999\",\"gender\":\"FEMALE\"}"))
+                        .content("{\"name\":\"회원A수정\",\"email\":\"updated@example.com\",\"phone\":\"010-0714-9999\"}"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.data.name").value("회원A"))
@@ -207,14 +209,27 @@ class MeControllerTest {
     }
 
     @Test
-    void updateMe_gender가_NONE이면_200을_반환한다() throws Exception {
-        when(memberService.updateMyInfo(eq(MEMBER_ID), any())).thenReturn(fullInfoResponse());
-
+    void updateMe_gender가_NONE이면_400과_VALIDATION_ERROR를_반환한다() throws Exception {
         mockMvc.perform(patch("/api/v1/me")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"gender\":\"NONE\"}"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.success").value(true));
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"));
+    }
+
+    // 프로필 성별은 더 이상 수정 가능한 필드가 아니다 — 유효해 보이는 값(MALE/FEMALE)도 거부해야 한다
+    // (2026-07-21 회원가입·프로필·비밀번호 버그 대응 구현계획 §2.2).
+    @Test
+    void updateMe_gender가_유효한_값이어도_400과_VALIDATION_ERROR를_반환한다() throws Exception {
+        mockMvc.perform(patch("/api/v1/me")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"gender\":\"MALE\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"));
+
+        verify(memberService, never()).updateMyInfo(eq(MEMBER_ID), any());
     }
 
     @Test

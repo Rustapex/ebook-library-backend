@@ -41,6 +41,10 @@ public class MemberService {
             throw new BusinessException(ErrorCode.AUTH_INVALID_PASSWORD);
         }
 
+        if (passwordEncoder.matches(request.newPassword(), member.getPasswordHash())) {
+            throw new BusinessException(ErrorCode.VALIDATION_ERROR);
+        }
+
         member.changePassword(passwordEncoder.encode(request.newPassword()));
         return new PasswordChangeResponse(LocalDateTime.now());
     }
@@ -52,9 +56,8 @@ public class MemberService {
         String name = resolveName(member, request.name());
         String email = resolveEmail(member, memberId, request.email());
         String phone = resolvePhone(member, request.phone());
-        String gender = resolveGender(member, request.gender());
 
-        member.updateProfile(name, email, phone, gender);
+        member.updateProfile(name, email, phone, member.getGender());
         flushProfileUpdate();
 
         return meInfoService.getMe(memberId);
@@ -107,12 +110,5 @@ public class MemberService {
             return member.getPhone();
         }
         return requestedPhone.isBlank() ? null : requestedPhone;
-    }
-
-    private String resolveGender(Member member, String requestedGender) {
-        if (requestedGender == null) {
-            return member.getGender();
-        }
-        return "NONE".equals(requestedGender) ? null : requestedGender;
     }
 }

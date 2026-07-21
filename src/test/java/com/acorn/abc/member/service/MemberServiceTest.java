@@ -7,6 +7,8 @@ import com.acorn.abc.member.domain.MemberGrade;
 import com.acorn.abc.member.dto.MeInfoResponse;
 import com.acorn.abc.member.dto.MemberGradeSummaryResponse;
 import com.acorn.abc.member.dto.MemberUpdateRequest;
+import com.acorn.abc.member.dto.PasswordChangeRequest;
+import com.acorn.abc.member.dto.PasswordChangeResponse;
 import com.acorn.abc.member.repository.MemberRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -126,32 +128,32 @@ class MemberServiceTest {
     }
 
     @Test
-    void updateMyInfo_성별이_NONE이면_null로_저장한다() {
+    void updateMyInfo_성별_요청값과_무관하게_기존_성별을_유지한다() {
         Member member = existingMember();
         given(memberRepository.findById(MEMBER_ID)).willReturn(Optional.of(member));
         given(meInfoService.getMe(MEMBER_ID)).willReturn(stubMeInfoResponse());
-        MemberUpdateRequest request = new MemberUpdateRequest(null, null, null, "NONE");
+        MemberUpdateRequest request = new MemberUpdateRequest(null, null, null, "FEMALE");
 
         memberService.updateMyInfo(MEMBER_ID, request);
 
-        assertThat(member.getGender()).isNull();
+        assertThat(member.getGender()).isEqualTo("MALE");
     }
 
     @Test
-    void updateMyInfo_모든_필드를_정상값으로_수정하고_MeInfoService_응답을_그대로_반환한다() {
+    void updateMyInfo_이름_이메일_전화번호를_정상값으로_수정하고_MeInfoService_응답을_그대로_반환한다() {
         Member member = existingMember();
         given(memberRepository.findById(MEMBER_ID)).willReturn(Optional.of(member));
         given(memberRepository.existsByEmailAndMemberIdNot("updated@example.com", MEMBER_ID)).willReturn(false);
         MeInfoResponse stubResponse = stubMeInfoResponse();
         given(meInfoService.getMe(MEMBER_ID)).willReturn(stubResponse);
-        MemberUpdateRequest request = new MemberUpdateRequest("회원A수정", "updated@example.com", "010-0714-9999", "FEMALE");
+        MemberUpdateRequest request = new MemberUpdateRequest("회원A수정", "updated@example.com", "010-0714-9999", null);
 
         MeInfoResponse response = memberService.updateMyInfo(MEMBER_ID, request);
 
         assertThat(member.getName()).isEqualTo("회원A수정");
         assertThat(member.getEmail()).isEqualTo("updated@example.com");
         assertThat(member.getPhone()).isEqualTo("010-0714-9999");
-        assertThat(member.getGender()).isEqualTo("FEMALE");
+        assertThat(member.getGender()).isEqualTo("MALE");
         assertThat(response).isSameAs(stubResponse);
     }
 
@@ -181,6 +183,51 @@ class MemberServiceTest {
 
         assertThatThrownBy(() -> memberService.updateMyInfo(MEMBER_ID, request))
                 .isSameAs(original);
+    }
+
+    @Test
+    void changePassword_현재_비밀번호가_일치하지_않으면_AUTH_INVALID_PASSWORD를_던진다() {
+        Member member = existingMember();
+        given(memberRepository.findById(MEMBER_ID)).willReturn(Optional.of(member));
+        given(passwordEncoder.matches("wrong-password", member.getPasswordHash())).willReturn(false);
+        PasswordChangeRequest request = new PasswordChangeRequest("wrong-password", "NewPassw0rd!!", "NewPassw0rd!!");
+
+        assertThatThrownBy(() -> memberService.changePassword(MEMBER_ID, request))
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(ErrorCode.AUTH_INVALID_PASSWORD);
+        assertThat(member.getPasswordHash()).isEqualTo("hashed-password");
+        verify(passwordEncoder, never()).encode(any());
+    }
+
+    @Test
+    void changePassword_새_비밀번호가_현재_비밀번호와_같으면_VALIDATION_ERROR를_던지고_변경하지_않는다() {
+        Member member = existingMember();
+        given(memberRepository.findById(MEMBER_ID)).willReturn(Optional.of(member));
+        given(passwordEncoder.matches("Passw0rd!!", member.getPasswordHash())).willReturn(true);
+        PasswordChangeRequest request = new PasswordChangeRequest("Passw0rd!!", "Passw0rd!!", "Passw0rd!!");
+
+        assertThatThrownBy(() -> memberService.changePassword(MEMBER_ID, request))
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(ErrorCode.VALIDATION_ERROR);
+        assertThat(member.getPasswordHash()).isEqualTo("hashed-password");
+        verify(passwordEncoder, never()).encode(any());
+    }
+
+    @Test
+    void changePassword_새_비밀번호가_현재_비밀번호와_다르면_정상적으로_변경된다() {
+        Member member = existingMember();
+        given(memberRepository.findById(MEMBER_ID)).willReturn(Optional.of(member));
+        given(passwordEncoder.matches("Passw0rd!!", member.getPasswordHash())).willReturn(true);
+        given(passwordEncoder.matches("NewPassw0rd!!", member.getPasswordHash())).willReturn(false);
+        given(passwordEncoder.encode("NewPassw0rd!!")).willReturn("new-hashed-password");
+        PasswordChangeRequest request = new PasswordChangeRequest("Passw0rd!!", "NewPassw0rd!!", "NewPassw0rd!!");
+
+        PasswordChangeResponse response = memberService.changePassword(MEMBER_ID, request);
+
+        assertThat(member.getPasswordHash()).isEqualTo("new-hashed-password");
+        assertThat(response).isNotNull();
     }
 
     private MeInfoResponse stubMeInfoResponse() {
