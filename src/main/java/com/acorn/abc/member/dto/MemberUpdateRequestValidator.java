@@ -10,7 +10,6 @@ public class MemberUpdateRequestValidator implements ConstraintValidator<ValidMe
         if (request == null) {
             return true;
         }
-        return request.name() != null || request.email() != null
-                || request.phone() != null || request.gender() != null;
+        return request.name() != null || request.email() != null || request.phone() != null;
     }
 }

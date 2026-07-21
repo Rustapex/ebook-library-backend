@@ -36,7 +36,7 @@ public class MeController {
         return ResponseEntity.ok(ApiResponse.ok(meInfoService.getMe(userDetails.getMemberId())));
     }
 
-    @Operation(summary = "내 정보 수정", description = "로그인한 회원의 이름/이메일/전화번호/성별을 수정합니다.")
+    @Operation(summary = "내 정보 수정", description = "로그인한 회원의 이름/이메일/전화번호를 수정합니다.")
     @PatchMapping
     public ResponseEntity<ApiResponse<MeInfoResponse>> updateMe(
             @Valid @RequestBody MemberUpdateRequest request,

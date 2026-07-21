@@ -36,6 +36,20 @@ class AuthControllerTest {
             + "\"gender\":\"MALE\"}";
 
     private final AuthService authService = mock(AuthService.class);
+
+    // 2026-07-21 회원가입·프로필·비밀번호 버그 대응 구현계획 §2.1 — gender/email 검증 회귀용 요청 빌더.
+    private static String signupRequestBody(String email, String gender) {
+        return "{"
+                + "\"loginId\":\"member0714a\","
+                + "\"password\":\"Passw0rd!!\","
+                + "\"passwordConfirm\":\"Passw0rd!!\","
+                + "\"name\":\"회원A\","
+                + "\"email\":\"" + email + "\","
+                + "\"phone\":\"010-0714-0001\","
+                + "\"birthDate\":\"1995-07-14\","
+                + "\"gender\":" + (gender == null ? "null" : "\"" + gender + "\"") + "}";
+    }
+
     private final MockMvc mockMvc = MockMvcBuilders.standaloneSetup(new AuthController(authService))
             .setControllerAdvice(new GlobalExceptionHandler())
             .build();
@@ -68,6 +82,43 @@ class AuthControllerTest {
                 .andExpect(jsonPath("$.message").value("이미 사용 중인 이메일입니다."))
                 .andExpect(jsonPath("$.errors").isArray())
                 .andExpect(jsonPath("$.errors").isEmpty());
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"NONE", "", "OTHER"})
+    void signup_성별이_허용값이_아니면_400과_VALIDATION_ERROR를_반환하고_signup을_호출하지_않는다(String invalidGender) throws Exception {
+        mockMvc.perform(post("/api/v1/auth/signup")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(signupRequestBody("member0714a@example.com", invalidGender)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"));
+
+        verify(authService, never()).signup(any());
+    }
+
+    @Test
+    void signup_성별이_누락되면_400과_VALIDATION_ERROR를_반환하고_signup을_호출하지_않는다() throws Exception {
+        mockMvc.perform(post("/api/v1/auth/signup")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(signupRequestBody("member0714a@example.com", null)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"));
+
+        verify(authService, never()).signup(any());
+    }
+
+    // 이메일 형식 검증(@Email)은 기존부터 있었다 — 성별 검증 추가로 회귀가 없는지 확인한다
+    // (2026-07-21 회원가입·프로필·비밀번호 버그 대응 구현계획 §5).
+    @ParameterizedTest
+    @ValueSource(strings = {"invalid-email", "member0714a@", "member0714a"})
+    void signup_이메일_형식이_올바르지_않으면_400과_VALIDATION_ERROR를_반환하고_signup을_호출하지_않는다(String invalidEmail) throws Exception {
+        mockMvc.perform(post("/api/v1/auth/signup")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(signupRequestBody(invalidEmail, "MALE")))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"));
+
+        verify(authService, never()).signup(any());
     }
 
     // 로그인아이디 중복확인 API 구현계획(2026-07-15) §4.2.

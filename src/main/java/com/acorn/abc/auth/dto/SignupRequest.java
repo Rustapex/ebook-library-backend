@@ -40,5 +40,7 @@ public record SignupRequest(
         @Past(message = "생년월일은 과거 날짜여야 합니다.")
         LocalDate birthDate,
 
+        @NotBlank(message = "성별은 필수입니다.")
+        @Pattern(regexp = "^(MALE|FEMALE)$", message = "성별은 MALE, FEMALE 중 하나여야 합니다.")
         String gender
 ) {}
