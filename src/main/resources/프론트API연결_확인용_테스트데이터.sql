@@ -171,7 +171,7 @@ VALUES (@member1, @payment1, 'PAYBACK', 100, 'API 연결 테스트 - 결제 적�
 --   컬렉션B: EVENT  → 도서별 display_order는 NULL이어야 한다(스키마·서비스 규칙)
 -- ============================================================
 INSERT INTO collection (name, collection_type, discount_rate, description, start_date, end_date, status, created_at)
-VALUES ('API연결테스트 시리즈 컬렉션', 'SERIES', 10.00, 'API 연결 테스트용 시리즈 컬렉션입니다.', CURDATE(), DATE_ADD(CURDATE(), INTERVAL 90 DAY), 'ACTIVE', NOW());
+VALUES ('API연결테스트 시리즈 컬렉션', 'SERIES', NULL, 'API 연결 테스트용 시리즈 컬렉션입니다.', NULL, NULL, 'ACTIVE', NOW());
 SET @collection1 = LAST_INSERT_ID();
 
 INSERT INTO collection (name, collection_type, discount_rate, description, start_date, end_date, status, created_at)
