@@ -21,6 +21,7 @@ public record BookDetailResponse(
         BookReviewSummaryResponse reviewSummary,
         String myRentalState,
         Boolean myFavoriteYn,
-        boolean contentReady
+        boolean contentReady,
+        boolean physicalLibrarySearchAvailable
 ) {
 }

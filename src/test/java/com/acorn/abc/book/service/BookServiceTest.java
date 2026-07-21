@@ -139,6 +139,21 @@ class BookServiceTest {
     }
 
     @Test
+    void getBookDetail_기존_isbn이_13자리면_도서관조회가_활성화된다() {
+        given(book.getStatus()).willReturn("AVAILABLE");
+        given(book.getIsbn()).willReturn("9788936434120");
+        given(bookRepository.findById(1L)).willReturn(Optional.of(book));
+        given(bookDetailRepository.findByBook_BookId(1L)).willReturn(Optional.empty());
+        given(bookAuthorRepository.findActiveByBookId(1L)).willReturn(List.of());
+        given(bookCategoryRepository.findActiveByBookId(1L)).willReturn(List.of());
+        given(bookKeywordMapRepository.findActiveByBookId(1L)).willReturn(List.of());
+
+        BookDetailResponse result = bookService.getBookDetail(1L, null);
+
+        assertThat(result.physicalLibrarySearchAvailable()).isTrue();
+    }
+
+    @Test
     void getBookDetail_로그인회원이_즐겨찾기했으면_myFavoriteYn이_true다() {
         given(book.getStatus()).willReturn("AVAILABLE");
         given(bookRepository.findById(1L)).willReturn(Optional.of(book));
