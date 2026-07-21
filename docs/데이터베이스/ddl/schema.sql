@@ -1,7 +1,12 @@
+-- WARNING: 이 파일은 과거 논리 DDL 참고 문서이며 실행용 source of truth가 아니다.
+-- runtime JPA 및 src/main/resources/schema.sql과 column 이름이 다른 구간이 있다.
+-- 신규/기존 DB 작업 전 docs/데이터베이스/README.md를 먼저 읽는다.
+-- 이 파일을 Spring Boot bootstrap, 기존 DB upgrade 또는 migration 기준으로 실행하지 않는다.
+
 -- 기준 문서: ebook-rental-erd.md
 -- 대상 DBMS: MySQL 8.x
 -- 목적: 전자책 대여 서비스 DDL
--- Spring Boot 자동 실행용: CREATE TABLE IF NOT EXISTS 사용 (재실행 시 에러 무시)
+-- 과거 작성 기준: CREATE TABLE IF NOT EXISTS 사용
 
 -- =====================================================================
 -- 책 데이터 수집 파이프라인 임시 테이블
