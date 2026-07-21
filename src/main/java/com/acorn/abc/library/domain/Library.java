@@ -37,4 +37,16 @@ public class Library {
 
     @Column(name = "status", nullable = false, length = 20)
     private String status;
+
+    @Column(name = "library_code", length = 20)
+    private String libraryCode;
+
+    @Column(name = "region_code", length = 2)
+    private String regionCode;
+
+    @Column(name = "dtl_region_code", length = 5)
+    private String dtlRegionCode;
+
+    @Column(name = "source", nullable = false, length = 20)
+    private String source;
 }

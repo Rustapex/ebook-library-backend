@@ -172,12 +172,12 @@
 | API-ME-004 | 회원 탈퇴 | DELETE | `/api/v1/me` | 회원 | U-015 | `MEMBER, BOOK_RENTAL` |
 | API-BOOK-001 | 도서 목록 조회 | GET | `/api/v1/books` | 비회원/회원 | U-001, U-006 | `BOOK, AUTHOR, PUBLISHER, CATEGORY, BOOK_CATEGORY, FAVORITE_BOOK` |
 | API-BOOK-002 | 도서 검색 | GET | `/api/v1/books/search` | 비회원/회원 | U-007 | `BOOK, AUTHOR, PUBLISHER, CATEGORY, BOOK_KEYWORD` |
-| API-BOOK-003 | 도서 상세 조회 | GET | `/api/v1/books/{bookId}` | 비회원/회원 | U-008 | `BOOK, BOOK_DETAIL, BOOK_FILE, AUTHOR, PUBLISHER, CATEGORY, BOOK_KEYWORD, REVIEW, RATING, LIBRARY_BOOK` |
+| API-BOOK-003 | 도서 상세 조회 | GET | `/api/v1/books/{bookId}` | 비회원/회원 | U-008 | `BOOK, BOOK_DETAIL, BOOK_FILE, AUTHOR, PUBLISHER, CATEGORY, BOOK_KEYWORD, REVIEW, RATING` |
 | API-BOOK-005 | 추천 도서 조회 | GET | `/api/v1/books/recommendations` | 비회원/회원 | U-001, U-008, U-025 | `BOOK, AUTHOR, CATEGORY, BOOK_KEYWORD, BOOK_KEYWORD_MAP` |
 | API-CATEGORY-001 | 카테고리 목록 조회 | GET | `/api/v1/categories` | 비회원/회원 | U-001, U-006 | `CATEGORY` |
 | API-COLLECTION-001 | 컬렉션 목록 조회 | GET | `/api/v1/collections` | 비회원/회원 | U-001, U-006(EVENT target) | `COLLECTION, COLLECTION_BOOK, BOOK` |
 | API-COLLECTION-002 | 컬렉션 상세/도서 조회 | GET | `/api/v1/collections/{collectionId}` | 비회원/회원 | U-001, U-006(EVENT target) | `COLLECTION, COLLECTION_BOOK, BOOK` |
-| API-LIBRARY-001 | 도서 보유 도서관 목록 조회 | GET | `/api/v1/books/{bookId}/libraries` | 비회원/회원 | U-024 | `LIBRARY, LIBRARY_BOOK` |
+| API-LIBRARY-001 | 종이책 소장 도서관 조회 | GET | `/api/v1/books/{bookId}/libraries` | 비회원/회원 | U-024 | `BOOK, LIBRARY, LIBRARY_HOLDING` |
 | API-RENTAL-001 | 무료 대여 생성 | POST | `/api/v1/rentals/free` | 회원 | U-009 | `BOOK, BOOK_RENTAL, NOTIFICATION` |
 | API-RENTAL-003 | 내 대여 현황 조회 | GET | `/api/v1/me/rentals` | 회원 | U-010, U-014 | `BOOK_RENTAL, BOOK, READING_PROGRESS` |
 | API-READING-001 | 최근 읽은 책 조회 | GET | `/api/v1/me/recent-books` | 회원 | U-014, U-028 | `READING_PROGRESS, BOOK_RENTAL, BOOK` |
@@ -235,9 +235,9 @@
 | API-ADMIN-COUPON-003 | 회원 쿠폰 발급 | POST | `/api/v1/admin/coupons/{couponId}/issue` | 관리자 | A-013 | `MEMBER_COUPON, NOTIFICATION, ADMIN_AUDIT_LOG` |
 | API-ADMIN-CHALLENGE-001 | 챌린지 목록 조회 | GET | `/api/v1/admin/challenges` | 관리자 | A-014 | `CHALLENGE, CHALLENGE_REWARD` |
 | API-ADMIN-CHALLENGE-002 | 챌린지 등록/수정 | PUT | `/api/v1/admin/challenges/{challengeId}` | 관리자 | A-014 | `CHALLENGE, CHALLENGE_REWARD, ADMIN_AUDIT_LOG` |
-| API-ADMIN-LIBRARY-001 | 도서관 목록 조회 | GET | `/api/v1/admin/libraries` | 관리자 | A-015 | `LIBRARY, LIBRARY_BOOK` |
+| API-ADMIN-LIBRARY-001 | 도서관 목록 조회 | GET | `/api/v1/admin/libraries` | 관리자 | A-015 | `LIBRARY, LIBRARY_HOLDING` |
 | API-ADMIN-LIBRARY-002 | 도서관 등록/수정 | PUT | `/api/v1/admin/libraries/{libraryId}` | 관리자 | A-015 | `LIBRARY, ADMIN_AUDIT_LOG` |
-| API-ADMIN-LIBRARY-003 | 도서관 보유 도서 변경 | PUT | `/api/v1/admin/libraries/{libraryId}/books` | 관리자 | A-015 | `LIBRARY_BOOK, ADMIN_AUDIT_LOG` |
+| API-ADMIN-LIBRARY-003 | 도서관 보유 도서 변경 | PUT | `/api/v1/admin/libraries/{libraryId}/books` | 관리자 | A-015 | `LIBRARY_HOLDING, ADMIN_AUDIT_LOG` |
 | API-ADMIN-COLLECTION-001 | 컬렉션 목록 조회 | GET | `/api/v1/admin/collections` | 관리자 | A-018 | `COLLECTION, COLLECTION_BOOK` |
 | API-ADMIN-COLLECTION-002 | 컬렉션 등록/수정 | PUT | `/api/v1/admin/collections/{collectionId}` | 관리자 | A-018 | `COLLECTION, ADMIN_AUDIT_LOG` |
 | API-ADMIN-COLLECTION-003 | 컬렉션 도서 추가/정렬 | PUT | `/api/v1/admin/collections/{collectionId}/books` | 관리자 | A-018 | `COLLECTION_BOOK, BOOK, ADMIN_AUDIT_LOG` |
@@ -268,12 +268,12 @@
 |---|---|---|---|
 | API-BOOK-001 | Query: `categoryId?`, `parentCategoryId?`, `rentalType?`, `section?`, `sort?`, `page?`, `size?` | `page<BookCard>` | User에는 `BOOK.status=AVAILABLE`만 노출. 카드에는 표지/제목/저자/출판사/무료유료/가격/즐겨찾기 여부 반환. |
 | API-BOOK-002 | Query: `q`, `categoryId?`, `rentalType?`, `sort?`, `page?`, `size?` | `keyword`, `totalCount`, `page<BookCard>` | 검색 대상은 제목, 저자, 출판사, ISBN, 키워드. 결과 없음이면 희망도서 신청 안내. |
-| API-BOOK-003 | Path: `bookId` | 기본 정보, 저자, 출판사, 카테고리, 키워드, 대여 정보, 전체 페이지, 리뷰 요약, `myRentalState?`, `myFavoriteYn?` | 미리보기는 제외. TTS 가능 여부/청취 위치는 저장하지 않음. |
+| API-BOOK-003 | Path: `bookId` | 기본 정보, 저자, 출판사, 카테고리, 키워드, 대여 정보, 전체 페이지, 리뷰 요약, `myRentalState?`, `myFavoriteYn?`, `physicalLibrarySearchAvailable` | 미리보기는 제외. TTS 가능 여부/청취 위치는 저장하지 않음. `physicalLibrarySearchAvailable`은 기존 `Book.isbn`이 숫자 13자리 형식일 때만 `true`이다. 도서관 조회도 같은 ISBN을 사용한다. |
 | API-BOOK-005 | Query: `baseBookId?`, `type?`, `limit?` | 추천 기준, `books<BookCard>` | 같은 작가/카테고리/키워드 또는 메인 추천. 추천 로그 저장 안 함. |
 | API-CATEGORY-001 | Query: `includeChildren=true` | 카테고리 트리 | `ACTIVE` 카테고리만 User 메뉴 노출, `displayOrder` 기준 정렬. |
 | API-COLLECTION-001 | Query: `collectionType?`, `status=ACTIVE`, `page?`, `size?`, `previewSize?` | 컬렉션 목록 | 시리즈/이벤트 컬렉션 공개 조회. User는 `ACTIVE`만 노출. 메인 화면에서는 활성 컬렉션과 컬렉션별 대표 도서 5~6개를 미리보기로 반환한다. `U-019`가 직접 호출하는 API가 아니라 EVENT 알림 클릭 후 `U-006` 이벤트 필터 또는 컬렉션 목록 진입 시 호출한다. |
 | API-COLLECTION-002 | Path: `collectionId` | 컬렉션 상세, 도서 카드 목록 | `SERIES`는 `displayOrder`, `EVENT`는 운영 정렬. 등록된 `BOOK`만 포함. EVENT 알림의 target 이동 후 상세 목록을 구성할 때 사용할 수 있다. |
-| API-LIBRARY-001 | Path: `bookId` | 도서 요약, 도서관명, 주소, 위도, 경도, 보유 상태 | 실물 대여/예약 없음. 지도 표시는 프론트 외부 지도 API가 처리. |
+| API-LIBRARY-001 | Path: `bookId`, Query: `region`(필수, 숫자 2자리), `dtlRegion?`(숫자 5자리, region prefix 일치), `page?`, `size?`, `latitude?`, `longitude?`(latitude/longitude는 둘 다 있거나 둘 다 없어야 함) | 도서 요약, `region`, `source`(`INFONARU`\|`MANUAL`), `stale`, page/size/totalElements/totalPages, `libraries[]`(도서관코드, 도서관명, 주소, 위도, 경도, `distanceKm?`, 홈페이지, 휴관일, 운영시간, `holding`, `loanAvailable`), `warnings[]` | 기존 `Book.isbn`을 정보나루 조회에 그대로 사용한다. `region` 미전달 시 400. 유효한 13자리 ISBN이 없으면 409(`BOOK_ISBN_UNAVAILABLE`). 정보나루 장애+cache/fallback 없음 시 503(`LIBRARY_EXTERNAL_API_UNAVAILABLE`). client IP 분당 30회 초과 시 429(`LIBRARY_RATE_LIMIT_EXCEEDED`). 조회 우선순위: fresh cache(6시간) → 정보나루 실시간 → stale cache(24시간) → 관리자 manual fallback(`LIBRARY_HOLDING`) → 503. `distanceKm`과 정렬은 현재 조회된 page 내부 기준이며 전체 결과 거리순을 보장하지 않는다. `loanAvailable`은 MVP 미제공(`null`). 실물 대여/예약 없음. 지도 표시는 프론트 Kakao Maps가 처리. |
 
 ### 4.3 대여 / 결제 / 뷰어
 
@@ -330,8 +330,8 @@
 |---|---|---|---|
 | API-ADMIN-DASHBOARD-001 | 없음 | KPI 카드, 최근 신고, 최근 희망도서, 최근 결제 | 전체 회원, 제재 회원, 이용 가능 도서, 전체 대여, 완독, 결제 합계, 리뷰, 신고 KPI 반환. |
 | API-ADMIN-BOOK-001 | Query: `q?`, `categoryId?`, `rentalType?`, `status?`, `page?`, `size?` | 관리자 도서 목록 | `HIDDEN`, `INACTIVE` 포함 조회 가능. 제목/저자/출판사/ISBN/카테고리/유형/상태 검색. |
-| API-ADMIN-BOOK-002 | Body: `title`, `isbn?`, `publisherName`, `authors[]`, `categoryIds[]`, `keywords[]`, `rentalType`, `rentalPrice`, `defaultRentalDays`, `coverImageUrl?`, `status`, `detail`, `file`, `pages[]` | `bookId`, `status`, `createdAt` | ISBN 중복 검증. 유료 도서 가격 0원 불가. 페이지 번호 중복 불가. 상세 입력은 소개/목차/출판사 리뷰/상세 내용으로 제한. 감사 로그 기록. |
-| API-ADMIN-BOOK-003 | Path: `bookId`, Body: 도서 수정 필드 | `bookId`, `updatedAt` | 출판사명 포함 수정. 수정 전후 핵심 값 감사 로그 기록. |
+| API-ADMIN-BOOK-002 | Body: `title`, `isbn?`, `publisherName`, `authors[]`, `categoryIds[]`, `keywords[]`, `rentalType`, `rentalPrice`, `defaultRentalDays`, `coverImageUrl?`, `status`, `detail`, `file`, `pages[]` | `bookId`, `status`, `createdAt` | ISBN은 숫자 13자리 형식과 중복을 검증하며 도서관 조회에도 같은 값을 사용한다. 유료 도서 가격 0원 불가. 페이지 번호 중복 불가. 상세 입력은 소개/목차/출판사 리뷰/상세 내용으로 제한. 감사 로그 기록. |
+| API-ADMIN-BOOK-003 | Path: `bookId`, Body: 도서 수정 필드 | `bookId`, `updatedAt` | 출판사명과 ISBN을 포함해 수정하며, 수정 후 도서관 조회에도 변경된 ISBN이 사용된다. 수정 전후 핵심 값을 감사 로그에 기록한다. |
 | API-ADMIN-BOOK-004 | Path: `bookId`, Body: `status(AVAILABLE/HIDDEN/INACTIVE)`, `reason?` | `bookId`, `status` | 물리 삭제하지 않고 상태 변경. `HIDDEN`/`INACTIVE`는 User 목록 제외. |
 | API-ADMIN-CATEGORY-001 | Query: `includeInactive=true` | 카테고리 트리 | 활성/비활성 전체 조회. |
 | API-ADMIN-CATEGORY-002 | Path: `categoryId`, Body: `parentCategoryId?`, `categoryName`, `displayOrder`, `status` | 카테고리 정보 | 상위/하위 카테고리와 표시 순서 관리. 비활성은 User 메뉴 제외. |
@@ -366,7 +366,7 @@
 | API-ADMIN-CHALLENGE-002 | Path: `challengeId`, Body: `challengeName`, `challengeType`, `targetAction`, `targetCount`, `status`, `rewards[]` | `challengeId` | 보상은 `POINT` 또는 `COUPON`과 지급 수량. 비활성은 신규 노출 제외. |
 | API-ADMIN-LIBRARY-001 | Query: `q?`, `status?`, `page?`, `size?` | 도서관 목록, 좌표, 보유 도서 수 | 좌표 보유 여부 포함. |
 | API-ADMIN-LIBRARY-002 | Path: `libraryId`, Body: `libraryName`, `address`, `latitude?`, `longitude?`, `status` | `libraryId` | 도서관 기본 정보 등록/수정용. 좌표 null 허용. 실물 대여/예약 관리 없음. A-015의 `수정` 버튼에서 보유 도서 변경도 함께 있으면 002 성공 후 003을 순차 호출한다. |
-| API-ADMIN-LIBRARY-003 | Path: `libraryId`, Body: `books[{bookId, holdingStatus}]` | `libraryId`, `mappedCount` | 도서관 보유 도서 매핑 변경용. 도서관+도서 기준 1개. A-015의 `수정` 버튼에서 보유 도서 변경분이 있을 때 002와 분리해 호출한다. User 위치 화면에는 활성 도서관과 보유 상태 반환. |
+| API-ADMIN-LIBRARY-003 | Path: `libraryId`, Body: `books[{bookId, holdingStatus(HELD\|NOT_HELD)}]` | `libraryId`, `mappedCount` | 요청 wire 형식(`bookId`+`holdingStatus`)은 기존 계약을 유지하되, 서버는 각 `bookId`의 `Book.isbn`을 조회해 `LIBRARY_HOLDING(library_id, isbn)`에 저장한다. `holdingStatus=HELD`는 해당 `(library_id, ISBN)` row가 없으면 insert, 있으면 유지(갱신)한다. `holdingStatus=NOT_HELD`는 해당 row를 물리 삭제한다. `holding_status`라는 상태 컬럼 자체는 두지 않으며 row 존재 여부만으로 소장을 표현한다. ISBN 미등록 도서는 409. 도서관+ISBN 기준 1개로 유일하다. A-015의 `수정` 버튼에서 보유 도서 변경분이 있을 때 002와 분리해 호출한다. |
 | API-ADMIN-COLLECTION-001 | Query: `collectionType?`, `status?`, `page?`, `size?` | 컬렉션 목록, 등록 도서 수 | 시리즈/이벤트 관리 목록. |
 | API-ADMIN-COLLECTION-002 | Path: `collectionId`, Body: `name`, `collectionType`, `discountRate?`, `description?`, `startDate?`, `endDate?`, `status` | `collectionId` | `SERIES`는 순서 있는 책 묶음, `EVENT`는 이벤트 묶음. |
 | API-ADMIN-COLLECTION-003 | Path: `collectionId`, Body: `books[{bookId, displayOrder?}]` | `collectionId`, `mappedCount` | 서비스에 등록된 BOOK만 추가. `SERIES`는 `displayOrder` 사용. |
