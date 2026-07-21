@@ -108,7 +108,12 @@ public enum ErrorCode {
     NOTIFICATION_NOT_FOUND(HttpStatus.NOT_FOUND, "NOTIFICATION_NOT_FOUND", "존재하지 않는 알림입니다."),
 
     // Notice (팀장 승인 완료)
-    NOTICE_NOT_FOUND(HttpStatus.NOT_FOUND, "NOTICE_NOT_FOUND", "존재하지 않는 공지사항입니다.");
+    NOTICE_NOT_FOUND(HttpStatus.NOT_FOUND, "NOTICE_NOT_FOUND", "존재하지 않는 공지사항입니다."),
+
+    // Library (종이책 소장 도서관 위치 조회, 팀장 승인 완료)
+    BOOK_ISBN_UNAVAILABLE(HttpStatus.CONFLICT, "BOOK_ISBN_UNAVAILABLE", "등록된 ISBN이 없어 소장 도서관을 조회할 수 없습니다."),
+    LIBRARY_EXTERNAL_API_UNAVAILABLE(HttpStatus.SERVICE_UNAVAILABLE, "LIBRARY_EXTERNAL_API_UNAVAILABLE", "외부 도서관 정보를 일시적으로 조회할 수 없습니다."),
+    LIBRARY_RATE_LIMIT_EXCEEDED(HttpStatus.TOO_MANY_REQUESTS, "LIBRARY_RATE_LIMIT_EXCEEDED", "요청이 너무 많습니다. 잠시 후 다시 시도해주세요.");
 
     private final HttpStatus httpStatus;
     private final String code;

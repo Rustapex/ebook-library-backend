@@ -134,8 +134,14 @@ CREATE TABLE IF NOT EXISTS library (
   library_latitude DECIMAL(10,7) NULL,
   library_longitude DECIMAL(10,7) NULL,
   library_status VARCHAR(20) NOT NULL,
+  library_code VARCHAR(20) NULL,
+  region_code VARCHAR(2) NULL,
+  dtl_region_code VARCHAR(5) NULL,
+  source VARCHAR(20) NOT NULL DEFAULT 'MANUAL',
   CONSTRAINT pk_library PRIMARY KEY (library_id),
-  CONSTRAINT chk_library_status CHECK (library_status IN ('ACTIVE', 'INACTIVE'))
+  CONSTRAINT uk_library_library_code UNIQUE (library_code),
+  CONSTRAINT chk_library_status CHECK (library_status IN ('ACTIVE', 'INACTIVE')),
+  INDEX idx_library_region_status (region_code, library_status, dtl_region_code)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 CREATE TABLE IF NOT EXISTS member (
@@ -466,6 +472,7 @@ CREATE TABLE IF NOT EXISTS book_request (
   CONSTRAINT chk_book_request_request_status CHECK (request_status IN ('REQUESTED', 'APPROVED', 'REJECTED'))
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
+-- deprecated: 신규 물리 도서관 조회는 library_holding을 사용한다. 이 테이블은 조회 대상에서 제외한다.
 CREATE TABLE IF NOT EXISTS library_book (
   library_book_id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
   library_id BIGINT UNSIGNED NOT NULL,
@@ -475,6 +482,19 @@ CREATE TABLE IF NOT EXISTS library_book (
   CONSTRAINT pk_library_book PRIMARY KEY (library_book_id),
   CONSTRAINT uk_library_book_library_id_book_id UNIQUE (library_id, book_id),
   CONSTRAINT chk_library_book_holding_status CHECK (holding_status IN ('AVAILABLE', 'UNAVAILABLE'))
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+-- book.book_isbn과 같은 ISBN 값 기준 소장 관계. row 존재 자체가 HELD를 의미한다.
+CREATE TABLE IF NOT EXISTS library_holding (
+  library_holding_id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  library_id BIGINT UNSIGNED NOT NULL,
+  isbn CHAR(13) NOT NULL,
+  created_at DATETIME NOT NULL,
+  updated_at DATETIME NULL,
+  CONSTRAINT pk_library_holding PRIMARY KEY (library_holding_id),
+  CONSTRAINT uk_library_holding UNIQUE (library_id, isbn),
+  CONSTRAINT fk_library_holding_library FOREIGN KEY (library_id) REFERENCES library(library_id),
+  INDEX idx_library_holding_isbn (isbn, library_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 CREATE TABLE IF NOT EXISTS collection (

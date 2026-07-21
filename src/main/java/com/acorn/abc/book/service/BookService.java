@@ -56,6 +56,7 @@ public class BookService {
     private static final int MAX_SIZE = 100;
     private static final int DEFAULT_RECOMMENDATION_LIMIT = 10;
     private static final int MAX_RECOMMENDATION_LIMIT = 50;
+    private static final String ISBN13_PATTERN = "^[0-9]{13}$";
 
     private final BookRepository bookRepository;
     private final BookEpubRepository bookEpubRepository;
@@ -186,7 +187,8 @@ public class BookService {
                 reviewSummary,
                 myRentalState,
                 myFavoriteYn,
-                bookEpubRepository.existsByBook_BookId(bookId)
+                bookEpubRepository.existsByBook_BookId(bookId),
+                book.getIsbn() != null && book.getIsbn().matches(ISBN13_PATTERN)
         );
     }
 
