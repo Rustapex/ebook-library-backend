@@ -6,6 +6,7 @@ import com.acorn.abc.common.exception.GlobalExceptionHandler;
 import com.acorn.abc.common.security.CustomUserDetails;
 import com.acorn.abc.member.dto.MeInfoResponse;
 import com.acorn.abc.member.dto.MemberGradeSummaryResponse;
+import com.acorn.abc.member.dto.MemberWithdrawResponse;
 import com.acorn.abc.member.service.MeInfoService;
 import com.acorn.abc.member.service.MemberService;
 import org.junit.jupiter.api.AfterEach;
@@ -26,6 +27,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -245,6 +247,55 @@ class MeControllerTest {
                 .andExpect(jsonPath("$.code").value("MEMBER_EMAIL_DUPLICATED"))
                 .andExpect(jsonPath("$.errors").isArray())
                 .andExpect(jsonPath("$.errors").isEmpty());
+    }
+
+    @Test
+    void withdraw_정상_요청이면_200과_WITHDRAWN_상태를_반환한다() throws Exception {
+        when(memberService.withdraw(eq(MEMBER_ID), any()))
+                .thenReturn(new MemberWithdrawResponse("WITHDRAWN", java.time.LocalDateTime.of(2026, 7, 22, 10, 0)));
+
+        mockMvc.perform(delete("/api/v1/me")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"currentPassword\":\"Passw0rd!!\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.status").value("WITHDRAWN"));
+    }
+
+    @Test
+    void withdraw_currentPassword가_없으면_400과_VALIDATION_ERROR를_반환한다() throws Exception {
+        mockMvc.perform(delete("/api/v1/me")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"));
+
+        verify(memberService, never()).withdraw(eq(MEMBER_ID), any());
+    }
+
+    @Test
+    void withdraw_비밀번호가_틀리면_400과_AUTH_INVALID_PASSWORD를_반환한다() throws Exception {
+        when(memberService.withdraw(eq(MEMBER_ID), any()))
+                .thenThrow(new BusinessException(ErrorCode.AUTH_INVALID_PASSWORD));
+
+        mockMvc.perform(delete("/api/v1/me")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"currentPassword\":\"wrong\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("AUTH_INVALID_PASSWORD"));
+    }
+
+    @Test
+    void withdraw_진행중인_대여가_있으면_409를_반환한다() throws Exception {
+        when(memberService.withdraw(eq(MEMBER_ID), any()))
+                .thenThrow(new BusinessException(ErrorCode.MEMBER_WITHDRAWAL_RENTAL_IN_PROGRESS));
+
+        mockMvc.perform(delete("/api/v1/me")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"currentPassword\":\"Passw0rd!!\"}"))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("MEMBER_WITHDRAWAL_RENTAL_IN_PROGRESS"));
     }
 
     private MeInfoResponse fullInfoResponse() {

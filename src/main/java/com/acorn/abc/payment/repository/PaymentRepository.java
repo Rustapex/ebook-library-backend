@@ -97,4 +97,22 @@ public interface PaymentRepository extends JpaRepository<Payment, Long> {
     Page<Payment> findByMemberIdForAdmin(@Param("memberId") Long memberId, Pageable pageable);
 
     long countByMember_MemberId(Long memberId);
+
+    // 관리자 대여 현황 조회(API-ADMIN-RENTAL-001, 2026-07-22 구현계획 §2.3) — rental id 목록으로 결제 요약을
+    // 한 번에 bulk 조회한다(N+1 방지). 결제 정보가 없는 대여는 nullable로 응답한다.
+    List<Payment> findByPaymentStatusAndRental_RentalIdIn(String paymentStatus, List<Long> rentalIds);
+
+    // 관리자 결제 목록 조회(API-ADMIN-PAYMENT-001, 2026-07-22 구현계획 §2.3) — q는 회원명/도서명 부분일치,
+    // from/to는 paidAt 범위. PAID만 조회하며 취소/환불/복구는 다루지 않는다.
+    @Query(value = "SELECT p FROM Payment p JOIN FETCH p.member JOIN FETCH p.rental r JOIN FETCH r.book WHERE " +
+            "p.paymentStatus = 'PAID' AND " +
+            "(:q IS NULL OR LOWER(p.member.name) LIKE :q OR LOWER(r.book.title) LIKE :q) AND " +
+            "(:from IS NULL OR p.paidAt >= :from) AND (:to IS NULL OR p.paidAt < :to) " +
+            "ORDER BY p.paidAt DESC, p.paymentId DESC",
+            countQuery = "SELECT COUNT(p) FROM Payment p JOIN p.rental r WHERE " +
+            "p.paymentStatus = 'PAID' AND " +
+            "(:q IS NULL OR LOWER(p.member.name) LIKE :q OR LOWER(r.book.title) LIKE :q) AND " +
+            "(:from IS NULL OR p.paidAt >= :from) AND (:to IS NULL OR p.paidAt < :to)")
+    Page<Payment> searchForAdmin(@Param("q") String q, @Param("from") LocalDateTime from,
+                                  @Param("to") LocalDateTime to, Pageable pageable);
 }

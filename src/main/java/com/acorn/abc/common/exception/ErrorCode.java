@@ -113,7 +113,13 @@ public enum ErrorCode {
     // Library (종이책 소장 도서관 위치 조회, 팀장 승인 완료)
     BOOK_ISBN_UNAVAILABLE(HttpStatus.CONFLICT, "BOOK_ISBN_UNAVAILABLE", "등록된 ISBN이 없어 소장 도서관을 조회할 수 없습니다."),
     LIBRARY_EXTERNAL_API_UNAVAILABLE(HttpStatus.SERVICE_UNAVAILABLE, "LIBRARY_EXTERNAL_API_UNAVAILABLE", "외부 도서관 정보를 일시적으로 조회할 수 없습니다."),
-    LIBRARY_RATE_LIMIT_EXCEEDED(HttpStatus.TOO_MANY_REQUESTS, "LIBRARY_RATE_LIMIT_EXCEEDED", "요청이 너무 많습니다. 잠시 후 다시 시도해주세요.");
+    LIBRARY_RATE_LIMIT_EXCEEDED(HttpStatus.TOO_MANY_REQUESTS, "LIBRARY_RATE_LIMIT_EXCEEDED", "요청이 너무 많습니다. 잠시 후 다시 시도해주세요."),
+
+    // 관리자 대여·결제·신고·회원탈퇴 API 구현계획(2026-07-22) §3.2 — 기존 코드로 표현 불가능한 상황만 additive로 추가.
+    MEMBER_WITHDRAWAL_RENTAL_IN_PROGRESS(HttpStatus.CONFLICT, "MEMBER_WITHDRAWAL_RENTAL_IN_PROGRESS", "진행 중인 대여가 있어 탈퇴할 수 없습니다."),
+    BOOK_REPORT_NOT_FOUND(HttpStatus.NOT_FOUND, "BOOK_REPORT_NOT_FOUND", "존재하지 않는 도서 신고입니다."),
+    REVIEW_REPORT_NOT_FOUND(HttpStatus.NOT_FOUND, "REVIEW_REPORT_NOT_FOUND", "존재하지 않는 리뷰 신고입니다."),
+    REPORT_INVALID_STATUS_TRANSITION(HttpStatus.CONFLICT, "REPORT_INVALID_STATUS_TRANSITION", "현재 상태에서는 처리할 수 없는 신고입니다.");
 
     private final HttpStatus httpStatus;
     private final String code;

@@ -4,6 +4,8 @@ import com.acorn.abc.common.response.ApiResponse;
 import com.acorn.abc.common.security.CustomUserDetails;
 import com.acorn.abc.member.dto.MeInfoResponse;
 import com.acorn.abc.member.dto.MemberUpdateRequest;
+import com.acorn.abc.member.dto.MemberWithdrawRequest;
+import com.acorn.abc.member.dto.MemberWithdrawResponse;
 import com.acorn.abc.member.dto.PasswordChangeRequest;
 import com.acorn.abc.member.dto.PasswordChangeResponse;
 import com.acorn.abc.member.service.MeInfoService;
@@ -14,6 +16,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -50,6 +53,15 @@ public class MeController {
             @Valid @RequestBody PasswordChangeRequest request,
             @AuthenticationPrincipal CustomUserDetails userDetails) {
         PasswordChangeResponse response = memberService.changePassword(userDetails.getMemberId(), request);
+        return ResponseEntity.ok(ApiResponse.ok(response));
+    }
+
+    @Operation(summary = "회원 탈퇴", description = "현재 비밀번호 확인 후 본인 계정을 탈퇴 처리합니다. 진행 중인 대여가 있으면 거부됩니다.")
+    @DeleteMapping
+    public ResponseEntity<ApiResponse<MemberWithdrawResponse>> withdraw(
+            @Valid @RequestBody MemberWithdrawRequest request,
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+        MemberWithdrawResponse response = memberService.withdraw(userDetails.getMemberId(), request);
         return ResponseEntity.ok(ApiResponse.ok(response));
     }
 }

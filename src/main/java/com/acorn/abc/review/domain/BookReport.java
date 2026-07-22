@@ -53,4 +53,11 @@ public class BookReport {
 
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt;
+
+    // 관리자 신고 처리(API-ADMIN-REPORT-002, 2026-07-22 구현계획 §2.4) — 상태 전이는 서비스에서 검증한 뒤 호출한다.
+    public void process(String status, String processResult, LocalDateTime processedAt) {
+        this.status = status;
+        this.processResult = processResult;
+        this.processedAt = processedAt;
+    }
 }

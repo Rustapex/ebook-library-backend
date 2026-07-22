@@ -90,4 +90,10 @@ public class Review {
         this.status = STATUS_DELETED;
         this.updatedAt = LocalDateTime.now();
     }
+
+    // 관리자 신고 처리(API-ADMIN-REPORT-002, 2026-07-22 구현계획 §2.4) — REVIEW 신고를 DONE으로 처리할 때만 호출된다.
+    public void hide() {
+        this.status = STATUS_HIDDEN;
+        this.updatedAt = LocalDateTime.now();
+    }
 }
