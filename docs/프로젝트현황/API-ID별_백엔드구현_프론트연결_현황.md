@@ -27,14 +27,14 @@
 | 구분 | API 수 | 백엔드 구현 O | 프론트 연결 O |
 |---|---:|---:|---:|
 | 1. 인증/회원 API | 8 | 7 | 7 |
-| 2. 도서/카테고리/컬렉션 API | 14 | 14 | 12 |
+| 2. 도서/카테고리/컬렉션 API | 14 | 14 | 11 |
 | 3. 대여/결제 API | 5 | 5 | 5 |
 | 4. 전자책 뷰어/북마크/진행 API | 5 | 4 | 4 |
 | 5. 리뷰/별점/즐겨찾기 API | 10 | 7 | 7 |
 | 6. 챌린지/출석/포인트/쿠폰 API | 12 | 12 | 12 |
 | 7. 희망도서/알림/공지 API | 10 | 10 | 10 |
 | 8. 관리자 API | 19 | 12 | 12 |
-| **합계** | **83** | **71** | **69** |
+| **합계** | **83** | **71** | **68** |
 
 화면 존재와 해당 API 연결 여부는 별개이므로 각 API 행에서 따로 표시한다. 이번 최신화 범위에서 U-011, U-019, U-022, U-023 및 A-011, A-012는 실제 route·페이지·API 호출을 확인해 화면 구현과 프론트 연결 `O`로 갱신했다.
 
@@ -64,7 +64,7 @@
 | 카테고리    | API-CATEGORY-001         |   O    |   O    | U-001, U-006        | U-001 O, U-006 O          |
 | 컬렉션     | API-COLLECTION-001       |   O    |   O    | U-001, U-006        | U-001 O, U-006 O          |
 | 컬렉션     | API-COLLECTION-002       |   O    |   O    | U-001, U-006        | U-001 O, U-006 O          |
-| 도서관     | API-LIBRARY-001          |   O    |   O    | U-024               | O                         |
+| 도서관     | API-LIBRARY-001          |   O    |   X    | U-024               | O                         |
 | 관리자 컬렉션 | API-ADMIN-COLLECTION-001 |   O    |   O    | A-018               | O                         |
 | 관리자 컬렉션 | API-ADMIN-COLLECTION-002 |   O    |   O    | A-018               | O                         |
 | 관리자 컬렉션 | API-ADMIN-COLLECTION-003 |   O    |   O    | A-018               | O                         |
@@ -197,10 +197,12 @@
 
 ### 4.2 백엔드는 구현됐으나 Front 호출 연결이 확인되지 않은 API
 
-- 없음. 단, `API-ADMIN-COLLECTION-005`·`006`은 화면/프론트 판정 대상 API ID가 아니므로 기존 `-` 표기를 유지한다.
+- `API-LIBRARY-001`: 백엔드는 `region` 필수와 새 응답 형식으로 구현됐으나, U-024의 프런트 호출은 `region` 없이 이전 배열 응답 형식을 기대한다. 따라서 호출 코드 존재와 별개로 현재 계약 기준 연결은 `X`다.
+- `API-ADMIN-COLLECTION-005`·`006`은 화면/프론트 판정 대상 API ID가 아니므로 기존 `-` 표기를 유지한다.
 
 ### 4.3 화면 구현 현황
 
+- U-024는 route·화면·호출 코드는 존재하지만 `API-LIBRARY-001`의 `region` 필수값과 응답 형식이 최신 백엔드 계약과 달라 프론트 연결은 `X`로 갱신
 - U-011·U-019·U-022·U-023은 최신 ABCProjectFront main의 route·페이지와 실제 API 호출을 확인해 `O`로 갱신
 - A-011·A-012는 실제 목록·등록/수정·상태 변경 API를 호출하므로 placeholder 표기를 제거하고 화면·프론트 연결 `O`로 갱신
 - `U-013`은 별도 route가 아니라 `U-008` 도서 상세 내부 리뷰 영역으로 구현
@@ -225,6 +227,7 @@
 
 ## 5. 확인 근거
 
+- 도서관: GitHub PR #61 및 `src/main/java/com/acorn/abc/library/controller/LibraryController.java` — `GET /api/v1/books/{bookId}/libraries`는 `region` 필수와 새 응답 형식으로 구현. `ABCProjectFront/src/api/libraryApi.ts`, `pages/user/U024Libraries/BookLibrariesPage.tsx`는 `region` 없이 이전 배열 응답 형식을 사용
 - API ID/Method/URL/화면 ID: `docs/API 명세/api-spec(final).md` 162~249행
 - 제외 API: 같은 문서 379~386행
 - 기존 백엔드·Front·화면 판정: 이 문서 최초 작성 시 수행한 정적 매핑 조사 결과
