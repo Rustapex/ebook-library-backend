@@ -241,7 +241,24 @@ class MemberServiceTest {
     void withdraw_ADMIN_계정이면_AUTH_ACCESS_DENIED를_던진다() {
         Member admin = mock(Member.class);
         given(admin.isAdmin()).willReturn(true);
-        given(memberRepository.findById(MEMBER_ID)).willReturn(Optional.of(admin));
+        given(memberRepository.findByIdForUpdate(MEMBER_ID)).willReturn(Optional.of(admin));
+        MemberWithdrawRequest request = new MemberWithdrawRequest("Passw0rd!!", null);
+
+        assertThatThrownBy(() -> memberService.withdraw(MEMBER_ID, request))
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(ErrorCode.AUTH_ACCESS_DENIED);
+        verify(passwordEncoder, never()).matches(any(), any());
+        verify(bookRentalRepository, never()).existsByMember_MemberIdAndRentalStatusIn(any(), any());
+    }
+
+    // PR64 코드리뷰 대응 §2.1 — 잠금 획득 사이 다른 트랜잭션이 먼저 상태를 바꾼 경합 상황(예: 이중 탈퇴 요청)을 방어한다.
+    @Test
+    void withdraw_JOINED_상태가_아니면_AUTH_ACCESS_DENIED를_던진다() {
+        Member member = mock(Member.class);
+        given(member.isAdmin()).willReturn(false);
+        given(member.getStatus()).willReturn("WITHDRAWN");
+        given(memberRepository.findByIdForUpdate(MEMBER_ID)).willReturn(Optional.of(member));
         MemberWithdrawRequest request = new MemberWithdrawRequest("Passw0rd!!", null);
 
         assertThatThrownBy(() -> memberService.withdraw(MEMBER_ID, request))
@@ -255,7 +272,7 @@ class MemberServiceTest {
     @Test
     void withdraw_현재_비밀번호가_일치하지_않으면_AUTH_INVALID_PASSWORD를_던진다() {
         Member member = existingMember();
-        given(memberRepository.findById(MEMBER_ID)).willReturn(Optional.of(member));
+        given(memberRepository.findByIdForUpdate(MEMBER_ID)).willReturn(Optional.of(member));
         given(passwordEncoder.matches("wrong-password", member.getPasswordHash())).willReturn(false);
         MemberWithdrawRequest request = new MemberWithdrawRequest("wrong-password", null);
 
@@ -270,7 +287,7 @@ class MemberServiceTest {
     @Test
     void withdraw_진행중인_대여가_있으면_MEMBER_WITHDRAWAL_RENTAL_IN_PROGRESS를_던진다() {
         Member member = existingMember();
-        given(memberRepository.findById(MEMBER_ID)).willReturn(Optional.of(member));
+        given(memberRepository.findByIdForUpdate(MEMBER_ID)).willReturn(Optional.of(member));
         given(passwordEncoder.matches("Passw0rd!!", member.getPasswordHash())).willReturn(true);
         given(bookRentalRepository.existsByMember_MemberIdAndRentalStatusIn(MEMBER_ID, List.of("READY", "READING")))
                 .willReturn(true);
@@ -286,7 +303,7 @@ class MemberServiceTest {
     @Test
     void withdraw_진행중인_대여가_없으면_WITHDRAWN으로_전환하고_탈퇴일시와_사유를_저장한다() {
         Member member = existingMember();
-        given(memberRepository.findById(MEMBER_ID)).willReturn(Optional.of(member));
+        given(memberRepository.findByIdForUpdate(MEMBER_ID)).willReturn(Optional.of(member));
         given(passwordEncoder.matches("Passw0rd!!", member.getPasswordHash())).willReturn(true);
         given(bookRentalRepository.existsByMember_MemberIdAndRentalStatusIn(MEMBER_ID, List.of("READY", "READING")))
                 .willReturn(false);

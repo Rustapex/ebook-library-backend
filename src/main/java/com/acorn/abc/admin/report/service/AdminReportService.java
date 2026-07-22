@@ -8,6 +8,7 @@ import com.acorn.abc.common.exception.BusinessException;
 import com.acorn.abc.common.exception.ErrorCode;
 import com.acorn.abc.common.response.PageResponse;
 import com.acorn.abc.member.domain.Member;
+import com.acorn.abc.member.repository.MemberRepository;
 import com.acorn.abc.notification.domain.Notification;
 import com.acorn.abc.notification.repository.NotificationRepository;
 import com.acorn.abc.review.domain.BookReport;
@@ -52,6 +53,7 @@ public class AdminReportService {
     private final BookReportRepository bookReportRepository;
     private final ReviewReportRepository reviewReportRepository;
     private final SanctionHistoryRepository sanctionHistoryRepository;
+    private final MemberRepository memberRepository;
     private final NotificationRepository notificationRepository;
     private final AdminAuditLogWriter adminAuditLogWriter;
 
@@ -82,7 +84,8 @@ public class AdminReportService {
     }
 
     private AdminReportProcessResponse processBookReport(Long reportId, AdminReportProcessRequest request, Long adminMemberId) {
-        BookReport report = bookReportRepository.findById(reportId)
+        // PR64 코드리뷰 대응 §2.2 — 동일 신고 중복 처리를 막기 위해 신고 행을 먼저 잠근다.
+        BookReport report = bookReportRepository.findByIdForUpdate(reportId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.BOOK_REPORT_NOT_FOUND));
         validateStatusTransition(report.getStatus(), request.status());
 
@@ -101,9 +104,23 @@ public class AdminReportService {
     }
 
     private AdminReportProcessResponse processReviewReport(Long reportId, AdminReportProcessRequest request, Long adminMemberId) {
-        ReviewReport report = reviewReportRepository.findById(reportId)
+        // PR64 코드리뷰 대응 §2.2 — 동일 신고 중복 처리를 막기 위해 신고 행을 먼저 잠근다.
+        ReviewReport report = reviewReportRepository.findByIdForUpdate(reportId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.REVIEW_REPORT_NOT_FOUND));
         validateStatusTransition(report.getStatus(), request.status());
+
+        // 제재가 요청된 경우에만 리뷰 작성자 회원을 추가로 잠근다(§2.2) — 만료 배치의
+        // findByIdForUpdate와 같은 행을 잠가 직렬화하고, 상태·리뷰·이력·알림·감사 로그를 만들기 전에
+        // ADMIN/WITHDRAWN/DEACTIVATED 보호 대상이면 요청 전체를 403으로 거부한다.
+        Member sanctionedMember = null;
+        if (request.sanction() != null) {
+            Long reviewAuthorId = report.getReview().getMember().getMemberId();
+            sanctionedMember = memberRepository.findByIdForUpdate(reviewAuthorId)
+                    .orElseThrow(() -> new BusinessException(ErrorCode.MEMBER_NOT_FOUND));
+            if (sanctionedMember.isProtectedFromAdminChanges()) {
+                throw new BusinessException(ErrorCode.AUTH_ACCESS_DENIED);
+            }
+        }
 
         String beforeStatus = report.getStatus();
         LocalDateTime now = LocalDateTime.now();
@@ -118,9 +135,9 @@ public class AdminReportService {
 
         Long sanctionHistoryId = null;
         String memberStatus = null;
-        if (request.sanction() != null) {
-            // 제재 대상은 신고자가 아니라 신고된 리뷰의 작성자다.
-            Member sanctionedMember = report.getReview().getMember();
+        if (sanctionedMember != null) {
+            // 이미 SANCTIONED인 회원의 추가 계정 정지도 허용한다 — 서로 다른 REVIEW 신고가 같은 회원을
+            // 제재하면 이력은 신고 수만큼 남고 마지막 유효 제재가 currentSanction으로 연결된다(§2.2).
             SanctionHistory sanction = SanctionHistory.create(sanctionedMember, report, "ACCOUNT_SUSPENSION",
                     request.sanction().reason(), request.sanction().startedAt(), request.sanction().endedAt());
             sanctionHistoryRepository.save(sanction);

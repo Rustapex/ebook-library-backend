@@ -57,12 +57,19 @@ public class MemberService {
         return new PasswordChangeResponse(LocalDateTime.now());
     }
 
-    // 회원 탈퇴(API-ME-004, 2026-07-22 구현계획 §2.1) — 물리 삭제 없이 상태만 WITHDRAWN으로 전환한다.
+    // 회원 탈퇴(API-ME-004, PR64 코드리뷰 대응 2026-07-22 §2.1) — 물리 삭제 없이 상태만 WITHDRAWN으로 전환한다.
+    // 회원 행을 먼저 잠가 무료/유료 대여 생성과의 경합을 직렬화한다: 순서는
+    // 회원 잠금 -> ADMIN 역할 거부 -> JOINED 검증 -> 비밀번호 검증 -> READY/READING 존재 검증 -> WITHDRAWN 변경으로 고정.
     public MemberWithdrawResponse withdraw(Long memberId, MemberWithdrawRequest request) {
-        Member member = memberRepository.findById(memberId)
+        Member member = memberRepository.findByIdForUpdate(memberId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.MEMBER_NOT_FOUND));
 
         if (member.isAdmin()) {
+            throw new BusinessException(ErrorCode.AUTH_ACCESS_DENIED);
+        }
+        if (!"JOINED".equals(member.getStatus())) {
+            // JWT 필터가 JOINED가 아닌 토큰을 이미 차단하지만, 잠금 획득 사이에 다른 트랜잭션이 먼저
+            // 상태를 바꿨을 수 있어(경합) 잠근 뒤에도 다시 확인한다.
             throw new BusinessException(ErrorCode.AUTH_ACCESS_DENIED);
         }
         if (!passwordEncoder.matches(request.currentPassword(), member.getPasswordHash())) {

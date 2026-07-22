@@ -69,6 +69,8 @@ class RentalServiceTest {
 
     @Test
     void createFreeRental_성공하면_대여를_생성하고_알림을_저장한다() {
+        given(member.getStatus()).willReturn("JOINED");
+        given(memberRepository.findByIdForUpdate(10L)).willReturn(Optional.of(member));
         given(book.getBookId()).willReturn(1L);
         given(book.getRentalType()).willReturn("FREE");
         given(book.getStatus()).willReturn("AVAILABLE");
@@ -77,7 +79,6 @@ class RentalServiceTest {
         given(bookEpubRepository.existsByBook_BookId(1L)).willReturn(true);
         given(bookRentalRepository.findFirstByMember_MemberIdAndBook_BookIdOrderByCreatedAtDescRentalIdDesc(10L, 1L))
                 .willReturn(Optional.empty());
-        given(memberRepository.findById(10L)).willReturn(Optional.of(member));
 
         LocalDateTime rentalEndAt = LocalDateTime.now().plusDays(7);
         BookRental savedRental = mock(BookRental.class);
@@ -97,7 +98,22 @@ class RentalServiceTest {
     }
 
     @Test
+    void createFreeRental_JOINED_상태가_아니면_AUTH_ACCESS_DENIED() {
+        given(member.getStatus()).willReturn("WITHDRAWN");
+        given(memberRepository.findByIdForUpdate(10L)).willReturn(Optional.of(member));
+
+        assertThatThrownBy(() -> rentalService.createFreeRental(10L, 1L))
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(ErrorCode.AUTH_ACCESS_DENIED);
+        verify(bookRepository, never()).findById(any());
+        verify(bookRentalRepository, never()).save(any());
+    }
+
+    @Test
     void createFreeRental_유료도서면_BOOK_RENTAL_TYPE_MISMATCH() {
+        given(member.getStatus()).willReturn("JOINED");
+        given(memberRepository.findByIdForUpdate(10L)).willReturn(Optional.of(member));
         given(book.getRentalType()).willReturn("PAID");
         given(bookRepository.findById(1L)).willReturn(Optional.of(book));
 
@@ -110,6 +126,8 @@ class RentalServiceTest {
 
     @Test
     void createFreeRental_비공개도서면_BOOK_NOT_FOUND() {
+        given(member.getStatus()).willReturn("JOINED");
+        given(memberRepository.findByIdForUpdate(10L)).willReturn(Optional.of(member));
         given(book.getRentalType()).willReturn("FREE");
         given(book.getStatus()).willReturn("HIDDEN");
         given(bookRepository.findById(1L)).willReturn(Optional.of(book));
@@ -123,10 +141,8 @@ class RentalServiceTest {
 
     @Test
     void createFreeRental_진행중인_대여가_있으면_RENTAL_ALREADY_EXISTS() {
-        given(book.getRentalType()).willReturn("FREE");
-        given(book.getStatus()).willReturn("AVAILABLE");
-        given(bookRepository.findById(1L)).willReturn(Optional.of(book));
-        given(bookEpubRepository.existsByBook_BookId(1L)).willReturn(true);
+        given(member.getStatus()).willReturn("JOINED");
+        given(memberRepository.findByIdForUpdate(10L)).willReturn(Optional.of(member));
 
         BookRental existingRental = mock(BookRental.class);
         given(existingRental.getRentalStatus()).willReturn("READING");
@@ -137,6 +153,7 @@ class RentalServiceTest {
                 .isInstanceOf(BusinessException.class)
                 .extracting("errorCode")
                 .isEqualTo(ErrorCode.RENTAL_ALREADY_EXISTS);
+        verify(bookRepository, never()).findById(any());
         verify(bookRentalRepository, never()).save(any());
     }
 

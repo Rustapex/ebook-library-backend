@@ -48,9 +48,22 @@ public class PaymentService {
     private final NotificationRepository notificationRepository;
     private final RentalService rentalService;
 
+    // PR64 코드리뷰 대응(2026-07-22) §2.1 — 회원 행을 먼저 잠가 회원 탈퇴와의 경합을 직렬화한다.
+    // 순서: 회원 잠금 -> JOINED 검증 -> 진행 중 대여 검증 -> 도서·콘텐츠·쿠폰·결제 검증 및 저장으로 고정.
     @Transactional
     public PaymentCreateResponse createPaidRentalAndPayment(Long memberId, PaidRentalRequest request) {
-        // 1. Book 조회 + AVAILABLE/PAID 검증
+        // 1. 회원 잠금 + JOINED 검증
+        Member member = memberRepository.findByIdForUpdate(memberId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.MEMBER_NOT_FOUND));
+        if (!"JOINED".equals(member.getStatus())) {
+            // 탈퇴가 먼저 커밋된 경합 상황을 잠근 뒤 다시 확인한다(JWT 필터의 선차단과 별개 방어선).
+            throw new BusinessException(ErrorCode.AUTH_ACCESS_DENIED);
+        }
+
+        // 2. READY/READING 중복 대여 검증
+        rentalService.validateNoActiveRental(memberId, request.bookId());
+
+        // 3. Book 조회 + AVAILABLE/PAID 검증
         Book book = bookRepository.findById(request.bookId())
                 .orElseThrow(() -> new BusinessException(ErrorCode.BOOK_NOT_FOUND));
         if (!"PAID".equals(book.getRentalType())) {
@@ -61,13 +74,7 @@ public class PaymentService {
         }
         rentalService.validateContentReady(book.getBookId());
 
-        // 2. READY/READING 중복 대여 검증
-        rentalService.validateNoActiveRental(memberId, request.bookId());
-
-        Member member = memberRepository.findById(memberId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.MEMBER_NOT_FOUND));
-
-        // 3. 쿠폰 검증 + 할인액 계산
+        // 4. 쿠폰 검증 + 할인액 계산
         MemberCoupon memberCoupon = null;
         int couponDiscount = 0;
         if (request.memberCouponId() != null) {
@@ -76,7 +83,7 @@ public class PaymentService {
             couponDiscount = calcCouponDiscount(memberCoupon.getCoupon(), book.getRentalPrice());
         }
 
-        // 4. 포인트 검증 (잔액 부족 여부는 8번의 Member.usePoint()에서 최종 검증)
+        // 5. 포인트 검증 (잔액 부족 여부는 9번의 Member.usePoint()에서 최종 검증)
         int pointUsed = request.pointAmount() == null ? 0 : request.pointAmount();
         int remaining = book.getRentalPrice() - couponDiscount;
         if (pointUsed > remaining) {
@@ -86,30 +93,30 @@ public class PaymentService {
         LocalDateTime now = LocalDateTime.now();
         int amount = remaining - pointUsed;
 
-        // 5. BookRental 저장
+        // 6. BookRental 저장
         BookRental rental = bookRentalRepository.save(
                 BookRental.create(member, book, rentalService.calcRentalEndAt(book)));
 
-        // 6. Payment 저장
+        // 7. Payment 저장
         Payment payment = paymentRepository.save(
                 Payment.create(member, rental, book.getRentalPrice(), amount, now));
 
-        // 7. CouponUsage 저장 + MemberCoupon.use()
+        // 8. CouponUsage 저장 + MemberCoupon.use()
         if (memberCoupon != null) {
             memberCoupon.use(now);
             couponUsageRepository.save(CouponUsage.create(memberCoupon, rental, payment, couponDiscount, now));
         }
 
-        // 8. PointHistory 저장 + Member.usePoint()
+        // 9. PointHistory 저장 + Member.usePoint()
         if (pointUsed > 0) {
             member.usePoint(pointUsed);
             pointHistoryRepository.save(PointHistory.createPaymentUse(member, payment, pointUsed, now));
         }
 
-        // 9. Book.increaseRentalCount()
+        // 10. Book.increaseRentalCount()
         book.increaseRentalCount();
 
-        // 10. Notification 저장 (notification_type은 V002 마이그레이션 이후 전부 대문자로 통일됨)
+        // 11. Notification 저장 (notification_type은 V002 마이그레이션 이후 전부 대문자로 통일됨)
         notificationRepository.save(Notification.create(member, "RENTAL", "유료 대여가 시작되었습니다.", "RENTAL", rental.getRentalId(), now));
         notificationRepository.save(Notification.create(member, "PAYMENT", "결제가 완료되었습니다.", "PAYMENT", payment.getPaymentId(), now));
 
