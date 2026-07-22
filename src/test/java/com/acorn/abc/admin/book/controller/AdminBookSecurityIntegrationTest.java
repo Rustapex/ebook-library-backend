@@ -11,6 +11,8 @@ import com.acorn.abc.common.config.SecurityConfig;
 import com.acorn.abc.common.security.CustomAccessDeniedHandler;
 import com.acorn.abc.common.security.CustomAuthenticationEntryPoint;
 import com.acorn.abc.common.security.JwtTokenProvider;
+import com.acorn.abc.member.domain.Member;
+import com.acorn.abc.member.repository.MemberRepository;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
@@ -24,9 +26,12 @@ import org.springframework.test.web.servlet.MockMvc;
 
 import java.util.List;
 
+import java.util.Optional;
+
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -80,6 +85,16 @@ class AdminBookSecurityIntegrationTest {
     @MockitoBean
     private BookBulkApprovalService bookBulkApprovalService;
 
+    // JwtAuthenticationFilter가 회원 상태(JOINED)를 조회하므로 슬라이스 컨텍스트에도 빈이 필요하다.
+    @MockitoBean
+    private MemberRepository memberRepository;
+
+    private Member joinedMember() {
+        Member member = mock(Member.class);
+        given(member.getStatus()).willReturn("JOINED");
+        return member;
+    }
+
     @Test
     void enrich_미인증이면_401과_공통_에러_응답을_반환한다() throws Exception {
         mockMvc.perform(post("/api/v1/admin/book-isbn-temps/enrich")
@@ -102,6 +117,8 @@ class AdminBookSecurityIntegrationTest {
     @Test
     void enrich_USER_토큰이면_403과_공통_에러_응답을_반환한다() throws Exception {
         String token = jwtTokenProvider.generateToken(1L, "USER");
+        Member member = joinedMember();
+        given(memberRepository.findById(1L)).willReturn(Optional.of(member));
 
         mockMvc.perform(post("/api/v1/admin/book-isbn-temps/enrich")
                         .header("Authorization", "Bearer " + token)
@@ -115,6 +132,8 @@ class AdminBookSecurityIntegrationTest {
     @Test
     void bulkApprove_ADMIN_토큰이면_200을_반환하고_memberId를_그대로_전달한다() throws Exception {
         String token = jwtTokenProvider.generateToken(99L, "ADMIN");
+        Member member = joinedMember();
+        given(memberRepository.findById(99L)).willReturn(Optional.of(member));
         given(bookBulkApprovalService.bulkApprove(any(), eq(99L)))
                 .willReturn(new BookIsbnBulkApproveResponse(0, List.of(), List.of()));
 
@@ -139,6 +158,8 @@ class AdminBookSecurityIntegrationTest {
     @Test
     void bulkDelete_USER_토큰이면_403을_반환한다() throws Exception {
         String token = jwtTokenProvider.generateToken(1L, "USER");
+        Member member = joinedMember();
+        given(memberRepository.findById(1L)).willReturn(Optional.of(member));
 
         mockMvc.perform(post("/api/v1/admin/book-isbn-temps/bulk-delete")
                         .header("Authorization", "Bearer " + token)
@@ -151,6 +172,8 @@ class AdminBookSecurityIntegrationTest {
     @Test
     void bulkDelete_ADMIN_토큰이면_200을_반환한다() throws Exception {
         String token = jwtTokenProvider.generateToken(99L, "ADMIN");
+        Member member = joinedMember();
+        given(memberRepository.findById(99L)).willReturn(Optional.of(member));
         given(bookIsbnTempService.bulkDelete(any()))
                 .willReturn(new BookIsbnTempBulkDeleteResponse(2, List.of(1L, 2L)));
 
