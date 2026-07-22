@@ -16,6 +16,11 @@ import org.springframework.web.multipart.MaxUploadSizeExceededException;
 import org.springframework.web.multipart.MultipartException;
 import org.springframework.web.multipart.support.MissingServletRequestPartException;
 
+import java.sql.SQLException;
+import java.util.Collections;
+import java.util.IdentityHashMap;
+import java.util.Set;
+
 /**
  * 전역 예외 처리 핸들러.
  * 별도로 손댈 필요 없다. 예외는 throw만 하면 여기서 자동으로 처리된다.
@@ -90,12 +95,45 @@ public class GlobalExceptionHandler {
                 .body(ErrorResponse.of(ErrorCode.VALIDATION_ERROR));
     }
 
-    // PESSIMISTIC_WRITE 잠금 대기 초과·deadlock(관리자 회원 API 구현계획 §1.5-8, §1.6.2-5) — 재시도 없이 409로 응답한다.
+    // PR64 재코드리뷰 후속수정(2026-07-22) §2.2 — 예외 메시지 문자열 비교가 아니라 cause 체인의
+    // SQLException vendor error/SQLState로 실제 MySQL lock wait timeout·deadlock만 골라 409로 변환한다.
+    // 그 외 PessimisticLockingFailureException(원인 불명 잠금 실패 등)은 동시성 오류로 오분류하지 않고
+    // 기존 공통 미처리 예외 응답인 500으로 보낸다.
+    private static final int MYSQL_LOCK_WAIT_TIMEOUT_VENDOR_CODE = 1205;
+    private static final String MYSQL_LOCK_WAIT_TIMEOUT_SQL_STATE = "HY000";
+    private static final int MYSQL_DEADLOCK_VENDOR_CODE = 1213;
+    private static final String MYSQL_DEADLOCK_SQL_STATE = "40001";
+
     @ExceptionHandler(PessimisticLockingFailureException.class)
     public ResponseEntity<ErrorResponse> handlePessimisticLockingFailureException(PessimisticLockingFailureException e) {
-        log.warn("비관적 잠금 획득 실패", e);
+        if (!isMySqlLockConflict(e)) {
+            log.error("MySQL lock wait timeout/deadlock으로 판별되지 않는 PessimisticLockingFailureException", e);
+            return ResponseEntity.internalServerError()
+                    .body(ErrorResponse.of(ErrorCode.INTERNAL_SERVER_ERROR));
+        }
+        log.warn("MySQL 잠금 충돌(lock wait timeout/deadlock)", e);
         return ResponseEntity.status(ErrorCode.CONCURRENT_UPDATE.getHttpStatus())
                 .body(ErrorResponse.of(ErrorCode.CONCURRENT_UPDATE));
+    }
+
+    // cause 체인을 순회하며 SQLException의 vendor error/SQLState를 확인한다. 순환 참조에 대비해
+    // 이미 방문한 예외는 다시 방문하지 않는다(무한 루프 방지).
+    private boolean isMySqlLockConflict(Throwable exception) {
+        Set<Throwable> visited = Collections.newSetFromMap(new IdentityHashMap<>());
+        Throwable current = exception;
+        while (current != null && visited.add(current)) {
+            if (current instanceof SQLException sqlException) {
+                boolean lockWaitTimeout = sqlException.getErrorCode() == MYSQL_LOCK_WAIT_TIMEOUT_VENDOR_CODE
+                        && MYSQL_LOCK_WAIT_TIMEOUT_SQL_STATE.equals(sqlException.getSQLState());
+                boolean deadlock = sqlException.getErrorCode() == MYSQL_DEADLOCK_VENDOR_CODE
+                        && MYSQL_DEADLOCK_SQL_STATE.equals(sqlException.getSQLState());
+                if (lockWaitTimeout || deadlock) {
+                    return true;
+                }
+            }
+            current = current.getCause();
+        }
+        return false;
     }
 
     @ExceptionHandler(Exception.class)

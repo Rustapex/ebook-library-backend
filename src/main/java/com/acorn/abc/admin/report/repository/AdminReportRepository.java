@@ -38,7 +38,10 @@ public interface AdminReportRepository extends Repository<BookReport, Long> {
             + "       JOIN review rv ON rr.review_id = rv.review_id JOIN book b2 ON rv.book_id = b2.book_id "
             + ") merged "
             + "WHERE (:targetType IS NULL OR target_type = :targetType) AND (:status IS NULL OR status = :status) "
-            + "ORDER BY created_at DESC, report_id DESC",
+            // PR64 재코드리뷰 후속수정(2026-07-22) §2.1 — book_report_id/review_report_id가 같은 값이고
+            // created_at까지 같은 BOOK/REVIEW 행이 있을 수 있어, target_type을 마지막 tie-breaker로 추가해
+            // 페이지 경계에서 순서가 흔들리지 않게 고정한다(BOOK -> REVIEW 순). 별도 비즈니스 의미는 없다.
+            + "ORDER BY created_at DESC, report_id DESC, target_type ASC",
             countQuery = "SELECT COUNT(*) FROM ("
             + "  SELECT br.book_report_id AS report_id, 'BOOK' AS target_type, br.status AS status "
             + "  FROM book_report br "
