@@ -1,0 +1,50 @@
+# EC2 production compose. application container만 포함한다.
+#
+# DB는 private RDS를 사용하므로 MySQL container를 절대 포함하지 않는다.
+# HTTPS 종단은 EC2 host의 Nginx + Let's Encrypt가 담당하고,
+# 이 container는 loopback(127.0.0.1:8080)에만 bind해 외부에 직접 노출되지 않는다.
+#
+# 모든 명령은 --env-file .env.prod 를 붙인다. 이 file은 두 가지 역할을 동시에 한다.
+#   1) --env-file : compose file의 ${ABC_API_IMAGE}, ${ABC_API_TAG} 치환(interpolation)
+#   2) env_file:  : container 내부 환경변수 주입
+# --env-file 을 빼면 image tag가 조용히 기본값(abc-api:local)으로 떨어진다.
+#
+# 사용법:
+#   cp .env.prod.example .env.prod && chmod 600 .env.prod   # 실제 값 입력
+#   docker compose --env-file .env.prod -f compose.prod.yml config --quiet   # 검증(출력 없음)
+#   docker compose --env-file .env.prod -f compose.prod.yml up -d
+#
+# 주의: `config` 를 --quiet 없이 실행하면 DB password와 JWT secret이 그대로 출력된다.
+#       로그 file, CI 출력, 화면 공유에 남기지 않는다. deploy/README.md 참고.
+
+services:
+  abc-api:
+    image: "${ABC_API_IMAGE:-abc-api}:${ABC_API_TAG:-local}"
+    container_name: abc-api
+    restart: unless-stopped
+    env_file:
+      - .env.prod
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+      TZ: Asia/Seoul
+    ports:
+      # 외부 직접 노출 금지. Nginx가 이 loopback port로만 proxy한다.
+      - "127.0.0.1:8080:8080"
+    healthcheck:
+      # application liveness 전용. DB health와 분리한다.
+      # `/` 는 인증이 필요한 경로라 token 없이 401을 돌려주며 DB를 건드리지 않는다.
+      # curl -f 를 쓰지 않으므로 401/404 같은 HTTP 응답도 "살아있음"으로 본다.
+      # 연결 자체가 안 되면 curl이 non-zero로 끝나 unhealthy가 된다.
+      #
+      # DB readiness는 별도다. 배포 절차에서 GET /api/v1/categories 로 확인한다(deploy/README.md §4).
+      # DB 장애를 container restart로 대응하면 안 되므로 healthcheck에 넣지 않는다.
+      test: ["CMD-SHELL", "curl -s -o /dev/null --max-time 5 http://127.0.0.1:8080/ || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 90s
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
