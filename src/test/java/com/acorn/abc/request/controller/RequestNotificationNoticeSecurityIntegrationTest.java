@@ -9,6 +9,8 @@ import com.acorn.abc.common.response.PageResponse;
 import com.acorn.abc.common.security.CustomAccessDeniedHandler;
 import com.acorn.abc.common.security.CustomAuthenticationEntryPoint;
 import com.acorn.abc.common.security.JwtTokenProvider;
+import com.acorn.abc.member.domain.Member;
+import com.acorn.abc.member.repository.MemberRepository;
 import com.acorn.abc.notification.controller.NoticeController;
 import com.acorn.abc.notification.controller.NotificationController;
 import com.acorn.abc.notification.dto.NoticeDetailResponse;
@@ -31,9 +33,12 @@ import org.springframework.test.web.servlet.MockMvc;
 import java.time.LocalDateTime;
 import java.util.List;
 
+import java.util.Optional;
+
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.Mockito.mock;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -62,6 +67,16 @@ class RequestNotificationNoticeSecurityIntegrationTest {
     private AdminBookRequestService adminBookRequestService;
     @MockitoBean
     private AdminNoticeService adminNoticeService;
+
+    // JwtAuthenticationFilter가 회원 상태(JOINED)를 조회하므로 슬라이스 컨텍스트에도 빈이 필요하다.
+    @MockitoBean
+    private MemberRepository memberRepository;
+
+    private Member joinedMember() {
+        Member member = mock(Member.class);
+        given(member.getStatus()).willReturn("JOINED");
+        return member;
+    }
 
     @Test
     void notices_공개_GET은_JWT_없이_200을_반환한다() throws Exception {
@@ -98,6 +113,8 @@ class RequestNotificationNoticeSecurityIntegrationTest {
     @Test
     void admin_API는_USER_JWT에_403을_반환한다() throws Exception {
         String userToken = jwtTokenProvider.generateToken(1L, "USER");
+        Member member = joinedMember();
+        given(memberRepository.findById(1L)).willReturn(Optional.of(member));
 
         mockMvc.perform(get("/api/v1/admin/book-request-candidates")
                         .header("Authorization", "Bearer " + userToken))
@@ -113,6 +130,8 @@ class RequestNotificationNoticeSecurityIntegrationTest {
     @Test
     void admin_JWT는_관리자_API에_접근할_수_있다() throws Exception {
         String adminToken = jwtTokenProvider.generateToken(99L, "ADMIN");
+        Member member = joinedMember();
+        given(memberRepository.findById(99L)).willReturn(Optional.of(member));
         given(adminBookRequestService.getCandidates(eq(null), eq(null), eq(null), eq(null)))
                 .willReturn(PageResponse.of(List.of(), 0, 10, 0));
         LocalDateTime now = LocalDateTime.now();

@@ -1,19 +1,27 @@
 package com.acorn.abc.review.repository;
 
 import com.acorn.abc.review.domain.BookReport;
+import jakarta.persistence.LockModeType;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 
 public interface BookReportRepository extends JpaRepository<BookReport, Long> {
 
     @Query("SELECT br FROM BookReport br JOIN FETCH br.reporter JOIN FETCH br.book ORDER BY br.createdAt DESC")
     List<BookReport> findRecent(Pageable pageable);
+
+    // 관리자 신고 처리(API-ADMIN-REPORT-002, PR64 코드리뷰 대응 §2.2) — 동일 신고 중복 처리를 막기 위한 잠금 조회.
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT br FROM BookReport br WHERE br.bookReportId = :bookReportId")
+    Optional<BookReport> findByIdForUpdate(@Param("bookReportId") Long bookReportId);
 
     long countByReporter_MemberId(Long reporterId);
 

@@ -70,8 +70,18 @@ public class RentalService {
         }
     }
 
+    // PR64 코드리뷰 대응(2026-07-22) §2.1 — 회원 행을 먼저 잠가 회원 탈퇴와의 경합을 직렬화한다.
+    // 순서: 회원 잠금 -> JOINED 검증 -> 진행 중 대여 검증 -> 도서·콘텐츠 검증 및 저장으로 고정.
     @Transactional
     public RentalResponse createFreeRental(Long memberId, Long bookId) {
+        Member member = memberRepository.findByIdForUpdate(memberId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.MEMBER_NOT_FOUND));
+        if (!"JOINED".equals(member.getStatus())) {
+            // 탈퇴가 먼저 커밋된 경합 상황을 잠근 뒤 다시 확인한다(JWT 필터의 선차단과 별개 방어선).
+            throw new BusinessException(ErrorCode.AUTH_ACCESS_DENIED);
+        }
+        validateNoActiveRental(memberId, bookId);
+
         Book book = bookRepository.findById(bookId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.BOOK_NOT_FOUND));
         if (!"FREE".equals(book.getRentalType())) {
@@ -81,10 +91,6 @@ public class RentalService {
             throw new BusinessException(ErrorCode.BOOK_NOT_FOUND);
         }
         validateContentReady(bookId);
-        validateNoActiveRental(memberId, bookId);
-
-        Member member = memberRepository.findById(memberId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.MEMBER_NOT_FOUND));
 
         BookRental rental = bookRentalRepository.save(BookRental.create(member, book, calcRentalEndAt(book)));
         book.increaseRentalCount();

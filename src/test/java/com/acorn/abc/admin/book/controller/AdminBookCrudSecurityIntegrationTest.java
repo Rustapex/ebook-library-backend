@@ -6,6 +6,8 @@ import com.acorn.abc.common.response.PageResponse;
 import com.acorn.abc.common.security.CustomAccessDeniedHandler;
 import com.acorn.abc.common.security.CustomAuthenticationEntryPoint;
 import com.acorn.abc.common.security.JwtTokenProvider;
+import com.acorn.abc.member.domain.Member;
+import com.acorn.abc.member.repository.MemberRepository;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.TestConfiguration;
@@ -18,9 +20,12 @@ import org.springframework.test.web.servlet.MockMvc;
 
 import java.util.List;
 
+import java.util.Optional;
+
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.Mockito.mock;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -46,6 +51,10 @@ class AdminBookCrudSecurityIntegrationTest {
     @MockitoBean
     private AdminBookService adminBookService;
 
+    // JwtAuthenticationFilter가 회원 상태(JOINED)를 조회하므로 슬라이스 컨텍스트에도 빈이 필요하다.
+    @MockitoBean
+    private MemberRepository memberRepository;
+
     @Test
     void getBooks_미인증이면_401을_반환한다() throws Exception {
         mockMvc.perform(get("/api/v1/admin/books"))
@@ -55,6 +64,8 @@ class AdminBookCrudSecurityIntegrationTest {
     @Test
     void getBooks_USER_토큰이면_403을_반환한다() throws Exception {
         String token = jwtTokenProvider.generateToken(1L, "USER");
+        Member member = joinedMember();
+        given(memberRepository.findById(1L)).willReturn(Optional.of(member));
 
         mockMvc.perform(get("/api/v1/admin/books").header("Authorization", "Bearer " + token))
                 .andExpect(status().isForbidden())
@@ -64,11 +75,19 @@ class AdminBookCrudSecurityIntegrationTest {
     @Test
     void getBooks_ADMIN_토큰이면_200을_반환한다() throws Exception {
         String token = jwtTokenProvider.generateToken(99L, "ADMIN");
+        Member member = joinedMember();
+        given(memberRepository.findById(99L)).willReturn(Optional.of(member));
         given(adminBookService.getAdminBooks(any(), any(), any(), any(), anyInt(), anyInt()))
                 .willReturn(PageResponse.of(List.of(), 0, 20, 0));
 
         mockMvc.perform(get("/api/v1/admin/books").header("Authorization", "Bearer " + token))
                 .andExpect(status().isOk());
+    }
+
+    private Member joinedMember() {
+        Member member = mock(Member.class);
+        given(member.getStatus()).willReturn("JOINED");
+        return member;
     }
 
     @TestConfiguration

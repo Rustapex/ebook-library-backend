@@ -18,6 +18,10 @@ public interface ReadingProgressRepository extends JpaRepository<ReadingProgress
 
     Optional<ReadingProgress> findByRental_RentalId(Long rentalId);
 
+    // 관리자 대여 현황 조회(API-ADMIN-RENTAL-001, 2026-07-22 구현계획 §2.3) — 페이지 조회 후 rental id 목록으로
+    // 진행률을 한 번에 bulk 조회한다(N+1 방지).
+    List<ReadingProgress> findByRental_RentalIdIn(List<Long> rentalIds);
+
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT rp FROM ReadingProgress rp WHERE rp.rental.rentalId = :rentalId")
     Optional<ReadingProgress> findByRentalIdForUpdate(@Param("rentalId") Long rentalId);

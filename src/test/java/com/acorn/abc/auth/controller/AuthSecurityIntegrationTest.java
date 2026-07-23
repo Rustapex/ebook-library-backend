@@ -6,6 +6,7 @@ import com.acorn.abc.common.config.SecurityConfig;
 import com.acorn.abc.common.security.CustomAccessDeniedHandler;
 import com.acorn.abc.common.security.CustomAuthenticationEntryPoint;
 import com.acorn.abc.common.security.JwtTokenProvider;
+import com.acorn.abc.member.repository.MemberRepository;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
@@ -43,6 +44,12 @@ class AuthSecurityIntegrationTest {
 
     @MockitoBean
     private AuthService authService;
+
+    // JwtAuthenticationFilter가 회원 상태(JOINED)를 조회하므로 슬라이스 컨텍스트에도 빈이 필요하다
+    // (2026-07-22 JwtAuthenticationFilter MemberRepository 보안테스트 회귀 원인분석 §4 — 이 테스트들은
+    // JWT 자체를 보내지 않아 실제로 조회되지는 않는다).
+    @MockitoBean
+    private MemberRepository memberRepository;
 
     @Test
     void checkLoginId_JWT_없이_유효한_요청이면_200을_반환한다() throws Exception {

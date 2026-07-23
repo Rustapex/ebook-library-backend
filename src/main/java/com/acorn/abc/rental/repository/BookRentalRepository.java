@@ -97,4 +97,22 @@ public interface BookRentalRepository extends JpaRepository<BookRental, Long> {
             "ORDER BY r.createdAt DESC, r.rentalId DESC",
             countQuery = "SELECT COUNT(r) FROM BookRental r WHERE r.member.memberId = :memberId")
     Page<BookRental> findByMemberIdForAdmin(@Param("memberId") Long memberId, Pageable pageable);
+
+    // 회원 탈퇴(API-ME-004) §2.1 — READY/READING 상태 대여가 하나라도 있으면 탈퇴를 거부한다. OWNED는 대상 아님.
+    boolean existsByMember_MemberIdAndRentalStatusIn(Long memberId, List<String> rentalStatuses);
+
+    // 관리자 대여 현황 조회(API-ADMIN-RENTAL-001, 2026-07-22 구현계획 §2.3) — q는 회원명/도서명 부분일치.
+    // createdAt DESC, rentalId DESC 고정 정렬. member/book만 JOIN FETCH하고 progression/결제 요약은
+    // 페이지 조회 후 서비스에서 bulk 조회·조립한다(N+1, 중복 root row 방지).
+    @Query(value = "SELECT r FROM BookRental r JOIN FETCH r.member JOIN FETCH r.book WHERE " +
+            "(:q IS NULL OR LOWER(r.member.name) LIKE :q OR LOWER(r.book.title) LIKE :q) AND " +
+            "(:memberId IS NULL OR r.member.memberId = :memberId) AND " +
+            "(:status IS NULL OR r.rentalStatus = :status) " +
+            "ORDER BY r.createdAt DESC, r.rentalId DESC",
+            countQuery = "SELECT COUNT(r) FROM BookRental r WHERE " +
+            "(:q IS NULL OR LOWER(r.member.name) LIKE :q OR LOWER(r.book.title) LIKE :q) AND " +
+            "(:memberId IS NULL OR r.member.memberId = :memberId) AND " +
+            "(:status IS NULL OR r.rentalStatus = :status)")
+    Page<BookRental> searchForAdmin(@Param("q") String q, @Param("memberId") Long memberId,
+                                     @Param("status") String status, Pageable pageable);
 }

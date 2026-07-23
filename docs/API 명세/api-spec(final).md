@@ -260,7 +260,7 @@
 | API-ME-001 | Header: Bearer token | 회원 기본정보, 등급, 포인트, 쿠폰 수, 대여 수, 완독 수, 즐겨찾기 수, 미읽은 알림 수 | `loginId`, `birthDate`는 읽기 전용. 등급 달성률은 `PAYMENT.amount` 집계로 계산. |
 | API-ME-002 | Body: `name?`, `email?`, `phone?`, `gender?` | 수정된 회원정보 | `loginId`, `birthDate`, `role`, `status` 수정 불가. 이메일 중복 검증. |
 | API-ME-003 | Body: `currentPassword`, `newPassword`, `newPasswordConfirm` | `changedAt` | 로그인 세션과 현재 비밀번호 검증 후 변경. 별도 토큰 테이블 없음. |
-| API-ME-004 | Body: `currentPassword`, `withdrawalReason?` | `status=WITHDRAWN`, `withdrawnAt` | 물리 삭제하지 않음. 진행 중 대여가 있으면 탈퇴 불가. |
+| API-ME-004 | Body: `currentPassword`, `withdrawalReason?` | `status=WITHDRAWN`, `withdrawnAt` | 물리 삭제하지 않음. 회원 행을 먼저 잠근 뒤 ADMIN 역할 거부(`JOINED`여도 탈퇴 불가, 403 `AUTH_ACCESS_DENIED`) → 비밀번호 확인 → `READY`/`READING` 대여 존재 검증(있으면 409 `MEMBER_WITHDRAWAL_RENTAL_IN_PROGRESS`) 순으로 처리한다. `OWNED`만 있으면 탈퇴 가능하며 대여·결제는 보존한다. 무료/유료 대여 생성도 같은 회원 행을 잠그므로 경합 시 먼저 커밋된 트랜잭션이 승리하고, 진 쪽만 rollback된다. |
 
 ### 4.2 도서 / 카테고리 / 컬렉션 / 도서관
 
@@ -346,8 +346,8 @@
 | API-ADMIN-MEMBER-004 | Path: `memberId`, Body: `pointAmount(+/-)`, `description` | 포인트 이력, 잔액 | `pointType=ADMIN_ADJUST`. 잔액 음수 불가. |
 | API-ADMIN-RENTAL-001 | Query: `q?`, `memberId?`, `status?`, `page?`, `size?` | 대여 현황과 진행률 | 대여 관리는 조회 전용. `READY`, `READING`, `OWNED`만 제공. |
 | API-ADMIN-PAYMENT-001 | Query: `q?`, `from?`, `to?`, `page?`, `size?` | 결제 목록, 쿠폰/포인트 차감 상세 | `RENTAL`/`CARD`/`PAID`만 조회. 취소/환불/복구 없음. |
-| API-ADMIN-REPORT-001 | Query: `targetType?`, `status?`, `page?`, `size?` | 책/리뷰 신고 목록 | 회원 대상 신고 없음. 상태는 `WAITING`, `PROCESSING`, `DONE`, `REJECTED`. |
-| API-ADMIN-REPORT-002 | Path: `targetType`, `reportId`, Body: `status`, `processResult?`, `hideReviewYn?`, `sanction?` | 처리된 신고 | 리뷰 신고 처리 중 `REVIEW.status=HIDDEN` 가능. 제재 시 `SANCTION_HISTORY` 저장 및 필요 시 회원 상태 갱신. REPORT 알림 생성. |
+| API-ADMIN-REPORT-001 | Query: `targetType?`, `status?`, `page?`, `size?` | 책/리뷰 신고 목록 | 회원 대상 신고 없음. 상태는 `WAITING`, `PROCESSING`, `DONE`, `REJECTED`. BOOK/REVIEW 통합 목록은 `created_at DESC, report_id DESC, target_type ASC`로 고정 정렬해, `created_at`과 숫자 ID까지 같은 BOOK/REVIEW 행도 페이지 경계에서 중복·누락 없이 항상 같은 순서로 조회된다. |
+| API-ADMIN-REPORT-002 | Path: `targetType`, `reportId`, Body: `status`, `processResult?`, `hideReviewYn?`, `sanction?` | 처리된 신고 | 신고 행을 먼저 잠가 동일 신고 중복 처리를 막는다. 완료(`DONE`/`REJECTED`)된 신고를 다시 처리하면 409 `REPORT_INVALID_STATUS_TRANSITION`. 리뷰 신고 처리 중 `REVIEW.status=HIDDEN` 가능. `REVIEW` 신고를 `DONE`으로 처리할 때만 `ACCOUNT_SUSPENSION` 허용하며, 제재 대상 회원도 잠근 뒤 ADMIN/WITHDRAWN/DEACTIVATED면 상태·리뷰·이력·알림·감사 로그를 만들기 전에 403 `AUTH_ACCESS_DENIED`로 요청 전체를 거부한다. 이미 `SANCTIONED`인 회원의 중첩 계정 정지는 허용하며 마지막 유효 제재를 `currentSanction`으로 연결한다. `SANCTION_HISTORY` 저장 및 필요 시 회원 상태 갱신, REPORT 알림 생성. MySQL 잠금 충돌 중 vendor error/SQLState가 lock wait timeout(`1205`/`HY000`) 또는 deadlock(`1213`/`40001`)으로 확인되는 경우만 409 `CONCURRENT_UPDATE`로 응답하며, 그 외 원인 불명 잠금 실패는 500으로 응답한다(예외 메시지 문자열 비교는 사용하지 않음). |
 | API-ADMIN-REQUEST-001 | Query: `status?`, `q?`, `page?`, `size?` | 희망도서 후보 목록, 신청자 요약 | 후보 제목/저자/출판사, 신청자 수, 최초 신청일 반환. final ERD 저장 상태는 `REQUESTED`, `APPROVED`, `REJECTED`. |
 | API-ADMIN-REQUEST-002 | Path: `candidateId`, Body: `status(APPROVED/REJECTED)`, `approvedBookId?`, `rejectReason?` | 후보 상태, 영향 신청 수 | 도서 등록 후 `approvedBookId` 연결. 연결된 회원별 신청 row 일괄 승인/반려. BOOK_REQUEST 알림 생성. |
 

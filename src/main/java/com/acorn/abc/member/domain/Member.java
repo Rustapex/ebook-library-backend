@@ -171,4 +171,11 @@ public class Member extends BaseEntity {
     public void reassignCurrentSanction(SanctionHistory sanction) {
         this.currentSanction = sanction;
     }
+
+    // 관리자 대여·결제·신고·회원탈퇴 API 구현계획(2026-07-22) §2.1 — 물리 삭제 없이 상태만 전환한다.
+    public void withdraw(String withdrawalReason) {
+        this.status = "WITHDRAWN";
+        this.withdrawnAt = LocalDateTime.now();
+        this.withdrawalReason = withdrawalReason;
+    }
 }

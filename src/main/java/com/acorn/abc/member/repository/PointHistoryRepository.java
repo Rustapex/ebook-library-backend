@@ -7,11 +7,16 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.util.List;
 import java.util.Optional;
 
 public interface PointHistoryRepository extends JpaRepository<PointHistory, Long> {
 
     Page<PointHistory> findByMember_MemberId(Long memberId, Pageable pageable);
+
+    // 관리자 결제 목록 조회(API-ADMIN-PAYMENT-001, 2026-07-22 구현계획 §2.3) — payment id 목록으로
+    // 포인트 차감 이력을 한 번에 bulk 조회한다(N+1 방지).
+    List<PointHistory> findByPayment_PaymentIdIn(List<Long> paymentIds);
 
     Page<PointHistory> findByMember_MemberIdAndPointType(Long memberId, String pointType, Pageable pageable);
 

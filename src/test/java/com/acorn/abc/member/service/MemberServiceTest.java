@@ -7,9 +7,12 @@ import com.acorn.abc.member.domain.MemberGrade;
 import com.acorn.abc.member.dto.MeInfoResponse;
 import com.acorn.abc.member.dto.MemberGradeSummaryResponse;
 import com.acorn.abc.member.dto.MemberUpdateRequest;
+import com.acorn.abc.member.dto.MemberWithdrawRequest;
+import com.acorn.abc.member.dto.MemberWithdrawResponse;
 import com.acorn.abc.member.dto.PasswordChangeRequest;
 import com.acorn.abc.member.dto.PasswordChangeResponse;
 import com.acorn.abc.member.repository.MemberRepository;
+import com.acorn.abc.rental.repository.BookRentalRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -19,6 +22,7 @@ import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
 import java.time.LocalDate;
+import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -39,6 +43,9 @@ class MemberServiceTest {
 
     @Mock
     private MemberRepository memberRepository;
+
+    @Mock
+    private BookRentalRepository bookRentalRepository;
 
     @Mock
     private PasswordEncoder passwordEncoder;
@@ -228,6 +235,88 @@ class MemberServiceTest {
 
         assertThat(member.getPasswordHash()).isEqualTo("new-hashed-password");
         assertThat(response).isNotNull();
+    }
+
+    @Test
+    void withdraw_ADMIN_계정이면_AUTH_ACCESS_DENIED를_던진다() {
+        Member admin = mock(Member.class);
+        given(admin.isAdmin()).willReturn(true);
+        given(memberRepository.findByIdForUpdate(MEMBER_ID)).willReturn(Optional.of(admin));
+        MemberWithdrawRequest request = new MemberWithdrawRequest("Passw0rd!!", null);
+
+        assertThatThrownBy(() -> memberService.withdraw(MEMBER_ID, request))
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(ErrorCode.AUTH_ACCESS_DENIED);
+        verify(passwordEncoder, never()).matches(any(), any());
+        verify(bookRentalRepository, never()).existsByMember_MemberIdAndRentalStatusIn(any(), any());
+    }
+
+    // PR64 코드리뷰 대응 §2.1 — 잠금 획득 사이 다른 트랜잭션이 먼저 상태를 바꾼 경합 상황(예: 이중 탈퇴 요청)을 방어한다.
+    @Test
+    void withdraw_JOINED_상태가_아니면_AUTH_ACCESS_DENIED를_던진다() {
+        Member member = mock(Member.class);
+        given(member.isAdmin()).willReturn(false);
+        given(member.getStatus()).willReturn("WITHDRAWN");
+        given(memberRepository.findByIdForUpdate(MEMBER_ID)).willReturn(Optional.of(member));
+        MemberWithdrawRequest request = new MemberWithdrawRequest("Passw0rd!!", null);
+
+        assertThatThrownBy(() -> memberService.withdraw(MEMBER_ID, request))
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(ErrorCode.AUTH_ACCESS_DENIED);
+        verify(passwordEncoder, never()).matches(any(), any());
+        verify(bookRentalRepository, never()).existsByMember_MemberIdAndRentalStatusIn(any(), any());
+    }
+
+    @Test
+    void withdraw_현재_비밀번호가_일치하지_않으면_AUTH_INVALID_PASSWORD를_던진다() {
+        Member member = existingMember();
+        given(memberRepository.findByIdForUpdate(MEMBER_ID)).willReturn(Optional.of(member));
+        given(passwordEncoder.matches("wrong-password", member.getPasswordHash())).willReturn(false);
+        MemberWithdrawRequest request = new MemberWithdrawRequest("wrong-password", null);
+
+        assertThatThrownBy(() -> memberService.withdraw(MEMBER_ID, request))
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(ErrorCode.AUTH_INVALID_PASSWORD);
+        assertThat(member.getStatus()).isEqualTo("JOINED");
+        verify(bookRentalRepository, never()).existsByMember_MemberIdAndRentalStatusIn(any(), any());
+    }
+
+    @Test
+    void withdraw_진행중인_대여가_있으면_MEMBER_WITHDRAWAL_RENTAL_IN_PROGRESS를_던진다() {
+        Member member = existingMember();
+        given(memberRepository.findByIdForUpdate(MEMBER_ID)).willReturn(Optional.of(member));
+        given(passwordEncoder.matches("Passw0rd!!", member.getPasswordHash())).willReturn(true);
+        given(bookRentalRepository.existsByMember_MemberIdAndRentalStatusIn(MEMBER_ID, List.of("READY", "READING")))
+                .willReturn(true);
+        MemberWithdrawRequest request = new MemberWithdrawRequest("Passw0rd!!", null);
+
+        assertThatThrownBy(() -> memberService.withdraw(MEMBER_ID, request))
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(ErrorCode.MEMBER_WITHDRAWAL_RENTAL_IN_PROGRESS);
+        assertThat(member.getStatus()).isEqualTo("JOINED");
+    }
+
+    @Test
+    void withdraw_진행중인_대여가_없으면_WITHDRAWN으로_전환하고_탈퇴일시와_사유를_저장한다() {
+        Member member = existingMember();
+        given(memberRepository.findByIdForUpdate(MEMBER_ID)).willReturn(Optional.of(member));
+        given(passwordEncoder.matches("Passw0rd!!", member.getPasswordHash())).willReturn(true);
+        given(bookRentalRepository.existsByMember_MemberIdAndRentalStatusIn(MEMBER_ID, List.of("READY", "READING")))
+                .willReturn(false);
+        MemberWithdrawRequest request = new MemberWithdrawRequest("Passw0rd!!", "더 이상 사용하지 않음");
+
+        MemberWithdrawResponse response = memberService.withdraw(MEMBER_ID, request);
+
+        assertThat(member.getStatus()).isEqualTo("WITHDRAWN");
+        assertThat(member.getWithdrawnAt()).isNotNull();
+        assertThat(member.getWithdrawalReason()).isEqualTo("더 이상 사용하지 않음");
+        assertThat(response.status()).isEqualTo("WITHDRAWN");
+        assertThat(response.withdrawnAt()).isEqualTo(member.getWithdrawnAt());
+        verify(bookRentalRepository, never()).save(any());
     }
 
     private MeInfoResponse stubMeInfoResponse() {

@@ -8,6 +8,7 @@ import com.acorn.abc.library.dto.LibrarySearchResponse;
 import com.acorn.abc.library.service.ClientIpResolver;
 import com.acorn.abc.library.service.LibraryRateLimiter;
 import com.acorn.abc.library.service.PhysicalLibrarySearchService;
+import com.acorn.abc.member.repository.MemberRepository;
 import jakarta.servlet.http.HttpServletRequest;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -49,6 +50,11 @@ class LibraryControllerSecurityIntegrationTest {
     private LibraryRateLimiter libraryRateLimiter;
     @MockitoBean
     private ClientIpResolver clientIpResolver;
+
+    // JwtAuthenticationFilter가 회원 상태(JOINED)를 조회하므로 슬라이스 컨텍스트에도 빈이 필요하다
+    // (이 테스트는 JWT 자체를 보내지 않아 실제로 조회되지는 않는다).
+    @MockitoBean
+    private MemberRepository memberRepository;
 
     @Test
     void 비회원도_인증_없이_200을_받는다() throws Exception {

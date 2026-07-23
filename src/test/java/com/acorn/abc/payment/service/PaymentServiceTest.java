@@ -89,11 +89,12 @@ class PaymentServiceTest {
 
     @Test
     void createPaidRentalAndPayment_쿠폰과_포인트를_함께_사용하면_금액이_정확히_계산된다() {
+        given(member.getStatus()).willReturn("JOINED");
+        given(memberRepository.findByIdForUpdate(10L)).willReturn(Optional.of(member));
         given(book.getRentalType()).willReturn("PAID");
         given(book.getStatus()).willReturn("AVAILABLE");
         given(book.getRentalPrice()).willReturn(12901);
         given(bookRepository.findById(1L)).willReturn(Optional.of(book));
-        given(memberRepository.findById(10L)).willReturn(Optional.of(member));
 
         Coupon coupon = mock(Coupon.class);
         given(coupon.getBenefitUnit()).willReturn("PERCENT");
@@ -137,6 +138,8 @@ class PaymentServiceTest {
 
     @Test
     void createPaidRentalAndPayment_무료도서면_BOOK_RENTAL_TYPE_MISMATCH() {
+        given(member.getStatus()).willReturn("JOINED");
+        given(memberRepository.findByIdForUpdate(10L)).willReturn(Optional.of(member));
         given(book.getRentalType()).willReturn("FREE");
         given(bookRepository.findById(1L)).willReturn(Optional.of(book));
 
@@ -149,6 +152,8 @@ class PaymentServiceTest {
 
     @Test
     void createPaidRentalAndPayment_비공개도서면_BOOK_NOT_FOUND() {
+        given(member.getStatus()).willReturn("JOINED");
+        given(memberRepository.findByIdForUpdate(10L)).willReturn(Optional.of(member));
         given(book.getRentalType()).willReturn("PAID");
         given(book.getStatus()).willReturn("HIDDEN");
         given(bookRepository.findById(1L)).willReturn(Optional.of(book));
@@ -159,11 +164,24 @@ class PaymentServiceTest {
                 .isEqualTo(ErrorCode.BOOK_NOT_FOUND);
     }
 
+    // PR64 코드리뷰 대응 §2.1 — 회원 잠금 -> JOINED 검증을 도서 조회보다 먼저 수행하는지 확인한다.
+    @Test
+    void createPaidRentalAndPayment_JOINED_상태가_아니면_AUTH_ACCESS_DENIED() {
+        given(member.getStatus()).willReturn("WITHDRAWN");
+        given(memberRepository.findByIdForUpdate(10L)).willReturn(Optional.of(member));
+
+        assertThatThrownBy(() -> paymentService.createPaidRentalAndPayment(10L, request(null, null)))
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(ErrorCode.AUTH_ACCESS_DENIED);
+        verify(bookRepository, never()).findById(any());
+        verify(bookRentalRepository, never()).save(any());
+    }
+
     @Test
     void createPaidRentalAndPayment_진행중인_대여가_있으면_예외가_전파된다() {
-        given(book.getRentalType()).willReturn("PAID");
-        given(book.getStatus()).willReturn("AVAILABLE");
-        given(bookRepository.findById(1L)).willReturn(Optional.of(book));
+        given(member.getStatus()).willReturn("JOINED");
+        given(memberRepository.findByIdForUpdate(10L)).willReturn(Optional.of(member));
         willThrow(new BusinessException(ErrorCode.RENTAL_ALREADY_EXISTS))
                 .given(rentalService).validateNoActiveRental(anyLong(), anyLong());
 
@@ -171,15 +189,16 @@ class PaymentServiceTest {
                 .isInstanceOf(BusinessException.class)
                 .extracting("errorCode")
                 .isEqualTo(ErrorCode.RENTAL_ALREADY_EXISTS);
-        verify(memberRepository, never()).findById(any());
+        verify(bookRepository, never()).findById(any());
     }
 
     @Test
     void createPaidRentalAndPayment_쿠폰이_없으면_MEMBER_COUPON_NOT_USABLE() {
+        given(member.getStatus()).willReturn("JOINED");
+        given(memberRepository.findByIdForUpdate(10L)).willReturn(Optional.of(member));
         given(book.getRentalType()).willReturn("PAID");
         given(book.getStatus()).willReturn("AVAILABLE");
         given(bookRepository.findById(1L)).willReturn(Optional.of(book));
-        given(memberRepository.findById(10L)).willReturn(Optional.of(member));
         given(memberCouponRepository.findByMemberCouponIdAndMember_MemberId(50L, 10L))
                 .willReturn(Optional.empty());
 
@@ -192,11 +211,12 @@ class PaymentServiceTest {
 
     @Test
     void createPaidRentalAndPayment_포인트가_잔여금액을_초과하면_VALIDATION_ERROR() {
+        given(member.getStatus()).willReturn("JOINED");
+        given(memberRepository.findByIdForUpdate(10L)).willReturn(Optional.of(member));
         given(book.getRentalType()).willReturn("PAID");
         given(book.getStatus()).willReturn("AVAILABLE");
         given(book.getRentalPrice()).willReturn(10000);
         given(bookRepository.findById(1L)).willReturn(Optional.of(book));
-        given(memberRepository.findById(10L)).willReturn(Optional.of(member));
 
         assertThatThrownBy(() -> paymentService.createPaidRentalAndPayment(10L, request(null, 10001)))
                 .isInstanceOf(BusinessException.class)
@@ -207,11 +227,12 @@ class PaymentServiceTest {
 
     @Test
     void createPaidRentalAndPayment_포인트_잔액이_부족하면_예외가_전파된다() {
+        given(member.getStatus()).willReturn("JOINED");
+        given(memberRepository.findByIdForUpdate(10L)).willReturn(Optional.of(member));
         given(book.getRentalType()).willReturn("PAID");
         given(book.getStatus()).willReturn("AVAILABLE");
         given(book.getRentalPrice()).willReturn(10000);
         given(bookRepository.findById(1L)).willReturn(Optional.of(book));
-        given(memberRepository.findById(10L)).willReturn(Optional.of(member));
 
         given(rentalService.calcRentalEndAt(book)).willReturn(LocalDateTime.now().plusDays(30));
         BookRental savedRental = mock(BookRental.class);
