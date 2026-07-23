@@ -1,7 +1,7 @@
 # API ID별 백엔드 구현·프론트 연결·화면 구현 현황
 
-작성일: 2026-07-21
-기준 상태: PR #53·#55·#99·#100 및 ABCProjectFront PR #95·#98·#101·#104 병합 diff와 현재 로컬 소스의 targeted 재조사 결과
+작성일: 2026-07-23
+기준 상태: PR #53·#55·#64·#99·#100 및 ABCProjectFront PR #95·#98·#101·#104의 병합/최종 검토 head diff와 현재 로컬 소스의 targeted 재조사 결과
 기준 명세: `docs/API 명세/api-spec(final).md`의 `3. API 목록 요약`
 
 ## 1. 판정 범위와 기준
@@ -26,17 +26,17 @@
 
 | 구분 | API 수 | 백엔드 구현 O | 프론트 연결 O |
 |---|---:|---:|---:|
-| 1. 인증/회원 API | 8 | 7 | 7 |
+| 1. 인증/회원 API | 8 | 8 | 8 |
 | 2. 도서/카테고리/컬렉션 API | 14 | 14 | 11 |
 | 3. 대여/결제 API | 5 | 5 | 5 |
 | 4. 전자책 뷰어/북마크/진행 API | 5 | 4 | 4 |
 | 5. 리뷰/별점/즐겨찾기 API | 10 | 7 | 7 |
 | 6. 챌린지/출석/포인트/쿠폰 API | 12 | 12 | 12 |
 | 7. 희망도서/알림/공지 API | 10 | 10 | 10 |
-| 8. 관리자 API | 19 | 12 | 12 |
-| **합계** | **83** | **71** | **68** |
+| 8. 관리자 API | 19 | 16 | 12 |
+| **합계** | **83** | **76** | **69** |
 
-화면 존재와 해당 API 연결 여부는 별개이므로 각 API 행에서 따로 표시한다. 이번 최신화 범위에서 U-011, U-019, U-022, U-023 및 A-011, A-012는 실제 route·페이지·API 호출을 확인해 화면 구현과 프론트 연결 `O`로 갱신했다.
+화면 존재와 해당 API 연결 여부는 별개이므로 각 API 행에서 따로 표시한다. 이번 최신화 범위에서 U-011, U-019, U-022, U-023 및 A-011, A-012는 실제 route·페이지·API 호출을 확인해 화면 구현과 프론트 연결 `O`로 갱신했다. PR #64는 백엔드만 변경했으며, U-015의 기존 탈퇴 호출이 새 백엔드 매핑과 결합돼 `API-ME-004`의 프론트 연결만 `O`가 됐다.
 
 ## 3. 도메인별 현황
 
@@ -51,7 +51,7 @@
 | 회원 | API-ME-001 | O | O | U-014, U-015 | U-014 O, U-015 O |
 | 회원 | API-ME-002 | O | O | U-015 | O |
 | 회원 | API-ME-003 | O | O | U-015 | O |
-| 회원 | API-ME-004 | X | X | U-015 | O |
+| 회원 | API-ME-004 | O | O | U-015 | O |
 
 ### 3.2 도서/카테고리/컬렉션 API
 
@@ -174,10 +174,10 @@
 | 관리자 회원    | API-ADMIN-MEMBER-002            |   O    |   O    | A-003        | O                |
 | 관리자 회원    | API-ADMIN-MEMBER-003            |   O    |   O    | A-002, A-003 | A-002 O, A-003 O |
 | 관리자 회원    | API-ADMIN-MEMBER-004            |   O    |   O    | A-003, A-013 | A-003 O, A-013 O |
-| 관리자 대여    | API-ADMIN-RENTAL-001            |   X    |   X    | A-008        | O                |
-| 관리자 결제    | API-ADMIN-PAYMENT-001           |   X    |   X    | A-009        | O                |
-| 관리자 신고    | API-ADMIN-REPORT-001            |   X    |   X    | A-010        | O                |
-| 관리자 신고    | API-ADMIN-REPORT-002            |   X    |   X    | A-010        | O                |
+| 관리자 대여    | API-ADMIN-RENTAL-001            |   O    |   X    | A-008        | O                |
+| 관리자 결제    | API-ADMIN-PAYMENT-001           |   O    |   X    | A-009        | O                |
+| 관리자 신고    | API-ADMIN-REPORT-001            |   O    |   X    | A-010        | O                |
+| 관리자 신고    | API-ADMIN-REPORT-002            |   O    |   X    | A-010        | O                |
 | 관리자 도서관   | API-ADMIN-LIBRARY-001           |   X    |   X    | A-015        | O                |
 | 관리자 도서관   | API-ADMIN-LIBRARY-002           |   X    |   X    | A-015        | O                |
 | 관리자 도서관   | API-ADMIN-LIBRARY-003           |   X    |   X    | A-015        | O                |
@@ -188,16 +188,16 @@
 
 ### 4.1 백엔드 구현 X API
 
-- `API-ME-004`
 - `API-VIEWER-001` (PR #53에서 기존 명세 URL 제거)
 - `API-REPORT-001`, `API-REPORT-002`, `API-REPORT-004`
-- 구현 범위의 `API-ADMIN-*` 35개 중 대시보드 1개, 관리자 도서 5개, 관리자 회원 4개, 관리자 컬렉션 6개, 쿠폰 3개, 챌린지 2개, 희망도서 2개, 공지 3개, 통계 1개, 감사 로그 1개는 백엔드 구현 `O`이며 나머지 7개는 `X`
+- 구현 범위의 `API-ADMIN-*` 35개 중 대시보드 1개, 관리자 도서 5개, 관리자 회원 4개, 관리자 컬렉션 6개, 대여 1개, 결제 1개, 신고 2개, 쿠폰 3개, 챌린지 2개, 희망도서 2개, 공지 3개, 통계 1개, 감사 로그 1개는 백엔드 구현 `O`이며 나머지 3개는 `X`
 - `API-ADMIN-CATEGORY-001`·`API-ADMIN-CATEGORY-002`는 구현 범위 제외로 집계하지 않음
 - 관리자 컬렉션 6개는 3.2에, 관리자 희망도서·공지 5개는 3.7에 배치한다.
 
 ### 4.2 백엔드는 구현됐으나 Front 호출 연결이 확인되지 않은 API
 
 - `API-LIBRARY-001`: 백엔드는 `region` 필수와 새 응답 형식으로 구현됐으나, U-024의 프런트 호출은 `region` 없이 이전 배열 응답 형식을 기대한다. 따라서 호출 코드 존재와 별개로 현재 계약 기준 연결은 `X`다.
+- `API-ADMIN-RENTAL-001`, `API-ADMIN-PAYMENT-001`, `API-ADMIN-REPORT-001`, `API-ADMIN-REPORT-002`: PR #64에서 백엔드 Controller 매핑은 추가됐지만, A-008/A-009/A-010의 실제 Front API 호출은 이 PR 범위에 없으므로 연결은 `X`다.
 - `API-ADMIN-COLLECTION-005`·`006`은 화면/프론트 판정 대상 API ID가 아니므로 기존 `-` 표기를 유지한다.
 
 ### 4.3 화면 구현 현황
@@ -205,6 +205,7 @@
 - U-024는 route·화면·호출 코드는 존재하지만 `API-LIBRARY-001`의 `region` 필수값과 응답 형식이 최신 백엔드 계약과 달라 프론트 연결은 `X`로 갱신
 - U-011·U-019·U-022·U-023은 최신 ABCProjectFront main의 route·페이지와 실제 API 호출을 확인해 `O`로 갱신
 - A-011·A-012는 실제 목록·등록/수정·상태 변경 API를 호출하므로 placeholder 표기를 제거하고 화면·프론트 연결 `O`로 갱신
+- U-015는 PR #101에서 이미 `DELETE /api/v1/me`를 호출하고 있었다. PR #64의 `API-ME-004` 백엔드 매핑이 추가돼 현재 판정 기준의 프론트 연결 `O`가 됐으며, 이 PR에서 Front 소스는 변경되지 않았다.
 - `U-013`은 별도 route가 아니라 `U-008` 도서 상세 내부 리뷰 영역으로 구현
 - 이 범위 밖 화면의 기존 정적 판정은 재조사하지 않음
 
@@ -222,6 +223,7 @@
 | 챌린지/출석/포인트/쿠폰 | 3.6의 12개 | 백엔드 12/12 `O` | 사용자 API와 관리자 쿠폰·챌린지 API 구현·테스트 기록 확인 |
 | 관리자 핵심 + 사용자 통계 | `API-ADMIN-DASHBOARD-001`, `API-ADMIN-STAT-001`, `API-ADMIN-AUDIT-001`, `API-STAT-001` | 백엔드 4/4 `O` | 담당 도메인 문서에 4개 endpoint 구현 완료로 명시됨 |
 | 로그인 아이디 중복 확인 | `API-AUTH-006` | 백엔드 `O`, 프론트 연결 `O` | 최종 API 명세 이후 추가. `GET /api/v1/auth/check-login-id`, 회원가입 `U-002`에서 사용 |
+| 회원 탈퇴·관리자 대여/결제/신고 | `API-ME-004`, `API-ADMIN-RENTAL-001`, `API-ADMIN-PAYMENT-001`, `API-ADMIN-REPORT-001`, `API-ADMIN-REPORT-002` | 백엔드 5/5 `O`, 프론트 1/5 `O` | PR #64의 Controller 매핑·관련 단위 테스트·전체 build 748건 통과 기록을 대조했다. Front 변경은 없으며 U-015의 기존 탈퇴 호출만 새 백엔드와 연결됐다. |
 
 따라서 담당 범위가 “관리자 접두사가 붙은 모든 API”라는 뜻은 아니다. WBS 기능 기준으로 보면 관리자 컬렉션은 3.2, 관리자 쿠폰·챌린지는 3.6, 관리자 희망도서·공지는 3.7에 속한다. 반대로 3.8은 이동 후 남은 관리자 기능을 모은 구분이며, 그 21개 전체를 한 사람의 담당 범위로 해석하지 않는다.
 
@@ -240,7 +242,8 @@
 - Front API 연결(컬렉션/도서/회원): GitHub PR #99·#100 병합 diff — 사용자 컬렉션 2개, 관리자 컬렉션 4개, 관리자 도서 5개, 관리자 회원 4개 API의 wrapper와 화면 호출부를 대조
 - Front EPUB·뷰어: ABCProjectFront PR #95 병합 diff — U-011, `EpubRenderer`, `viewerApi`의 `/viewer`·`/epub`·진행·북마크 4개 명세 API 호출
 - Front 희망도서·알림·공지: ABCProjectFront PR #98·#104 병합 diff — U-019/U-022/U-023/A-011/A-012의 실제 호출과 U-001 공지 배너
-- 회원 탈퇴 화면: ABCProjectFront PR #101 — U-015의 `DELETE /me` 호출은 존재하지만 백엔드 Controller가 없어 `API-ME-004`의 `O` 판정에는 반영하지 않음
+- 회원 탈퇴 및 관리자 대여/결제/신고: GitHub PR #64 최종 head diff의 `MeController`, `AdminRentalController`, `AdminPaymentController`, `AdminReportController` 매핑과 `MeControllerTest`, `AdminRentalControllerTest`, `AdminPaymentControllerTest`, `AdminReportControllerTest` 및 관련 Service 테스트. 마지막 PR 댓글의 `./gradlew.bat build` 748건 전체 통과 기록을 대조함
+- 회원 탈퇴 Front 연결: ABCProjectFront PR #101 — U-015의 기존 `DELETE /api/v1/me` 호출이 PR #64의 `API-ME-004` 매핑과 결합돼 프론트 연결 `O`로 갱신
 - EPUB·뷰어: GitHub PR #53 병합 diff — `AdminBookEpubController`, `ViewerController`, `BookEpub`, `src/main/resources/schema.sql`, `src/main/resources/db/manual/V001__epub_additive.sql`
 - 희망도서·알림·공지: GitHub PR #55 병합 diff — `BookRequestController`, `MyBookRequestController`, `NotificationController`, `NoticeController`, `AdminBookRequestController`, `AdminNoticeController`, `src/main/resources/db/manual/V002__request_notification_notice_alignment.sql`
 - 신규 로그인 아이디 중복 확인: `docs/작업현황/2026-07-15_PR49_코드리뷰_후속수정계획.md`, `docs/작업현황/설계문서/2026-07-15_PR49_API-AUTH-006_설계문서_반영예정.md`
@@ -254,5 +257,6 @@
 - `API-VIEWER-001`은 구현 URL이 API 명세와 달라, API 명세 개정 또는 별도 API ID 부여 전에는 현재 판정을 유지해야 한다.
 - `API-ADMIN-CATEGORY-001`·`002`는 구현하지 않기로 확정돼 `O`/`X` 판정 및 전체 집계에서 제외했다.
 - 관리자 도서 5개는 PR #52의 최종 병합 diff와 성공 기록을 기준으로 백엔드 구현 `O`로 반영했다. 이번 문서 최신화에서는 빌드·단위 테스트·Swagger를 다시 실행하지 않았다.
+- PR #64의 5개 API는 최종 head의 Controller 매핑과 마지막 댓글의 전체 build 748건 통과 기록을 근거로 백엔드 구현 `O`로 반영했다. 마지막 PR 리뷰는 Swagger/Postman 수동 검증과 실제 DB 동시성 통합 테스트가 PR 범위에 없다고 명시하므로, 이 문서의 `O`는 수동·동시성 검증 완료를 뜻하지 않는다.
 - 실제 응답 성공 여부, 요청·응답 DTO 일치, 인증·권한, CORS, 환경 변수, DB seed와 데이터 상태는 후속 통합 테스트에서 별도로 확인해야 한다.
 - Front에 wrapper가 있어도 백엔드 Controller 매핑이 없으면 프론트 연결은 `X`로 판정했다.
