@@ -273,11 +273,17 @@ CREATE TABLE IF NOT EXISTS book_epub (
   file_size BIGINT UNSIGNED NOT NULL,
   sha256 CHAR(64) NOT NULL,
   epub_version INT UNSIGNED NOT NULL DEFAULT 1,
-  epub_data LONGBLOB NOT NULL,
+  -- storage_type=DB이면 epub_data NOT NULL, storage_key NULL.
+  -- storage_type=S3이면 storage_key NOT NULL, epub_data는 NULL(신규 upload) 또는 rollback용 기존 blob.
+  epub_data LONGBLOB NULL,
+  storage_type VARCHAR(16) NOT NULL DEFAULT 'DB',
+  storage_key VARCHAR(512) NULL,
+  s3_version_id VARCHAR(128) NULL,
   created_at DATETIME NOT NULL,
   updated_at DATETIME NULL,
   CONSTRAINT pk_book_epub PRIMARY KEY (book_epub_id),
-  CONSTRAINT uk_book_epub_book_version UNIQUE (book_id, epub_version)
+  CONSTRAINT uk_book_epub_book_version UNIQUE (book_id, epub_version),
+  CONSTRAINT uk_book_epub_storage_key UNIQUE (storage_key)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 CREATE TABLE IF NOT EXISTS book_category (
