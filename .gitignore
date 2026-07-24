@@ -53,6 +53,7 @@ AGENTS.md
 .env.*
 !.env.example
 !.env.prod.example
+!.env.prod.ci
 
 
 # OMC internal state

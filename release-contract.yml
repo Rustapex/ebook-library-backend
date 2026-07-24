@@ -1,0 +1,4 @@
+schemaChange: none
+requiredMigrations: []
+runtimeContractVersion: 1
+epubContractChange: false

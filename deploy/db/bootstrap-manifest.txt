@@ -1,0 +1,6 @@
+# Fresh CI DB canonical order.
+# Existing DB용 V001~V003 및 library 0001/0002 migration은 이 목록에 넣지 않는다.
+src/main/resources/schema.sql
+src/main/resources/관리자회원_계정정지연결및포인트멱등키.sql
+src/main/resources/관리자회원_포인트멱등응답스냅샷.sql
+src/main/resources/data.sql
