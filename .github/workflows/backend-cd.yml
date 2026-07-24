@@ -1,0 +1,646 @@
+name: Backend Production CD
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm_production:
+        description: "production 배포를 명시적으로 확인합니다"
+        required: true
+        type: boolean
+      confirm_release_sha:
+        description: "배포할 main commit의 full 40-character SHA를 다시 입력합니다"
+        required: true
+        type: string
+      resume_metadata_only:
+        description: "container가 이미 이 SHA로 정상 배포된 경우 tag/metadata 기록만 재개합니다"
+        required: false
+        default: false
+        type: boolean
+      migration_evidence:
+        description: "requiredMigrations 적용 증거 ID 또는 승인 기록"
+        required: false
+        type: string
+      bootstrap_current_git_sha:
+        description: "release parameter가 없을 때만 필요한 현재 production git SHA"
+        required: false
+        type: string
+      bootstrap_current_image_digest:
+        description: "release parameter가 없을 때만 필요한 현재 running image sha256 digest"
+        required: false
+        type: string
+
+permissions:
+  checks: read
+  contents: write
+  id-token: write
+  deployments: read
+
+jobs:
+  deploy:
+    name: Deploy backend to production
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    environment: production
+    concurrency:
+      group: production-backend
+      cancel-in-progress: false
+
+    services:
+      mysql:
+        image: mysql:8.0.42
+        env:
+          MYSQL_ROOT_PASSWORD: abc-cd-root
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping --host=127.0.0.1 --user=root --password=abc-cd-root"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=20
+
+    env:
+      MYSQL_HOST: 127.0.0.1
+      MYSQL_PORT: "3306"
+      MYSQL_USER: root
+      MYSQL_PASSWORD: abc-cd-root
+      MYSQL_SQL_MODE: NO_ENGINE_SUBSTITUTION
+      MYSQL_TIME_ZONE: "+00:00"
+      AWS_REGION: ${{ vars.AWS_REGION }}
+      RELEASE_PARAMETER: ${{ vars.RELEASE_PARAMETER }}
+      EC2_INSTANCE_ID: ${{ vars.EC2_INSTANCE_ID }}
+      SSM_DEPLOY_SCRIPT: ${{ vars.DEPLOY_SCRIPT }}
+      AWS_ROLE_ARN: ${{ vars.AWS_ROLE_ARN }}
+      ECR_REPOSITORY: ${{ vars.ECR_REPOSITORY }}
+      MIGRATION_EVIDENCE: ${{ inputs.migration_evidence }}
+      CONFIRM_PRODUCTION: ${{ inputs.confirm_production }}
+      CONFIRM_RELEASE_SHA: ${{ inputs.confirm_release_sha }}
+      RESUME_METADATA_ONLY: ${{ inputs.resume_metadata_only }}
+      BOOTSTRAP_GIT_SHA: ${{ inputs.bootstrap_current_git_sha }}
+      BOOTSTRAP_IMAGE_DIGEST: ${{ inputs.bootstrap_current_image_digest }}
+      GH_TOKEN: ${{ github.token }}
+      TZ: Asia/Seoul
+
+    steps:
+      - name: Checkout exact release source
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Refuse non-main or incomplete configuration
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "$GITHUB_REF" != "refs/heads/main" ]]; then
+            echo "production CD accepts refs/heads/main only" >&2
+            exit 1
+          fi
+          if [[ ! "$GITHUB_SHA" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "GITHUB_SHA must be a full 40-character commit SHA" >&2
+            exit 1
+          fi
+          if [[ "$CONFIRM_PRODUCTION" != true || "$CONFIRM_RELEASE_SHA" != "$GITHUB_SHA" ]]; then
+            echo "production confirmation and exact release SHA are required" >&2
+            exit 1
+          fi
+          if [[ -z "${AWS_REGION:-}" || -z "${RELEASE_PARAMETER:-}" \
+             || -z "${EC2_INSTANCE_ID:-}" || -z "${SSM_DEPLOY_SCRIPT:-}" \
+             || -z "${AWS_ROLE_ARN:-}" || -z "${ECR_REPOSITORY:-}" ]]; then
+            echo "required production repository variables are missing" >&2
+            exit 1
+          fi
+          if [[ ! "$RELEASE_PARAMETER" =~ ^/[A-Za-z0-9_.\-/]+$ ]]; then
+            echo "invalid release parameter name" >&2
+            exit 1
+          fi
+          if [[ ! "$EC2_INSTANCE_ID" =~ ^i-[0-9a-f]+$ ]]; then
+            echo "invalid EC2 instance ID" >&2
+            exit 1
+          fi
+          if [[ ! "$SSM_DEPLOY_SCRIPT" =~ ^/opt/abc/[A-Za-z0-9._/-]+$ ]]; then
+            echo "DEPLOY_SCRIPT must be an absolute path below /opt/abc" >&2
+            exit 1
+          fi
+
+      - name: Require successful Backend CI for this release
+        shell: bash
+        run: |
+          set -euo pipefail
+          required_checks=(
+            "Test (MySQL 8.0.40)"
+            "Test (MySQL 8.0.42)"
+            "Docker and Compose"
+          )
+          deadline=$((SECONDS + 900))
+          while (( SECONDS < deadline )); do
+            check_runs=$(gh api \
+              -H "Accept: application/vnd.github+json" \
+              "repos/${GITHUB_REPOSITORY}/commits/${GITHUB_SHA}/check-runs?per_page=100")
+            all_success=true
+            for check_name in "${required_checks[@]}"; do
+              conclusion=$(jq -r --arg name "$check_name" '
+                [.check_runs[] | select(.name == $name)]
+                | sort_by(.started_at)
+                | last
+                | .conclusion // ""
+              ' <<< "$check_runs")
+              case "$conclusion" in
+                success)
+                  ;;
+                failure|cancelled|timed_out|action_required|stale)
+                  echo "required Backend CI check failed: $check_name ($conclusion)" >&2
+                  exit 1
+                  ;;
+                *)
+                  all_success=false
+                  ;;
+              esac
+            done
+            if [[ "$all_success" == true ]]; then
+              echo "all required Backend CI checks succeeded"
+              break
+            fi
+            sleep 10
+          done
+          if [[ "${all_success:-false}" != true ]]; then
+            echo "timed out waiting for required Backend CI checks" >&2
+            exit 1
+          fi
+
+      - name: Configure AWS credentials through OIDC
+        uses: aws-actions/configure-aws-credentials@v5
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+          role-session-name: abc-backend-${{ github.run_id }}
+
+      - name: Reconcile authoritative and physical current release
+        id: current
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          wait_for_ssm() {
+            local command_id=$1
+            local max_seconds=$2
+            local deadline=$((SECONDS + max_seconds))
+            local status
+            while (( SECONDS < deadline )); do
+              status=$(aws ssm get-command-invocation \
+                --command-id "$command_id" \
+                --instance-id "$EC2_INSTANCE_ID" \
+                --query Status \
+                --output text 2> /dev/null || true)
+              case "$status" in
+                Success)
+                  return 0
+                  ;;
+                Cancelled|Cancelling|Failed|TimedOut|DeliveryTimedOut|ExecutionTimedOut|Undeliverable|Terminated)
+                  return 1
+                  ;;
+                Pending|InProgress|Delayed|"")
+                  sleep 5
+                  ;;
+                *)
+                  sleep 5
+                  ;;
+              esac
+            done
+            return 1
+          }
+
+          inspect_script='set -eu
+          container=abc-api
+          image_id=$(docker inspect --format "{{.Image}}" "$container")
+          image_ref=$(docker inspect --format "{{.Config.Image}}" "$container")
+          image_uri=${image_ref%:*}
+          repo_digest=$(docker image inspect --format "{{range .RepoDigests}}{{println .}}{{end}}" "$image_id" | grep -F "${image_uri}@" | head -n 1 | cut -d@ -f2)
+          if [ -z "$repo_digest" ]; then repo_digest="$image_id"; fi
+          running_tag=${image_ref##*:}
+          configured_uri=$(awk -F= "\$1 == \"ABC_API_IMAGE\" {sub(/^[^=]*=/, \"\"); print; exit}" /opt/abc/.env.prod)
+          configured_tag=$(awk -F= "\$1 == \"ABC_API_TAG\" {sub(/^[^=]*=/, \"\"); print; exit}" /opt/abc/.env.prod)
+          printf "RUNNING_REF=%s\nRUNNING_TAG=%s\nRUNNING_DIGEST=%s\nCONFIGURED_URI=%s\nCONFIGURED_TAG=%s\n" "$image_ref" "$running_tag" "$repo_digest" "$configured_uri" "$configured_tag"'
+          inspect_parameters=$(jq -cn --arg command "$inspect_script" '{commands:[$command]}')
+          inspect_command_id=$(aws ssm send-command \
+            --instance-ids "$EC2_INSTANCE_ID" \
+            --document-name AWS-RunShellScript \
+            --timeout-seconds 180 \
+            --parameters "$inspect_parameters" \
+            --query Command.CommandId \
+            --output text)
+          if ! wait_for_ssm "$inspect_command_id" 210; then
+            echo "could not inspect the running production container" >&2
+            exit 1
+          fi
+          inspect_output=$(aws ssm get-command-invocation \
+            --command-id "$inspect_command_id" \
+            --instance-id "$EC2_INSTANCE_ID" \
+            --query StandardOutputContent \
+            --output text)
+          running_ref=$(sed -n 's/^RUNNING_REF=//p' <<< "$inspect_output")
+          running_tag=$(sed -n 's/^RUNNING_TAG=//p' <<< "$inspect_output")
+          running_digest=$(sed -n 's/^RUNNING_DIGEST=//p' <<< "$inspect_output")
+          configured_uri=$(sed -n 's/^CONFIGURED_URI=//p' <<< "$inspect_output")
+          configured_tag=$(sed -n 's/^CONFIGURED_TAG=//p' <<< "$inspect_output")
+          if [[ -z "$running_ref" || -z "$running_tag" \
+             || ! "$running_digest" =~ ^sha256:[0-9a-f]{64}$ \
+             || ! "$configured_uri" =~ ^[A-Za-z0-9][A-Za-z0-9._/:/-]*$ \
+             || ! "$configured_tag" =~ ^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$ \
+             || "$running_ref" != "${configured_uri}:${configured_tag}" ]]; then
+            echo "running container metadata is incomplete" >&2
+            exit 1
+          fi
+
+          resume=false
+          parameter_error=$(mktemp)
+          if parameter_value=$(aws ssm get-parameter \
+              --name "$RELEASE_PARAMETER" \
+              --query Parameter.Value \
+              --output text 2> "$parameter_error"); then
+            parameter_exists=true
+            current_git_sha=$(jq -er '.gitSha' <<< "$parameter_value")
+            current_image_uri=$(jq -er '.imageUri' <<< "$parameter_value")
+            current_image_digest=$(jq -er '.imageDigest' <<< "$parameter_value")
+            if [[ ! "$current_git_sha" =~ ^[0-9a-f]{40}$ \
+               || ! "$current_image_uri" =~ ^[0-9]{12}\.dkr\.ecr\.[a-z0-9-]+\.amazonaws\.com/[a-z0-9._/-]+$ \
+               || ! "$current_image_digest" =~ ^sha256:[0-9a-f]{64}$ ]]; then
+              echo "authoritative release metadata format is invalid" >&2
+              exit 1
+            fi
+
+            authoritative_matches=true
+            if [[ "${running_ref%:*}" != "$current_image_uri" \
+               || "$running_digest" != "$current_image_digest" \
+               || "$running_tag" != "$current_git_sha" ]]; then
+              authoritative_matches=false
+            fi
+            if [[ "$authoritative_matches" == false ]]; then
+              if [[ "$RESUME_METADATA_ONLY" != true || "$running_tag" != "$GITHUB_SHA" ]]; then
+                echo "physical production differs from authoritative metadata; explicit resume is required" >&2
+                exit 1
+              fi
+              resume=true
+            elif [[ "$current_git_sha" == "$GITHUB_SHA" ]]; then
+              resume=true
+            fi
+          elif grep -q 'ParameterNotFound' "$parameter_error"; then
+            parameter_exists=false
+            if [[ -z "${BOOTSTRAP_GIT_SHA//[[:space:]]/}" \
+               || -z "${BOOTSTRAP_IMAGE_DIGEST//[[:space:]]/}" ]]; then
+              echo "bootstrap_current_git_sha and bootstrap_current_image_digest are required for the first CD run" >&2
+              exit 1
+            fi
+            current_git_sha=$(git rev-parse --verify "${BOOTSTRAP_GIT_SHA}^{commit}")
+            current_image_uri=${running_ref%:*}
+            current_image_digest=$BOOTSTRAP_IMAGE_DIGEST
+            if [[ ! "$current_image_digest" =~ ^sha256:[0-9a-f]{64}$ ]]; then
+              echo "bootstrap image digest format is invalid" >&2
+              exit 1
+            fi
+            if [[ "$RESUME_METADATA_ONLY" == true ]]; then
+              if [[ "$running_tag" != "$GITHUB_SHA" ]]; then
+                echo "bootstrap resume requires the target SHA to be running" >&2
+                exit 1
+              fi
+              resume=true
+            else
+              if [[ "$running_digest" != "$current_image_digest" ]]; then
+                echo "running digest differs from the supplied bootstrap digest" >&2
+                exit 1
+              fi
+              if [[ "$running_tag" =~ ^[0-9a-f]{40}$ && "$running_tag" != "$current_git_sha" ]]; then
+                echo "bootstrap running tag differs from supplied production git SHA" >&2
+                exit 1
+              fi
+            fi
+          else
+            echo "failed to read authoritative release parameter" >&2
+            exit 1
+          fi
+          rm -f "$parameter_error"
+
+          if [[ ! "$current_git_sha" =~ ^[0-9a-f]{40}$ \
+             || ! "$current_image_uri" =~ ^[A-Za-z0-9][A-Za-z0-9._/:/-]*$ ]]; then
+            echo "current release identity format is invalid" >&2
+            exit 1
+          fi
+          if ! git merge-base --is-ancestor "$current_git_sha" "$GITHUB_SHA"; then
+            echo "current production SHA is not an ancestor of the release SHA" >&2
+            exit 1
+          fi
+
+          prior_success_sha=""
+          while IFS=$'\t' read -r deployment_id deployment_sha; do
+            [[ -z "$deployment_id" ]] && continue
+            deployment_state=$(gh api \
+              "repos/${GITHUB_REPOSITORY}/deployments/${deployment_id}/statuses?per_page=100" \
+              --jq 'map(select(.state == "success")) | first | .state // ""')
+            if [[ "$deployment_state" == success ]]; then
+              prior_success_sha=$deployment_sha
+              break
+            fi
+          done < <(
+            gh api \
+              "repos/${GITHUB_REPOSITORY}/deployments?environment=production&per_page=100" \
+              --jq '.[] | [.id, .sha] | @tsv'
+          )
+          if [[ -n "$prior_success_sha" && "$prior_success_sha" != "$current_git_sha" ]]; then
+            if [[ "$RESUME_METADATA_ONLY" != true || "$running_tag" != "$GITHUB_SHA" ]]; then
+              echo "latest successful GitHub production deployment differs from authoritative metadata" >&2
+              exit 1
+            fi
+            resume=true
+          fi
+
+          echo "git_sha=$current_git_sha" >> "$GITHUB_OUTPUT"
+          echo "resume=$resume" >> "$GITHUB_OUTPUT"
+          echo "running_ref=$running_ref" >> "$GITHUB_OUTPUT"
+          echo "running_digest=$running_digest" >> "$GITHUB_OUTPUT"
+          echo "current release reconciliation passed"
+
+      - name: Verify production SHA to release SHA schema contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          export MYSQL_PWD="$MYSQL_PASSWORD"
+          mysql \
+            --protocol=TCP \
+            --host="$MYSQL_HOST" \
+            --port="$MYSQL_PORT" \
+            --user="$MYSQL_USER" \
+            -e "SET GLOBAL sql_mode='NO_ENGINE_SUBSTITUTION'; SET GLOBAL time_zone='+00:00'"
+
+          mapfile -t required_migrations < <(
+            awk '
+              /^requiredMigrations:[[:space:]]*\[\][[:space:]]*$/ { exit }
+              /^requiredMigrations:[[:space:]]*$/ { in_list=1; next }
+              in_list && /^[^[:space:]]/ { exit }
+              in_list && /^[[:space:]]*-[[:space:]]*/ {
+                sub(/^[[:space:]]*-[[:space:]]*/, "")
+                gsub(/^["'\'']|["'\'']$/, "")
+                print
+              }
+            ' release-contract.yml
+          )
+          if [[ ${#required_migrations[@]} -gt 0 \
+             && -z "${MIGRATION_EVIDENCE//[[:space:]]/}" ]]; then
+            echo "migration_evidence is required when requiredMigrations is nonempty" >&2
+            exit 1
+          fi
+
+          bash deploy/db/verify-schema-contract.sh \
+            "${{ steps.current.outputs.git_sha }}" \
+            "$GITHUB_SHA"
+
+      - name: Resolve immutable ECR image
+        id: image
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ ! "$ECR_REPOSITORY" =~ ^[a-z0-9._/-]+$ ]]; then
+            echo "invalid ECR repository name" >&2
+            exit 1
+          fi
+          account_id=$(aws sts get-caller-identity --query Account --output text)
+          registry="${account_id}.dkr.ecr.${AWS_REGION}.amazonaws.com"
+          image_uri="${registry}/${ECR_REPOSITORY}"
+          mutability=$(aws ecr describe-repositories \
+            --repository-names "$ECR_REPOSITORY" \
+            --query 'repositories[0].imageTagMutability' \
+            --output text)
+          if [[ "$mutability" != IMMUTABLE ]]; then
+            echo "ECR repository must enforce immutable tags" >&2
+            exit 1
+          fi
+
+          image_digest=$(aws ecr describe-images \
+            --repository-name "$ECR_REPOSITORY" \
+            --image-ids "imageTag=$GITHUB_SHA" \
+            --query 'imageDetails[0].imageDigest' \
+            --output text 2> /dev/null || true)
+          if [[ ! "$image_digest" =~ ^sha256:[0-9a-f]{64}$ ]]; then
+            if ! aws ecr get-login-password --region "$AWS_REGION" 2> /dev/null |
+              docker login --username AWS --password-stdin "$registry" > /dev/null 2>&1; then
+              echo "ECR login failed" >&2
+              exit 1
+            fi
+            docker build --tag "${image_uri}:${GITHUB_SHA}" .
+            if ! docker push "${image_uri}:${GITHUB_SHA}" > /dev/null 2>&1; then
+              echo "ECR image push failed" >&2
+              exit 1
+            fi
+            image_digest=$(aws ecr describe-images \
+              --repository-name "$ECR_REPOSITORY" \
+              --image-ids "imageTag=$GITHUB_SHA" \
+              --query 'imageDetails[0].imageDigest' \
+              --output text)
+          fi
+          if [[ ! "$image_digest" =~ ^sha256:[0-9a-f]{64}$ ]]; then
+            echo "ECR did not return a valid image digest" >&2
+            exit 1
+          fi
+
+          echo "uri=$image_uri" >> "$GITHUB_OUTPUT"
+          echo "digest=$image_digest" >> "$GITHUB_OUTPUT"
+          echo "immutable image ready: $GITHUB_SHA $image_digest"
+
+      - name: Verify metadata-only resume target
+        if: steps.current.outputs.resume == 'true'
+        shell: bash
+        env:
+          IMAGE_URI: ${{ steps.image.outputs.uri }}
+          IMAGE_DIGEST: ${{ steps.image.outputs.digest }}
+          RUNNING_REF: ${{ steps.current.outputs.running_ref }}
+          RUNNING_DIGEST: ${{ steps.current.outputs.running_digest }}
+        run: |
+          set -euo pipefail
+          if [[ "$RUNNING_REF" != "${IMAGE_URI}:${GITHUB_SHA}" \
+             || "$RUNNING_DIGEST" != "$IMAGE_DIGEST" ]]; then
+            echo "metadata-only resume target does not match the immutable ECR artifact" >&2
+            exit 1
+          fi
+          echo "metadata-only resume target verified"
+
+      - name: Deploy through SSM
+        if: steps.current.outputs.resume != 'true'
+        id: ssm_deploy
+        shell: bash
+        env:
+          IMAGE_URI: ${{ steps.image.outputs.uri }}
+          IMAGE_DIGEST: ${{ steps.image.outputs.digest }}
+        run: |
+          set -euo pipefail
+          if [[ ! "$IMAGE_URI" =~ ^[0-9]{12}\.dkr\.ecr\.[a-z0-9-]+\.amazonaws\.com/[a-z0-9._/-]+$ \
+             || ! "$IMAGE_DIGEST" =~ ^sha256:[0-9a-f]{64}$ ]]; then
+            echo "invalid immutable image metadata" >&2
+            exit 1
+          fi
+          release_id="run-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          deploy_command="${SSM_DEPLOY_SCRIPT} ${IMAGE_URI} ${GITHUB_SHA} ${IMAGE_DIGEST} ${release_id}"
+          command_parameters=$(jq -cn --arg command "$deploy_command" '{commands:[$command]}')
+          command_id=$(aws ssm send-command \
+            --instance-ids "$EC2_INSTANCE_ID" \
+            --document-name AWS-RunShellScript \
+            --timeout-seconds 600 \
+            --parameters "$command_parameters" \
+            --query Command.CommandId \
+            --output text)
+
+          deadline=$((SECONDS + 660))
+          final_status=""
+          while (( SECONDS < deadline )); do
+            status=$(aws ssm get-command-invocation \
+              --command-id "$command_id" \
+              --instance-id "$EC2_INSTANCE_ID" \
+              --query Status \
+              --output text 2> /dev/null || true)
+            case "$status" in
+              Success)
+                final_status=Success
+                break
+                ;;
+              Cancelled|Cancelling|Failed|TimedOut|DeliveryTimedOut|ExecutionTimedOut|Undeliverable|Terminated)
+                final_status=$status
+                break
+                ;;
+              Pending|InProgress|Delayed|"")
+                sleep 5
+                ;;
+              *)
+                sleep 5
+                ;;
+            esac
+          done
+          if [[ "$final_status" != Success ]]; then
+            echo "SSM deployment did not succeed: ${final_status:-poll-timeout}" >&2
+            exit 1
+          fi
+          echo "SSM deployment completed for $GITHUB_SHA"
+
+      - name: Independently verify running image
+        shell: bash
+        env:
+          IMAGE_URI: ${{ steps.image.outputs.uri }}
+          IMAGE_DIGEST: ${{ steps.image.outputs.digest }}
+        run: |
+          set -euo pipefail
+          verify_script='set -eu
+          container=abc-api
+          image_id=$(docker inspect --format "{{.Image}}" "$container")
+          image_ref=$(docker inspect --format "{{.Config.Image}}" "$container")
+          image_uri=${image_ref%:*}
+          repo_digest=$(docker image inspect --format "{{range .RepoDigests}}{{println .}}{{end}}" "$image_id" | grep -F "${image_uri}@" | head -n 1 | cut -d@ -f2)
+          running_tag=${image_ref##*:}
+          container_state=$(docker inspect --format "{{.State.Status}}" "$container")
+          health_state=$(docker inspect --format "{{if .State.Health}}{{.State.Health.Status}}{{else}}missing{{end}}" "$container")
+          if [ "$container_state" != running ] || [ "$health_state" != healthy ]; then
+            exit 1
+          fi
+          if ! curl -fsS --max-time 5 http://127.0.0.1:8080/api/v1/categories > /dev/null 2>&1; then
+            exit 1
+          fi
+          printf "RUNNING_REF=%s\nRUNNING_TAG=%s\nRUNNING_DIGEST=%s\nCONTAINER_STATE=%s\nHEALTH_STATE=%s\nREADINESS=passed\n" "$image_ref" "$running_tag" "$repo_digest" "$container_state" "$health_state"'
+          verify_parameters=$(jq -cn --arg command "$verify_script" '{commands:[$command]}')
+          verify_command_id=$(aws ssm send-command \
+            --instance-ids "$EC2_INSTANCE_ID" \
+            --document-name AWS-RunShellScript \
+            --timeout-seconds 180 \
+            --parameters "$verify_parameters" \
+            --query Command.CommandId \
+            --output text)
+
+          deadline=$((SECONDS + 210))
+          while (( SECONDS < deadline )); do
+            status=$(aws ssm get-command-invocation \
+              --command-id "$verify_command_id" \
+              --instance-id "$EC2_INSTANCE_ID" \
+              --query Status \
+              --output text 2> /dev/null || true)
+            [[ "$status" == Success ]] && break
+            case "$status" in
+              Cancelled|Cancelling|Failed|TimedOut|DeliveryTimedOut|ExecutionTimedOut|Undeliverable|Terminated)
+                echo "running image verification command failed" >&2
+                exit 1
+                ;;
+            esac
+            sleep 5
+          done
+          if [[ "${status:-}" != Success ]]; then
+            echo "running image verification timed out" >&2
+            exit 1
+          fi
+          verify_output=$(aws ssm get-command-invocation \
+            --command-id "$verify_command_id" \
+            --instance-id "$EC2_INSTANCE_ID" \
+            --query StandardOutputContent \
+            --output text)
+          running_ref=$(sed -n 's/^RUNNING_REF=//p' <<< "$verify_output")
+          running_tag=$(sed -n 's/^RUNNING_TAG=//p' <<< "$verify_output")
+          running_digest=$(sed -n 's/^RUNNING_DIGEST=//p' <<< "$verify_output")
+          container_state=$(sed -n 's/^CONTAINER_STATE=//p' <<< "$verify_output")
+          health_state=$(sed -n 's/^HEALTH_STATE=//p' <<< "$verify_output")
+          readiness=$(sed -n 's/^READINESS=//p' <<< "$verify_output")
+          if [[ "$running_ref" != "${IMAGE_URI}:${GITHUB_SHA}" \
+             || "$running_tag" != "$GITHUB_SHA" \
+             || "$running_digest" != "$IMAGE_DIGEST" \
+             || "$container_state" != running \
+             || "$health_state" != healthy \
+             || "$readiness" != passed ]]; then
+            echo "running container does not match the approved immutable image" >&2
+            exit 1
+          fi
+          echo "running image and readiness verified: $GITHUB_SHA $IMAGE_DIGEST"
+
+      - name: Create immutable production git tag
+        shell: bash
+        run: |
+          set -euo pipefail
+          production_tag="prod-$(date -u +%Y%m%d)-${GITHUB_SHA:0:7}"
+          peeled_target=$(git ls-remote --tags origin "refs/tags/${production_tag}^{}" |
+            awk '{print $1}')
+          direct_target=$(git ls-remote --tags origin "refs/tags/${production_tag}" |
+            awk '{print $1}')
+          if [[ -n "$peeled_target" ]]; then
+            if [[ "$peeled_target" != "$GITHUB_SHA" ]]; then
+              echo "existing annotated production tag points to another commit" >&2
+              exit 1
+            fi
+          elif [[ -n "$direct_target" ]]; then
+            echo "existing production tag is not annotated" >&2
+            exit 1
+          else
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git tag -a "$production_tag" "$GITHUB_SHA" \
+              -m "production backend release ${GITHUB_SHA}"
+            git push origin "refs/tags/${production_tag}"
+          fi
+          echo "production tag ready: $production_tag"
+
+      - name: Publish authoritative release metadata
+        shell: bash
+        env:
+          IMAGE_URI: ${{ steps.image.outputs.uri }}
+          IMAGE_DIGEST: ${{ steps.image.outputs.digest }}
+        run: |
+          set -euo pipefail
+          deployed_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+          metadata=$(jq -cn \
+            --arg gitSha "$GITHUB_SHA" \
+            --arg imageUri "$IMAGE_URI" \
+            --arg imageDigest "$IMAGE_DIGEST" \
+            --arg deployedAt "$deployed_at" \
+            --arg workflowRunId "$GITHUB_RUN_ID" \
+            '{
+              gitSha: $gitSha,
+              imageUri: $imageUri,
+              imageDigest: $imageDigest,
+              deployedAt: $deployedAt,
+              workflowRunId: $workflowRunId
+            }')
+          aws ssm put-parameter \
+            --name "$RELEASE_PARAMETER" \
+            --type String \
+            --overwrite \
+            --value "$metadata" \
+            > /dev/null
+          echo "authoritative release metadata updated"
