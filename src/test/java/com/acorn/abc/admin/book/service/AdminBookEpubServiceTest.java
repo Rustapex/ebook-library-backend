@@ -135,6 +135,27 @@ class AdminBookEpubServiceTest {
         verify(bookmarkRepository, never()).deleteByRental_Book_BookId(org.mockito.ArgumentMatchers.anyLong());
     }
 
+    @Test
+    void upload_S3저장이실패하면_성공응답없이_예외를전파하고_초기화하지않는다() {
+        MultipartFile file = mock(MultipartFile.class);
+        given(bookRepository.findById(17L)).willReturn(Optional.of(mock(Book.class)));
+        given(epubFileValidator.validate(file))
+                .willReturn(new EpubValidationResult("book.epub", 128L, "a".repeat(64)));
+        // S3 SDK 장애는 BusinessException이 아니라 전역 500 경로로 전파된다.
+        given(bookEpubBinaryStore.insertNextVersion(17L, "book.epub", 128L, "a".repeat(64), file))
+                .willThrow(new IllegalStateException("s3 unavailable"));
+
+        assertThatThrownBy(() -> adminBookEpubService.upload(17L, file))
+                .isInstanceOf(IllegalStateException.class)
+                .isNotInstanceOf(BusinessException.class);
+
+        verify(bookEpubRepository, never()).findByBook_BookIdAndEpubVersion(
+                org.mockito.ArgumentMatchers.anyLong(), org.mockito.ArgumentMatchers.anyInt());
+        verify(readingProgressRepository, never()).resetForEpubVersion(
+                org.mockito.ArgumentMatchers.anyLong(), org.mockito.ArgumentMatchers.anyInt());
+        verify(bookmarkRepository, never()).deleteByRental_Book_BookId(org.mockito.ArgumentMatchers.anyLong());
+    }
+
     private void assertErrorCode(Runnable action, ErrorCode expected) {
         assertThatThrownBy(action::run)
                 .isInstanceOf(BusinessException.class)
