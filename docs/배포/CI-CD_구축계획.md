@@ -115,6 +115,12 @@ main push마다 바로 EC2에 배포하지 않는다. 다음 조건으로 제한
 - Docker image는 `latest`가 아니라 commit SHA tag, ECR push
 - AWS SSM Run Command로 EC2 배포 (SSH key를 GitHub에 넣지 않음)
 
+> 구현 제약(2026-07-24): 개인 소유 private repository는 GitHub Enterprise가
+> 아니면 Environment required reviewer를 지원하지 않는다. 1차 구현은
+> `workflow_dispatch` + main branch 제한 + production 확인 checkbox + full SHA
+> 재입력을 수동 gate로 사용한다. organization Enterprise로 이전할 때
+> required reviewer와 `prevent_self_review`를 활성화한다.
+
 ### 5-1. SSM 배포 절차
 
 ```text
@@ -302,6 +308,9 @@ release contract 확인
 
 - 갱신 시점: health/readiness 성공 후.
 - SSM 기록, GitHub Deployment, running digest가 다르면 **자동 진행하지 않고 reconciliation 대상으로 중단**한다.
+- container 성공 후 tag/metadata 기록만 실패한 경우에는 명시적인
+  `resume_metadata_only` 실행에서 running ref/digest를 ECR artifact와 다시
+  검증한 뒤 immutable tag와 metadata만 멱등하게 마무리한다.
 - 배포 SHA 추적에 moving tag를 쓰지 않는다. immutable Git tag(`prod-YYYYMMDD-sha`) + 위 별도 기록 + `.env.prod`의 `ABC_API_TAG`와 실제 container image digest까지 교차 검증한다.
 
 ---

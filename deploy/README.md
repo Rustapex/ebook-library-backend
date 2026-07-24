@@ -676,3 +676,46 @@ V003은 additive이며 U003(자동 rollback SQL)을 제공하지 않는다.
 | `.env.prod` 유출 | DB/JWT 노출 | `chmod 600`, commit 금지, `.gitignore`가 `.env.*` 무시 |
 | V003 미적용 상태 배포 | `ddl-auto=validate` 실패로 기동 불가 | §2를 배포보다 먼저 수행 |
 | migration 중복 실행 | 동일 row 경합 | `GET_LOCK` 단일 실행 guard. §6-1 |
+
+---
+
+## 9. 승인형 Backend CD
+
+`.github/workflows/backend-cd.yml`은 `main`의 `workflow_dispatch`에서만 실행한다.
+실행자는 production 확인 checkbox와 배포할 full SHA를 직접 입력해야 한다.
+GitHub `production` Environment의 main branch 제한을 통과한 뒤 OIDC, ECR immutable
+SHA tag, SSM Run Command 순서로 배포하며 backend 자동 rollback은 수행하지 않는다.
+
+개인 소유 private repository에서는 GitHub Enterprise가 아니면 Environment required
+reviewer를 사용할 수 없다. 현재 1차 구성은 위의 이중 수동 확인을 approval gate로
+사용한다. repository를 organization Enterprise로 이전하면 required reviewer와
+`prevent_self_review`를 활성화한다.
+
+EC2에는 배포 script를 미리 root 전용으로 설치한다.
+
+```bash
+sudo install -o root -g root -m 700 \
+  deploy/backend-deploy.sh /opt/abc/deploy/backend-deploy.sh
+```
+
+GitHub repository/environment variables:
+
+- `AWS_ROLE_ARN`, `AWS_REGION`
+- `ECR_REPOSITORY` (tag immutability가 `IMMUTABLE`인 repository)
+- `EC2_INSTANCE_ID`
+- `DEPLOY_SCRIPT` (예: `/opt/abc/deploy/backend-deploy.sh`)
+- `RELEASE_PARAMETER` (권장: `/abc/prod/backend/current-release`)
+
+첫 실행에서 release parameter가 아직 없을 때만
+`bootstrap_current_git_sha`, `bootstrap_current_image_digest` input을 입력한다.
+`release-contract.yml`의 `requiredMigrations`가 비어 있지 않으면 DB migration을
+수동 적용·검증한 뒤 `migration_evidence` input도 반드시 입력한다.
+
+container health/readiness는 성공했지만 Git tag 또는 release parameter 기록이
+실패한 경우 같은 main SHA로 다시 실행하고 `resume_metadata_only=true`를 선택한다.
+workflow는 running ref/digest를 ECR artifact와 다시 대조한 뒤 tag/metadata만
+멱등하게 마무리한다.
+
+배포 script는 `/opt/abc/.env.prod`의 `ABC_API_IMAGE`, `ABC_API_TAG`만 원자적으로
+바꾸며 파일 내용을 출력하지 않는다. 실패 시 자동 image rollback을 하지 않으므로
+§7의 호환성·데이터 조건을 확인한 뒤 수동으로 판단한다.
