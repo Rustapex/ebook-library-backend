@@ -67,7 +67,13 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.POST,
                                 "/api/v1/auth/signup",
                                 "/api/v1/auth/login",
-                                "/api/v1/auth/find-id"
+                                "/api/v1/auth/find-id",
+                                // Google 로그인은 아직 ABC access token이 없는 상태에서 호출된다.
+                                // 정확한 3개 경로만 열고 하위 경로 wildcard는 쓰지 않는다.
+                                // signup/link는 서버가 서명한 단기 transition token으로 자체 인증한다.
+                                "/api/v1/auth/google",
+                                "/api/v1/auth/google/signup",
+                                "/api/v1/auth/google/link"
                         ).permitAll()
                         // 도서/카테고리/컬렉션/리뷰/공지 공개 API (GET)
                         .requestMatchers(HttpMethod.GET,

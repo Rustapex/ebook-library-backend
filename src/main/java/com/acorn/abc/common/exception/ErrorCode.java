@@ -34,6 +34,14 @@ public enum ErrorCode {
     AUTH_TOKEN_EXPIRED(HttpStatus.UNAUTHORIZED, "AUTH_TOKEN_EXPIRED", "토큰이 만료되었습니다."),
     AUTH_ACCESS_DENIED(HttpStatus.FORBIDDEN, "AUTH_ACCESS_DENIED", "접근 권한이 없습니다."),
 
+    // Google 로그인 (2026-07-24 승인)
+    // 검증 실패 원인(signature/issuer/audience/expiration)은 서버 내부 분류로만 쓰고 외부 message에 노출하지 않는다.
+    AUTH_GOOGLE_TOKEN_INVALID(HttpStatus.UNAUTHORIZED, "AUTH_GOOGLE_TOKEN_INVALID", "Google 인증에 실패했습니다."),
+    AUTH_GOOGLE_EMAIL_NOT_VERIFIED(HttpStatus.UNAUTHORIZED, "AUTH_GOOGLE_EMAIL_NOT_VERIFIED", "이메일이 인증되지 않은 Google 계정입니다."),
+    AUTH_GOOGLE_DISABLED(HttpStatus.SERVICE_UNAVAILABLE, "AUTH_GOOGLE_DISABLED", "Google 로그인을 사용할 수 없습니다."),
+    AUTH_TRANSITION_TOKEN_INVALID(HttpStatus.UNAUTHORIZED, "AUTH_TRANSITION_TOKEN_INVALID", "인증 절차가 만료되었습니다. 처음부터 다시 진행해주세요."),
+    AUTH_OAUTH_ALREADY_LINKED(HttpStatus.CONFLICT, "AUTH_OAUTH_ALREADY_LINKED", "이미 연결된 소셜 계정입니다."),
+
     // Member
     MEMBER_NOT_FOUND(HttpStatus.NOT_FOUND, "MEMBER_NOT_FOUND", "존재하지 않는 회원입니다."),
     MEMBER_EMAIL_DUPLICATED(HttpStatus.CONFLICT, "MEMBER_EMAIL_DUPLICATED", "이미 사용 중인 이메일입니다."),
