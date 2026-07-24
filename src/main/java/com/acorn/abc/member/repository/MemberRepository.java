@@ -34,6 +34,10 @@ public interface MemberRepository extends JpaRepository<Member, Long> {
 
     Optional<Member> findByNameAndEmail(String name, String email);
 
+    // Google 로그인의 계정 연결 판정 전용 — Google이 verified로 확인해준 email로만 조회한다.
+    // 조회 결과를 자동 연결에 쓰지 않는다. LINK_REQUIRED 판정과 비밀번호 재인증 대상 확정에만 사용한다.
+    Optional<Member> findByEmail(String email);
+
     boolean existsByLoginId(String loginId);
 
     boolean existsByEmail(String email);

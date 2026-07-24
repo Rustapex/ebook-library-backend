@@ -190,6 +190,22 @@ CREATE TABLE IF NOT EXISTS password_reset_code (
   CONSTRAINT chk_password_reset_code_status CHECK (status IN ('ISSUED', 'VERIFIED', 'USED', 'EXPIRED', 'FAILED'))
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
+-- 외부 인증 제공자 계정 연결. Google 로그인은 변경되지 않는 sub를 provider_user_id로 저장한다.
+-- provider_email은 조회/감사용 snapshot이며 식별자가 아니다. email로 계정을 찾지 않는다.
+CREATE TABLE IF NOT EXISTS oauth_account (
+  oauth_account_id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  member_id BIGINT UNSIGNED NOT NULL,
+  provider VARCHAR(20) NOT NULL,
+  provider_user_id VARCHAR(255) NOT NULL,
+  provider_email VARCHAR(255) NULL,
+  created_at DATETIME NOT NULL,
+  updated_at DATETIME NULL,
+  CONSTRAINT pk_oauth_account PRIMARY KEY (oauth_account_id),
+  CONSTRAINT uk_oauth_account_provider_provider_user_id UNIQUE (provider, provider_user_id),
+  CONSTRAINT uk_oauth_account_member_id_provider UNIQUE (member_id, provider),
+  CONSTRAINT chk_oauth_account_provider CHECK (provider IN ('GOOGLE'))
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
 CREATE TABLE IF NOT EXISTS attendance (
   attendance_id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
   member_id BIGINT UNSIGNED NOT NULL,
@@ -648,6 +664,7 @@ CREATE TABLE IF NOT EXISTS admin_audit_log (
 -- FK 제약 (이미 존재하면 continue-on-error=true 로 무시)
 ALTER TABLE member ADD CONSTRAINT fk_member_member_grade FOREIGN KEY (grade_id) REFERENCES member_grade(grade_id);
 ALTER TABLE password_reset_code ADD CONSTRAINT fk_password_reset_code_member FOREIGN KEY (member_id) REFERENCES member(member_id);
+ALTER TABLE oauth_account ADD CONSTRAINT fk_oauth_account_member FOREIGN KEY (member_id) REFERENCES member(member_id);
 ALTER TABLE attendance ADD CONSTRAINT fk_attendance_member FOREIGN KEY (member_id) REFERENCES member(member_id);
 ALTER TABLE point_history ADD CONSTRAINT fk_point_history_member FOREIGN KEY (member_id) REFERENCES member(member_id);
 ALTER TABLE point_history ADD CONSTRAINT fk_point_history_payment FOREIGN KEY (payment_id) REFERENCES payment(payment_id);

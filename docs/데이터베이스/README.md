@@ -103,6 +103,26 @@ storage_type은 'DB' 또는 'S3'만 허용
 - migration runner는 실행 전 `book_epub` **전체 row**의 invariant를 검사하고, 위반이 있으면
   dry-run에서도 `failed`로 세고 아무것도 옮기지 않은 채 non-zero exit code로 끝난다.
 
+### 외부 인증 계정 연결 (`oauth_account`)
+
+Google 로그인은 변경 가능한 email이 아니라 Google `sub`를 외부 계정 고유 식별자로 사용한다.
+
+| Column | 최종 계약 |
+|---|---|
+| `oauth_account_id` | `BIGINT UNSIGNED NOT NULL AUTO_INCREMENT`, PK |
+| `member_id` | `BIGINT UNSIGNED NOT NULL`, FK `fk_oauth_account_member -> member.member_id` |
+| `provider` | `VARCHAR(20) NOT NULL` (현재 `GOOGLE`만 허용) |
+| `provider_user_id` | `VARCHAR(255) NOT NULL`, Google `sub` |
+| `provider_email` | `VARCHAR(255) NULL`, 조회/감사용 snapshot |
+| UNIQUE | `uk_oauth_account_provider_provider_user_id (provider, provider_user_id)` |
+| UNIQUE | `uk_oauth_account_member_id_provider (member_id, provider)` |
+| CHECK | `chk_oauth_account_provider (provider IN ('GOOGLE'))` |
+
+- `provider_email`은 **식별자가 아니다**. 이 column으로 계정을 조회해 자동 연결하지 않는다.
+- 기존 회원 연결은 local password 재인증을 거친 명시적 link 경로에서만 생성한다.
+- `member` table 구조는 이 기능으로 변경되지 않는다. `login_id`, `password_hash`, `birth_date`는
+  NOT NULL을 유지하며 synthetic 값을 만들지 않는다. 신규 Google 사용자는 onboarding에서 실제 값을 입력한다.
+
 ### 실제 최종 DB와 bootstrap schema 차이
 
 실제 검증 DB에는 있지만 `src/main/resources/schema.sql`에는 아직 없는 항목이다.
@@ -241,6 +261,7 @@ ORDER BY TABLE_NAME;
 - `V001__epub_additive.sql`
 - `V002__request_notification_notice_alignment.sql`
 - `V003__epub_s3_object_storage.sql`
+- `V004__oauth_account.sql`
 - `0001_physical_library_location.sql`
 - `0002_unify_library_isbn.sql`
 
@@ -369,6 +390,7 @@ WHERE isbn IS NULL
 | 기존 DB migration | `db/manual/V001__epub_additive.sql` | EPUB 구조가 없는 기존 DB만 |
 | 기존 DB migration | `db/manual/V002__request_notification_notice_alignment.sql` | 희망도서/알림/공지 정합화가 안 된 기존 DB만 |
 | 기존 DB migration | `db/manual/V003__epub_s3_object_storage.sql` | `book_epub`에 S3 metadata column이 없는 기존 DB만 |
+| 기존 DB migration | `db/manual/V004__oauth_account.sql` | `oauth_account`가 없는 기존 DB만 (Google 로그인) |
 | 도서관 migration | `migration/0001_physical_library_location.sql` | 도서관 기능이 없는 기존 DB |
 | 도서관 migration | `migration/0002_unify_library_isbn.sql` | 0001 ISBN 구조인 기존 DB |
 | 선택 성능 보완 | `관리자통계_성능인덱스.sql` | index 부재 확인 후 선택 적용 |
@@ -387,6 +409,74 @@ V003에는 대응하는 자동 rollback SQL(U003)이 없다. 되돌리려면 적
 - 신규 column이 3개 중 1~2개만 있는 부분 적용 상태는 `MIXED`로 판정하고 실패한다.
 - postflight도 procedure 안에서 SIGNAL을 던지므로 기대 구조가 아니면 exit 0이 나오지 않는다.
 - 자세한 실패 메시지 표는 [`deploy/README.md`](../../deploy/README.md) §2-3에 있다.
+
+### V004 실행 규칙
+
+Google 로그인용 `oauth_account`를 기존 DB에 추가하는 additive migration이다.
+
+**분류와 대상**
+
+- 기존 DB 전용이다. 신규 빈 DB에는 실행하지 않는다(§5-A). 최종 구조는 이미 `src/main/resources/schema.sql`에 있고,
+  `deploy/db/bootstrap-fresh.sh`가 fresh bootstrap manifest에서 `V00*.sql`을 거부한다.
+- `docs/데이터베이스/ddl/schema.sql`은 legacy이므로 이 변경을 반영하지 않으며 실행하지도 않는다.
+
+**상태 판별 (실행 전)**
+
+```sql
+SELECT
+    EXISTS (
+        SELECT 1 FROM INFORMATION_SCHEMA.TABLES
+        WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'oauth_account'
+    ) AS has_oauth_account,
+    (
+        SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS
+        WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'oauth_account'
+    ) AS oauth_account_column_count;
+```
+
+| 결과 | 판정 | 조치 |
+|---|---|---|
+| `has_oauth_account = 0` | 미적용 | V004 실행 |
+| `has_oauth_account = 1`, column 7개가 최종 계약과 일치 | 적용 완료 | 재실행해도 무해(멱등). 실행 생략 가능 |
+| `has_oauth_account = 1`, 구조가 다르거나 부분 적용 | `MIXED` | **실행하지 않는다.** V004가 SIGNAL로 중단하며, 차이를 먼저 보고한다 |
+
+**실행**
+
+- `DELIMITER`와 stored procedure를 쓰므로 **반드시 `mysql` CLI로 실행**한다(gradle sql-init/JDBC multi-statement 금지).
+- 실행 후 exit code를 확인한다. `0`이 아니면 구조가 기대와 다른 것이므로 추측으로 고치지 않는다.
+- 부분 적용 상태는 preflight에서 `MIXED`로 판정하고 **DDL을 하나도 적용하지 않은 채** 실패한다.
+
+```bash
+mysql -h <host> -u <user> -p <database> < src/main/resources/db/manual/V004__oauth_account.sql
+```
+
+**멱등성**
+
+2회 이상 실행해도 결과가 같다. 이미 최종 구조면 preflight가 구조 일치를 확인하고 아무것도 바꾸지 않는다.
+FK는 `INFORMATION_SCHEMA` 확인 후 없을 때만 추가한다(MySQL DDL의 implicit commit 때문).
+
+**Postflight**
+
+procedure 안에서 다음을 단언하고, 어긋나면 `SIGNAL SQLSTATE '45000'`으로 exit code 0을 내지 않는다.
+
+- column 7개의 이름/type/nullability 일치, 계약 밖 column 없음
+- `uk_oauth_account_provider_provider_user_id (provider, provider_user_id)`
+- `uk_oauth_account_member_id_provider (member_id, provider)`
+- `fk_oauth_account_member -> member`
+- `chk_oauth_account_provider`
+
+CI(`deploy/db/verify-schema-contract.sh`)는 여기에 더해 `base + V004` 결과가 head canonical fresh bootstrap과
+수렴하는지, 2회 실행이 멱등한지를 자동 검증한다. 따라서 runtime contract는 v1을 유지한다
+(v1이 단언하는 `book`/`book_epub`/`library`/`library_holding`/`member`/`point_history` 계약은 이 변경으로 바뀌지 않는다).
+
+**Rollback**
+
+- `oauth_account`는 additive다. backend image rollback 시 **즉시 drop하지 않는다.**
+  구버전 image는 이 table을 참조하지 않으므로 그대로 두어도 기존 로그인과 `ddl-auto=validate`가 깨지지 않는다.
+- 기능만 되돌릴 때는 DB가 아니라 `GOOGLE_AUTH_ENABLED=false`로 먼저 차단한다.
+- 구조 rollback(`DROP TABLE oauth_account`)은 명시 승인과 backup이 있을 때만 수행한다.
+  이미 Google 전용 회원이 생성된 뒤라면 그 회원의 연결 정보가 소실되므로 data-loss 판단이 선행돼야 한다.
+- 대응하는 자동 rollback SQL(U004)은 만들지 않는다.
 
 ## 7. 실제 검증 DB 상태 기록
 

@@ -1,4 +1,5 @@
-schemaChange: none
-requiredMigrations: []
+schemaChange: additive
+requiredMigrations:
+  - src/main/resources/db/manual/V004__oauth_account.sql
 runtimeContractVersion: 1
 epubContractChange: false
