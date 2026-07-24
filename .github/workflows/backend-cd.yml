@@ -108,7 +108,7 @@ jobs:
             echo "required production repository variables are missing" >&2
             exit 1
           fi
-          if [[ ! "$RELEASE_PARAMETER" =~ ^/[A-Za-z0-9_.\-/]+$ ]]; then
+          if [[ ! "$RELEASE_PARAMETER" =~ ^/[-A-Za-z0-9_./]+$ ]]; then
             echo "invalid release parameter name" >&2
             exit 1
           fi
