@@ -62,6 +62,47 @@ spring.jpa.hibernate.ddl-auto=validate
 
 `book_isbn_temp`는 외부 도서 수집 pipeline의 staging table이다. 도서관 조회의 ISBN source가 아니다.
 
+### EPUB 저장 위치 (`book_epub`)
+
+EPUB 원본은 DB LONGBLOB 또는 private S3 object에 저장한다. 최종 계약은 다음과 같다.
+
+| Column | 최종 계약 |
+|---|---|
+| `epub_data` | `LONGBLOB NULL` |
+| `storage_type` | `VARCHAR(16) NOT NULL DEFAULT 'DB'` (`DB` 또는 `S3`) |
+| `storage_key` | `VARCHAR(512) NULL`, S3 object key |
+| `s3_version_id` | `VARCHAR(128) NULL`, bucket versioning off면 NULL |
+| UNIQUE | `uk_book_epub_storage_key (storage_key)` |
+
+허용 상태:
+
+```text
+DB row: storage_type='DB', epub_data NOT NULL, storage_key NULL
+S3 row: storage_type='S3', storage_key NOT NULL,
+        epub_data는 NULL(신규 upload) 또는 rollback용 기존 blob(migration으로 옮긴 row)
+```
+
+application(`app.epub.storage=s3`)의 신규 upload row는 항상 `epub_data IS NULL`이다.
+one-off migration runner가 옮긴 기존 row는 rollback을 위해 `epub_data`를 유지한다.
+
+row invariant는 V003 postflight, `BookEpubBinaryStore`, `EpubS3MigrationService` preflight가
+같은 계약으로 검사한다.
+
+```text
+DB row: storage_type='DB', epub_data NOT NULL, storage_key NULL
+S3 row: storage_type='S3', storage_key와 s3_version_id 모두 non-blank (NULL과 공백 문자열 모두 위반)
+storage_type은 'DB' 또는 'S3'만 허용
+```
+
+`s3_version_id`가 필수인 이유: bucket versioning이 배포 필수 조건이고, version 없이 읽으면
+"최신 version"을 조용히 돌려주는 fallback이 생기며, 보상 삭제가 key 단위로 동작해
+다른 transaction의 object를 지울 수 있기 때문이다.
+
+- `storage_type='S3'`인데 `storage_key`가 비어 있으면 DB blob으로 조용히 fallback하지 않고 실패한다.
+- `storage_type`이 `DB`/`S3` 이외의 값이면 DB fallback으로 처리하지 않고 명시적으로 실패한다.
+- migration runner는 실행 전 `book_epub` **전체 row**의 invariant를 검사하고, 위반이 있으면
+  dry-run에서도 `failed`로 세고 아무것도 옮기지 않은 채 non-zero exit code로 끝난다.
+
 ### 실제 최종 DB와 bootstrap schema 차이
 
 실제 검증 DB에는 있지만 `src/main/resources/schema.sql`에는 아직 없는 항목이다.
@@ -199,6 +240,7 @@ ORDER BY TABLE_NAME;
 
 - `V001__epub_additive.sql`
 - `V002__request_notification_notice_alignment.sql`
+- `V003__epub_s3_object_storage.sql`
 - `0001_physical_library_location.sql`
 - `0002_unify_library_isbn.sql`
 
@@ -326,13 +368,25 @@ WHERE isbn IS NULL
 | 필수 sidecar | `관리자회원_포인트멱등응답스냅샷.sql` | 신규 및 해당 column이 없는 기존 DB |
 | 기존 DB migration | `db/manual/V001__epub_additive.sql` | EPUB 구조가 없는 기존 DB만 |
 | 기존 DB migration | `db/manual/V002__request_notification_notice_alignment.sql` | 희망도서/알림/공지 정합화가 안 된 기존 DB만 |
+| 기존 DB migration | `db/manual/V003__epub_s3_object_storage.sql` | `book_epub`에 S3 metadata column이 없는 기존 DB만 |
 | 도서관 migration | `migration/0001_physical_library_location.sql` | 도서관 기능이 없는 기존 DB |
 | 도서관 migration | `migration/0002_unify_library_isbn.sql` | 0001 ISBN 구조인 기존 DB |
 | 선택 성능 보완 | `관리자통계_성능인덱스.sql` | index 부재 확인 후 선택 적용 |
 | 선택 DB guard | `관리자감사로그_CHECK제약.sql` | 기존 invalid 데이터 0건 확인 후 선택 적용 |
 | rollback | `U001`, `U002`, `*_rollback.sql` | 명시 승인과 backup이 있을 때만 |
 
-V001/U001 및 V002/U002는 [`src/main/resources/db/manual`](../../src/main/resources/db/manual)에 있다.
+V001/U001, V002/U002, V003은 [`src/main/resources/db/manual`](../../src/main/resources/db/manual)에 있다.
+V003에는 대응하는 자동 rollback SQL(U003)이 없다. 되돌리려면 적용 직전 backup/snapshot을 복원한다.
+
+### V003 실행 규칙
+
+- `DELIMITER`를 사용하는 stored procedure 기반이므로 **반드시 `mysql` CLI로 실행**한다.
+- 실행 후 반드시 exit code를 확인한다. `0`이 아니면 구조가 기대와 다른 것이므로 추측으로 고치지 않는다.
+- V003은 기존 column의 정확한 type/nullability/default, unique index 대상 column, row invariant를
+  모두 검사하고, 어긋나면 `SIGNAL SQLSTATE '45000'`으로 **DDL을 하나도 적용하지 않고** 중단한다.
+- 신규 column이 3개 중 1~2개만 있는 부분 적용 상태는 `MIXED`로 판정하고 실패한다.
+- postflight도 procedure 안에서 SIGNAL을 던지므로 기대 구조가 아니면 exit 0이 나오지 않는다.
+- 자세한 실패 메시지 표는 [`deploy/README.md`](../../deploy/README.md) §2-3에 있다.
 
 ## 7. 실제 검증 DB 상태 기록
 

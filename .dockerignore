@@ -1,0 +1,51 @@
+# build output
+build/
+.gradle/
+out/
+bin/
+
+# secret / local environment
+.env
+.env.*
+!.env.example
+!.env.prod.example
+
+# VCS
+.git
+.gitignore
+.gitattributes
+
+# IDE
+.idea
+.vscode
+*.iml
+*.iws
+*.ipr
+.settings
+.classpath
+.project
+
+# frontend (별도 배포)
+abc-front/
+
+# agent / docs
+.agents/
+.claude/
+.codex/
+.omc/
+.omx/
+docs/
+deploy/
+AGENTS.md
+CLAUDE.md
+HELP.md
+README.md
+
+# container 산출물 자체
+Dockerfile
+.dockerignore
+compose.prod.yml
+
+# OS
+.DS_Store
+Thumbs.db

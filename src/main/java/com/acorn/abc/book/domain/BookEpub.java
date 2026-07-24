@@ -46,6 +46,18 @@ public class BookEpub extends BaseEntity {
     @Column(name = "epub_version", nullable = false)
     private int epubVersion;
 
+    /** 원본 binary 위치. {@code DB} 또는 {@code S3}. */
+    @Column(name = "storage_type", nullable = false, length = 16)
+    private String storageType;
+
+    /** S3 object key. {@code storageType=DB}이면 null. */
+    @Column(name = "storage_key", length = 512)
+    private String storageKey;
+
+    /** bucket versioning이 켜져 있을 때의 object version ID. 꺼져 있으면 null. */
+    @Column(name = "s3_version_id", length = 128)
+    private String s3VersionId;
+
     // epub_data는 큰 LONGBLOB이므로 이 metadata 엔티티에 매핑하지 않는다.
     // 업로드와 다운로드는 BookEpubBinaryStore에서 JDBC binary stream으로 처리한다.
 
