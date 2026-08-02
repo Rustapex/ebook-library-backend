@@ -1,0 +1,134 @@
+package com.acorn.abc.batch.service;
+
+import com.acorn.abc.admin.book.dto.BookIsbnTempBulkDeleteRequest;
+import com.acorn.abc.admin.book.dto.BookIsbnTempBulkDeleteResponse;
+import com.acorn.abc.admin.book.dto.BookIsbnTempFetchResponse;
+import com.acorn.abc.admin.book.dto.ExternalBookDuplicateInfo;
+import com.acorn.abc.admin.book.dto.ExternalBookLookupResponse;
+import com.acorn.abc.admin.book.dto.ExternalBookProviderStatus;
+import com.acorn.abc.batch.domain.BookIsbnTemp;
+import com.acorn.abc.batch.repository.BookIsbnTempRepository;
+import com.acorn.abc.common.exception.BusinessException;
+import com.acorn.abc.common.exception.ErrorCode;
+import com.acorn.abc.external.book.dto.BookMetadataResult;
+import com.acorn.abc.external.book.dto.DuplicateStatus;
+import com.acorn.abc.external.book.service.BookMetadataAggregateService;
+import com.acorn.abc.external.book.service.DuplicateBookDetector;
+import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.util.ArrayList;
+import java.util.List;
+
+/**
+ * 관리자 ISBN13 단건 preview / temp 저장(upsert) / 후보 목록 조회.
+ */
+@Service
+@RequiredArgsConstructor
+public class BookIsbnTempService {
+
+    private final BookMetadataAggregateService aggregateService;
+    private final DuplicateBookDetector duplicateBookDetector;
+    private final BookIsbnTempRepository bookIsbnTempRepository;
+
+    /**
+     * preview: 외부 API 병합 + 중복 조회. DB 저장 없음.
+     */
+    @Transactional(readOnly = true)
+    public ExternalBookLookupResponse lookup(String rawIsbn13) {
+        BookMetadataResult meta = aggregateService.aggregate(rawIsbn13);
+        ExternalBookDuplicateInfo duplicate = duplicateBookDetector.detect(
+                meta.isbn13(), meta.title(), meta.author(), meta.publisher());
+
+        List<String> warnings = new ArrayList<>(meta.warnings());
+        if (DuplicateStatus.BOOK_EXISTS.name().equals(duplicate.status())) {
+            warnings.add("이미 같은 ISBN으로 등록된 도서입니다.");
+        }
+
+        return new ExternalBookLookupResponse(
+                meta.isbn13(),
+                meta.title(),
+                meta.author(),
+                meta.publisher(),
+                meta.coverImageUrl(),
+                meta.description(),
+                meta.pubDate(),
+                meta.aladinCategoryId(),
+                meta.aladinCategoryName(),
+                new ExternalBookProviderStatus(
+                        meta.infonaru().name(), meta.naver().name(), meta.aladin().name()),
+                duplicate,
+                warnings
+        );
+    }
+
+    /**
+     * fetch: 외부 API 병합 후 book_isbn_temp에 insert 또는 update(upsert).
+     */
+    @Transactional
+    public BookIsbnTempFetchResponse fetch(String rawIsbn13) {
+        BookMetadataResult meta = aggregateService.aggregate(rawIsbn13);
+
+        BookIsbnTemp temp = bookIsbnTempRepository.findByIsbn13(meta.isbn13())
+                .orElseGet(() -> BookIsbnTemp.create(meta.isbn13()));
+
+        temp.applyMetadata(
+                meta.title(), meta.publisher(), meta.author(),
+                meta.coverImageUrl(), meta.description(), meta.pubDate(),
+                meta.aladinCategoryId(), meta.aladinCategoryName(),
+                meta.naver().code(), meta.aladin().code());
+
+        if (temp.getStatusCd() != BookIsbnTemp.STATUS_MERGED) {
+            if (temp.getBookTitle() != null && !temp.getBookTitle().isBlank()) {
+                temp.markReady();
+            } else {
+                temp.markPending();
+            }
+        }
+
+        BookIsbnTemp saved = bookIsbnTempRepository.save(temp);
+
+        ExternalBookDuplicateInfo duplicate = duplicateBookDetector.detect(
+                meta.isbn13(), meta.title(), meta.author(), meta.publisher());
+
+        return new BookIsbnTempFetchResponse(
+                saved.getId(), saved.getIsbn13(), saved.getStatusCd(),
+                saved.getAladinCategoryId(), saved.getAladinCategoryName(), duplicate);
+    }
+
+    @Transactional(readOnly = true)
+    public Page<BookIsbnTemp> list(byte statusCd, Pageable pageable) {
+        return bookIsbnTempRepository.findByStatusCd(statusCd, pageable);
+    }
+
+    @Transactional
+    public BookIsbnTempBulkDeleteResponse bulkDelete(BookIsbnTempBulkDeleteRequest request) {
+        if (request == null || request.tempIds() == null || request.tempIds().isEmpty()) {
+            throw new BusinessException(ErrorCode.VALIDATION_ERROR);
+        }
+
+        List<Long> tempIds = request.tempIds().stream()
+                .distinct()
+                .sorted()
+                .toList();
+        List<BookIsbnTemp> temps = bookIsbnTempRepository.findAllByIdInForUpdate(tempIds);
+
+        if (temps.size() != tempIds.size()) {
+            throw new BusinessException(ErrorCode.BOOK_ISBN_TEMP_NOT_FOUND);
+        }
+        if (temps.stream().anyMatch(temp -> temp.getStatusCd() != BookIsbnTemp.STATUS_PENDING)) {
+            throw new BusinessException(ErrorCode.BOOK_ISBN_TEMP_DELETE_NOT_ALLOWED);
+        }
+
+        int deletedCount = bookIsbnTempRepository.deleteAllByIdInAndStatusCd(
+                tempIds, BookIsbnTemp.STATUS_PENDING);
+        if (deletedCount != tempIds.size()) {
+            throw new IllegalStateException("삭제된 수집 후보 수가 요청 수와 일치하지 않습니다.");
+        }
+
+        return new BookIsbnTempBulkDeleteResponse(deletedCount, tempIds);
+    }
+}
