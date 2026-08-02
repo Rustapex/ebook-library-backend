@@ -1,0 +1,3 @@
+# CONSTRAINT_NAME, CHECK_CLAUSE
+'chk_admin_audit_log_action_type', '(`action_type` in (_utf8mb4\\\'MEMBER_POINT_ADJUST\\\',_utf8mb4\\\'COUPON_CREATE\\\',_utf8mb4\\\'COUPON_ISSUE\\\',_utf8mb4\\\'BOOK_CREATE\\\',_utf8mb4\\\'CHALLENGE_UPDATE\\\',_utf8mb4\\\'MEMBER_UPDATE\\\',_utf8mb4\\\'BOOK_UPDATE\\\',_utf8mb4\\\'REPORT_PROCESS\\\',_utf8mb4\\\'NOTICE_WRITE\\\'))'
+'chk_admin_audit_log_target_type', '(`target_type` in (_utf8mb4\\\'MEMBER\\\',_utf8mb4\\\'COUPON\\\',_utf8mb4\\\'BOOK\\\',_utf8mb4\\\'CHALLENGE\\\',_utf8mb4\\\'BOOK_REPORT\\\',_utf8mb4\\\'REVIEW_REPORT\\\',_utf8mb4\\\'REVIEW\\\',_utf8mb4\\\'NOTICE\\\',_utf8mb4\\\'SANCTION_HISTORY\\\'))'

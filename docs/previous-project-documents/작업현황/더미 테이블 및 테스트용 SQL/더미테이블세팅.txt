@@ -1,0 +1,122 @@
+[ABC 테스트 DB 공유]
+
+외부 도서 42권과 테스트 데이터를 포함한 로컬 MySQL 전체 dump 파일입니다.
+
+파일:
+abc_demo_42books.sql
+
+포함 내용:
+- abc 전체 schema
+- 테스트 계정 및 기존 테스트 데이터
+- 외부 도서 42권
+- 출판사, 저자, 카테고리 연결
+- 도서별 더미 본문 3페이지
+- book_isbn_temp 및 관리자 감사 로그
+
+주의:
+- 기존 로컬 abc DB의 테이블과 데이터가 전부 교체됩니다.
+- 필요한 로컬 데이터가 있으면 먼저 백업하세요.
+- 운영 DB에는 절대 import하지 마세요.
+- MySQL 8.x 기준입니다.
+- import 전에 backend 서버를 종료하세요.
+- import 후 최신 backend 코드로 실행하세요.
+- API key와 .env 파일은 포함되지 않습니다.
+- DB 비밀번호는 각자 로컬 MySQL 비밀번호를 사용하면 됩니다.
+
+
+[Windows import 방법]
+
+1. abc_demo_42books.sql 파일을 C:\abc_demo_42books.sql 위치에 둡니다.
+
+2. PowerShell에서 실행합니다.
+
+& "C:\Program Files\MySQL\MySQL Server 8.0\bin\mysql.exe" `
+  -u root `
+  -p `
+  --default-character-set=utf8mb4 `
+  --execute="source C:/abc_demo_42books.sql"
+
+3. Enter password가 나오면 본인 로컬 MySQL root 비밀번호를 입력합니다.
+
+mysql.exe가 위 경로에 없으면 아래 위치도 확인하세요.
+
+C:\Program Files\MySQL\MySQL Workbench 8.0\mysql.exe
+C:\xampp\mysql\bin\mysql.exe
+
+
+[macOS import 방법]
+
+1. Terminal에서 dump 파일이 있는 폴더로 이동합니다.
+
+예시:
+cd ~/Downloads
+
+2. 아래 명령을 실행합니다.
+
+mysql -u root -p --default-character-set=utf8mb4 < abc_demo_42books.sql
+
+3. Enter password가 나오면 본인 로컬 MySQL root 비밀번호를 입력합니다.
+
+mysql: command not found가 나오면 설치 위치에 따라 아래 중 하나를 사용하세요.
+
+Apple Silicon Mac:
+ /opt/homebrew/opt/mysql-client/bin/mysql -u root -p --default-character-set=utf8mb4 < abc_demo_42books.sql
+
+Intel Mac:
+ /usr/local/opt/mysql-client/bin/mysql -u root -p --default-character-set=utf8mb4 < abc_demo_42books.sql
+
+
+[MySQL Workbench로 import하는 방법]
+
+Windows/macOS 공통:
+
+1. MySQL Workbench 실행
+2. Server -> Data Import
+3. Import from Self-Contained File 선택
+4. abc_demo_42books.sql 선택
+5. Start Import
+6. import 완료 후 schema 목록 새로고침
+
+
+[Import 완료 확인 SQL]
+
+SELECT
+    COUNT(*) AS book_count,
+    SUM(total_pages = 3) AS three_page_count
+FROM book
+WHERE book_id BETWEEN 1110 AND 1151;
+
+정상 결과:
+42, 42
+
+관계 데이터 확인:
+
+SELECT
+    (SELECT COUNT(*)
+     FROM book_page
+     WHERE book_id BETWEEN 1110 AND 1151) AS pages,
+
+    (SELECT COUNT(DISTINCT book_id)
+     FROM book_author
+     WHERE book_id BETWEEN 1110 AND 1151) AS author_books,
+
+    (SELECT COUNT(DISTINCT book_id)
+     FROM book_category
+     WHERE book_id BETWEEN 1110 AND 1151) AS category_books;
+
+정상 결과:
+126, 42, 42
+
+
+[실행 확인]
+
+import 후 최신 backend를 실행합니다.
+
+Windows:
+.\gradlew.bat bootRun
+
+macOS:
+./gradlew bootRun
+
+도서 ID 1110~1151 범위가 외부 API로 수집한 테스트 도서입니다.
+전부 PAID, 5000원, AVAILABLE이며 각 도서에 더미 본문 3페이지가 있습니다.
