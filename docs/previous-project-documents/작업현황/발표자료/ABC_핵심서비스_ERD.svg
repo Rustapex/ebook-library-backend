@@ -1,0 +1,230 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1920" height="1280" viewBox="0 0 1920 1280" role="img" aria-labelledby="title description">
+  <title id="title">ABC 핵심 서비스 ERD</title>
+  <desc id="description">회원, 도서 콘텐츠, 대여 결제 독서, 참여, 도서관 위치 기능의 주요 테이블 관계를 요약한 발표용 ERD</desc>
+  <defs>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth"><path d="M0,0 L0,6 L9,3 z" fill="#64748b"/></marker>
+    <style>
+      .title{font-family:'Malgun Gothic','Noto Sans KR',Arial,sans-serif;font-size:42px;font-weight:700;fill:#0f172a}
+      .subtitle{font-family:'Malgun Gothic','Noto Sans KR',Arial,sans-serif;font-size:18px;fill:#475569}
+      .group{stroke-width:2;rx:24;ry:24}
+      .glabel{font-family:'Malgun Gothic','Noto Sans KR',Arial,sans-serif;font-size:22px;font-weight:700}
+      .card{fill:#ffffff;stroke:#94a3b8;stroke-width:1.6;rx:12;ry:12}
+      .head{font-family:Consolas,'Courier New',monospace;font-size:20px;font-weight:700;fill:#ffffff}
+      .field{font-family:Consolas,'Courier New',monospace;font-size:15px;fill:#334155}
+      .pk{font-family:Consolas,'Courier New',monospace;font-size:15px;font-weight:700;fill:#0f172a}
+      .rel{fill:none;stroke:#64748b;stroke-width:2.2;marker-end:url(#arrow)}
+      .logical{fill:none;stroke:#c2410c;stroke-width:2.5;stroke-dasharray:9 7;marker-end:url(#arrow)}
+      .tag{font-family:'Malgun Gothic','Noto Sans KR',Arial,sans-serif;font-size:14px;font-weight:700;fill:#475569}
+      .logicTag{font-family:'Malgun Gothic','Noto Sans KR',Arial,sans-serif;font-size:14px;font-weight:700;fill:#c2410c}
+      .cardinality{font-family:Consolas,'Courier New',monospace;font-size:15px;font-weight:700;fill:#475569}
+    </style>
+  </defs>
+
+  <rect width="1920" height="1280" fill="#f8fafc"/>
+  <text x="70" y="75" class="title">ABC 핵심 서비스 ERD</text>
+  <text x="70" y="110" class="subtitle">발표용 요약본 · 사용자 시연 흐름에 직접 연결되는 테이블만 표시 · PK/FK는 핵심 항목만 표기</text>
+
+  <!-- group panels -->
+  <rect x="55" y="145" width="390" height="1005" class="group" fill="#eff6ff" stroke="#93c5fd"/>
+  <text x="82" y="188" class="glabel" fill="#1d4ed8">회원 · 혜택 · 희망도서</text>
+  <rect x="475" y="145" width="455" height="490" class="group" fill="#f0fdf4" stroke="#86efac"/>
+  <text x="502" y="188" class="glabel" fill="#15803d">도서 · 콘텐츠</text>
+  <rect x="475" y="665" width="875" height="485" class="group" fill="#fffbeb" stroke="#fcd34d"/>
+  <text x="502" y="708" class="glabel" fill="#b45309">대여 · 결제 · 전자책 독서</text>
+  <rect x="960" y="145" width="900" height="490" class="group" fill="#fdf2f8" stroke="#f9a8d4"/>
+  <text x="987" y="188" class="glabel" fill="#be185d">도서 참여 · 신고 · 도서관 위치</text>
+
+  <!-- member -->
+  <g transform="translate(90,225)">
+    <rect width="320" height="150" class="card"/>
+    <rect width="320" height="42" rx="12" ry="12" fill="#2563eb"/><rect y="30" width="320" height="12" fill="#2563eb"/>
+    <text x="18" y="28" class="head">MEMBER</text>
+    <text x="18" y="70" class="pk">PK  member_id</text>
+    <text x="18" y="94" class="field">login_id · role · status</text>
+    <text x="18" y="118" class="field">point_balance · grade_id</text>
+  </g>
+  <g transform="translate(90,425)">
+    <rect width="320" height="105" class="card"/>
+    <rect width="320" height="38" rx="12" ry="12" fill="#3b82f6"/><rect y="26" width="320" height="12" fill="#3b82f6"/>
+    <text x="18" y="26" class="head">ATTENDANCE</text>
+    <text x="18" y="65" class="pk">PK  attendance_id</text>
+    <text x="18" y="88" class="field">FK  member_id · attendance_date</text>
+  </g>
+  <g transform="translate(90,575)">
+    <rect width="320" height="120" class="card"/>
+    <rect width="320" height="38" rx="12" ry="12" fill="#3b82f6"/><rect y="26" width="320" height="12" fill="#3b82f6"/>
+    <text x="18" y="26" class="head">MEMBER_COUPON</text>
+    <text x="18" y="65" class="pk">PK  member_coupon_id</text>
+    <text x="18" y="88" class="field">FK  member_id · coupon_id</text>
+    <text x="18" y="110" class="field">coupon_status · expires_at</text>
+  </g>
+  <g transform="translate(90,745)">
+    <rect width="320" height="150" class="card"/>
+    <rect width="320" height="38" rx="12" ry="12" fill="#3b82f6"/><rect y="26" width="320" height="12" fill="#3b82f6"/>
+    <text x="18" y="26" class="head">BOOK_REQUEST</text>
+    <text x="18" y="65" class="pk">PK  request_id</text>
+    <text x="18" y="88" class="field">FK  member_id</text>
+    <text x="18" y="110" class="field">FK  approved_book_id (nullable)</text>
+    <text x="18" y="132" class="field">request_status · request_title</text>
+  </g>
+  <g transform="translate(90,945)">
+    <rect width="320" height="120" class="card"/>
+    <rect width="320" height="38" rx="12" ry="12" fill="#3b82f6"/><rect y="26" width="320" height="12" fill="#3b82f6"/>
+    <text x="18" y="26" class="head">POINT_HISTORY</text>
+    <text x="18" y="65" class="pk">PK  point_history_id</text>
+    <text x="18" y="88" class="field">FK  member_id · payment_id</text>
+    <text x="18" y="110" class="field">point_type · point_amount</text>
+  </g>
+
+  <!-- book content -->
+  <g transform="translate(505,225)">
+    <rect width="390" height="160" class="card"/>
+    <rect width="390" height="42" rx="12" ry="12" fill="#16a34a"/><rect y="30" width="390" height="12" fill="#16a34a"/>
+    <text x="18" y="28" class="head">BOOK</text>
+    <text x="18" y="70" class="pk">PK  book_id</text>
+    <text x="18" y="94" class="field">title · isbn (UNIQUE) · status</text>
+    <text x="18" y="118" class="field">rental_type · rental_price</text>
+    <text x="18" y="142" class="field">average_rating · review_count</text>
+  </g>
+  <g transform="translate(505,445)">
+    <rect width="180" height="130" class="card"/>
+    <rect width="180" height="38" rx="12" ry="12" fill="#22c55e"/><rect y="26" width="180" height="12" fill="#22c55e"/>
+    <text x="16" y="26" class="head">BOOK_DETAIL</text>
+    <text x="16" y="65" class="pk">PK book_detail_id</text>
+    <text x="16" y="88" class="field">FK book_id (UNIQUE)</text>
+    <text x="16" y="111" class="field">소개 · 목차</text>
+  </g>
+  <g transform="translate(715,445)">
+    <rect width="180" height="130" class="card"/>
+    <rect width="180" height="38" rx="12" ry="12" fill="#22c55e"/><rect y="26" width="180" height="12" fill="#22c55e"/>
+    <text x="16" y="26" class="head">BOOK_EPUB</text>
+    <text x="16" y="65" class="pk">PK book_epub_id</text>
+    <text x="16" y="88" class="field">FK book_id · version</text>
+    <text x="16" y="111" class="field">DB Blob / S3 key</text>
+  </g>
+
+  <!-- rental reading -->
+  <g transform="translate(505,750)">
+    <rect width="270" height="145" class="card"/>
+    <rect width="270" height="40" rx="12" ry="12" fill="#d97706"/><rect y="28" width="270" height="12" fill="#d97706"/>
+    <text x="16" y="27" class="head">BOOK_RENTAL</text>
+    <text x="16" y="68" class="pk">PK  rental_id</text>
+    <text x="16" y="92" class="field">FK  member_id · book_id</text>
+    <text x="16" y="116" class="field">rental_status · end_at</text>
+    <text x="16" y="138" class="field">READY / READING / OWNED</text>
+  </g>
+  <g transform="translate(820,750)">
+    <rect width="240" height="145" class="card"/>
+    <rect width="240" height="40" rx="12" ry="12" fill="#d97706"/><rect y="28" width="240" height="12" fill="#d97706"/>
+    <text x="16" y="27" class="head">PAYMENT</text>
+    <text x="16" y="68" class="pk">PK  payment_id</text>
+    <text x="16" y="92" class="field">FK  member_id · rental_id</text>
+    <text x="16" y="116" class="field">amount · method · status</text>
+    <text x="16" y="138" class="field">paid_at</text>
+  </g>
+  <g transform="translate(1100,750)">
+    <rect width="215" height="145" class="card"/>
+    <rect width="215" height="40" rx="12" ry="12" fill="#d97706"/><rect y="28" width="215" height="12" fill="#d97706"/>
+    <text x="16" y="27" class="head">COUPON_USAGE</text>
+    <text x="16" y="68" class="pk">PK coupon_usage_id</text>
+    <text x="16" y="92" class="field">FK member_coupon_id</text>
+    <text x="16" y="116" class="field">FK rental_id · payment_id</text>
+    <text x="16" y="138" class="field">discount_amount</text>
+  </g>
+  <g transform="translate(505,965)">
+    <rect width="270" height="130" class="card"/>
+    <rect width="270" height="40" rx="12" ry="12" fill="#f59e0b"/><rect y="28" width="270" height="12" fill="#f59e0b"/>
+    <text x="16" y="27" class="head">READING_PROGRESS</text>
+    <text x="16" y="68" class="pk">PK progress_id</text>
+    <text x="16" y="92" class="field">FK rental_id (UNIQUE)</text>
+    <text x="16" y="115" class="field">page · progression · complete</text>
+  </g>
+  <g transform="translate(820,965)">
+    <rect width="240" height="130" class="card"/>
+    <rect width="240" height="40" rx="12" ry="12" fill="#f59e0b"/><rect y="28" width="240" height="12" fill="#f59e0b"/>
+    <text x="16" y="27" class="head">BOOKMARK</text>
+    <text x="16" y="68" class="pk">PK bookmark_id</text>
+    <text x="16" y="92" class="field">FK rental_id</text>
+    <text x="16" y="115" class="field">page / EPUB location</text>
+  </g>
+
+  <!-- engagement & library -->
+  <g transform="translate(990,225)">
+    <rect width="240" height="125" class="card"/>
+    <rect width="240" height="40" rx="12" ry="12" fill="#db2777"/><rect y="28" width="240" height="12" fill="#db2777"/>
+    <text x="16" y="27" class="head">REVIEW</text>
+    <text x="16" y="68" class="pk">PK review_id</text>
+    <text x="16" y="92" class="field">FK member_id · book_id</text>
+    <text x="16" y="115" class="field">content · status</text>
+  </g>
+  <g transform="translate(1270,225)">
+    <rect width="240" height="125" class="card"/>
+    <rect width="240" height="40" rx="12" ry="12" fill="#db2777"/><rect y="28" width="240" height="12" fill="#db2777"/>
+    <text x="16" y="27" class="head">RATING</text>
+    <text x="16" y="68" class="pk">PK rating_id</text>
+    <text x="16" y="92" class="field">FK member_id · book_id</text>
+    <text x="16" y="115" class="field">rating_score (1~5)</text>
+  </g>
+  <g transform="translate(1550,225)">
+    <rect width="270" height="125" class="card"/>
+    <rect width="270" height="40" rx="12" ry="12" fill="#db2777"/><rect y="28" width="270" height="12" fill="#db2777"/>
+    <text x="16" y="27" class="head">BOOK_REPORT</text>
+    <text x="16" y="68" class="pk">PK book_report_id</text>
+    <text x="16" y="92" class="field">FK reporter_id · book_id</text>
+    <text x="16" y="115" class="field">report_type · status</text>
+  </g>
+  <g transform="translate(990,410)">
+    <rect width="240" height="125" class="card"/>
+    <rect width="240" height="40" rx="12" ry="12" fill="#db2777"/><rect y="28" width="240" height="12" fill="#db2777"/>
+    <text x="16" y="27" class="head">REVIEW_REPORT</text>
+    <text x="16" y="68" class="pk">PK review_report_id</text>
+    <text x="16" y="92" class="field">FK reporter_id · review_id</text>
+    <text x="16" y="115" class="field">report_type · status</text>
+  </g>
+  <g transform="translate(1270,410)">
+    <rect width="240" height="125" class="card"/>
+    <rect width="240" height="40" rx="12" ry="12" fill="#db2777"/><rect y="28" width="240" height="12" fill="#db2777"/>
+    <text x="16" y="27" class="head">LIBRARY</text>
+    <text x="16" y="68" class="pk">PK library_id</text>
+    <text x="16" y="92" class="field">library_code · region_code</text>
+    <text x="16" y="115" class="field">dtl_region_code · source</text>
+  </g>
+  <g transform="translate(1550,410)">
+    <rect width="270" height="125" class="card"/>
+    <rect width="270" height="40" rx="12" ry="12" fill="#db2777"/><rect y="28" width="270" height="12" fill="#db2777"/>
+    <text x="16" y="27" class="head">LIBRARY_HOLDING</text>
+    <text x="16" y="68" class="pk">PK library_holding_id</text>
+    <text x="16" y="92" class="field">FK library_id · isbn</text>
+    <text x="16" y="115" class="field">UNIQUE (library_id, isbn)</text>
+  </g>
+
+  <!-- relationships: only actual FK paths, except the explicit ISBN logical link -->
+  <path d="M250 375 L250 425" class="rel"/><text x="262" y="406" class="cardinality">1 : N</text>
+  <path d="M250 375 L250 575" class="rel"/><text x="262" y="552" class="cardinality">1 : N</text>
+  <path d="M250 375 L250 745" class="rel"/><text x="262" y="724" class="cardinality">1 : N</text>
+  <path d="M410 335 L455 335 L455 822 L505 822" class="rel"/><text x="463" y="805" class="cardinality">1 : N</text>
+  <path d="M410 635 L450 635 L450 920 L1080 920 L1080 822 L1100 822" class="rel"/><text x="855" y="911" class="cardinality">1 : 0..1</text>
+  <path d="M410 820 L470 820 L470 405 L490 405 L490 360 L505 360" class="rel"/><text x="412" y="398" class="cardinality">승인 시 0..1</text>
+  <path d="M700 385 L595 445" class="rel"/><text x="610" y="420" class="cardinality">1 : 1</text>
+  <path d="M790 385 L805 445" class="rel"/><text x="815" y="420" class="cardinality">1 : N</text>
+  <path d="M700 385 L700 680 L640 680 L640 750" class="rel"/><text x="650" y="660" class="cardinality">1 : N</text>
+  <path d="M775 822 L820 822" class="rel"/><text x="782" y="810" class="cardinality">1 : N</text>
+  <path d="M640 895 L640 965" class="rel"/><text x="652" y="942" class="cardinality">1 : 1</text>
+  <path d="M720 895 L720 945 L940 945 L940 965" class="rel"/><text x="808" y="936" class="cardinality">1 : N</text>
+  <path d="M1060 822 L1100 822" class="rel"/><text x="1064" y="810" class="cardinality">1 : 0..1</text>
+  <path d="M410 245 L455 245 L455 205 L1110 205 L1110 225" class="rel"/><text x="1070" y="194" class="cardinality">1 : N</text>
+  <path d="M895 265 L960 265 L960 300 L990 300" class="rel"/><text x="918" y="254" class="cardinality">1 : N</text>
+  <path d="M410 258 L440 258 L440 190 L1390 190 L1390 225" class="rel"/><text x="1352" y="180" class="cardinality">1 : N</text>
+  <path d="M895 370 L1240 370 L1240 290 L1270 290" class="rel"/><text x="1210" y="360" class="cardinality">1 : N</text>
+  <path d="M410 270 L430 270 L430 175 L1685 175 L1685 225" class="rel"/><text x="1645" y="165" class="cardinality">1 : N</text>
+  <path d="M895 380 L1530 380 L1530 285 L1550 285" class="rel"/><text x="1495" y="370" class="cardinality">1 : N</text>
+  <path d="M1110 350 L1110 410" class="rel"/><text x="1122" y="390" class="cardinality">1 : N</text>
+  <path d="M1510 472 L1550 472" class="rel"/><text x="1515" y="460" class="cardinality">1 : N</text>
+  <path d="M895 375 L1480 590 L1685 535" class="logical"/>
+  <text x="1225" y="596" class="logicTag">ISBN 논리 연결 (FK 없음): book.isbn = library_holding.isbn</text>
+
+  <!-- footer legend -->
+  <line x1="70" y1="1200" x2="145" y2="1200" class="rel"/><text x="160" y="1206" class="tag">실제 FK 관계</text>
+  <line x1="350" y1="1200" x2="425" y2="1200" class="logical"/><text x="440" y="1206" class="logicTag">ISBN 기반 논리 연결</text>
+  <text x="980" y="1206" class="subtitle">기준: docs/데이터베이스/README.md의 최종 계약 + src/main/resources/schema.sql의 runtime FK</text>
+</svg>

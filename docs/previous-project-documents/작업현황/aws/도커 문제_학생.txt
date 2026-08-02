@@ -1,0 +1,229 @@
+도커 시험
+문제:20문제 , 선택형 문제임 (고르는 문제)
+노션+정리문서  
+
+시험일자:   7월 23일 
+
+
+정리문서:80%
+노션 
+
+
+
+Docker 이론 주관식 문제 및 답변
+[문제]
+Docker의 주요 구성 요소인 이미지(Image)와 컨테이너(Container)의 차이점에 대해 설명하시오
+ 
+
+이미지(Image)는 실행 가능한 애플리케이션과 환경이 포함된 읽기 전용 템플릿이다 
+컨테이너(Container)는 이미지를 실행한 상태로, 실제 프로세스가 동작하며 격리된 환경을 제공한다
+[문제]
+Dockerfile이란 무엇이며, Docker 이미지를 생성할 때 어떤 역할을 하는지 설명하시오 
+
+Dockerfile은 Docker 이미지 빌드를 위한 설정과 명령어를 순서대로 작성한 스크립트 파일이다.
+
+이 파일을 통해 어떤 베이스 이미지에서 시작할지, 필요한 소프트웨어 설치, 환경 변수 설정 등을 자동화하여 이미지를 만든다.
+
+
+
+[문제]
+Docker 컨테이너가 애플리케이션 배포와 개발에 있어 가지는 주요 장점 세 가지를 설명하시오 
+
+이식성(Portability): 컨테이너에 애플리케이션과 실행 환경이 함께 패키징되어, 어디서나 동일하게 실행할 수 있습니다.
+
+경량성(Lightweight): 기존 가상 머신보다 리소스 사용이 적고 빠르게 시작할 수 있어 개발과 배포가 효율적입니다.
+
+격리성(Isolation): 각 컨테이너는 독립된 환경에서 실행되어 서로 간섭 없이 안정적으로 운영할 수 있습니다.
+
+
+[문제]
+Docker Compose가 무엇인지, 그리고 Docker Compose를 사용하는 이유를 설명하시오 
+
+Docker Compose는 여러 컨테이너를 정의하고 한 번에 실행, 관리할 수 있게 해주는 도구이다
+복잡한 멀티 컨테이너 애플리케이션을 쉽게 설정하고, 네트워크, 볼륨 등의 구성을 코드로 관리할 수 있다
+[문제]
+Docker 볼륨(Volume)이 무엇이며, 컨테이너의 어떤 문제를 해결하기 위해 사용되는지 설명하시오
+ 
+
+볼륨은 컨테이너 외부에 데이터를 저장하는 공간으로, 컨테이너가 삭제되어도 데이터가 유지됨
+이를 통해 컨테이너 데이터의 지속성 문제를 해결하고, 여러 컨테이너 간 데이터 공유도 가능하다
+//
+ 
+[문제]
+ Dockerfile  무엇인가요?
+ Dockerfile(도커파일)은 Docker 이미지를 자동으로 만들기 위한 설정 스크립트(레시피)이다
+
+
+Dockerfile이 하는 일
+Dockerfile 안에는 다음과 같은 내용이 들어감
+
+어떤 OS/런타임을 쓸지 → FROM
+필요한 프로그램 설치 → RUN
+소스 코드 넣기 → COPY / ADD
+실행 명령 지정 → CMD / ENTRYPOINT
+네트워크 포트 공개 → EXPOSE
+
+이 파일을 기반으로 Docker가 이미지를 만들어서,
+그 이미지를 컨테이너로 실행하게 된다.
+
+
+
+파이선  도커파일  예시)
+
+
+FROM python:3.11-slim        # Python이 설치된 기본 이미지
+WORKDIR /app                 # 작업 디렉터리
+COPY requirements.txt .      # 의존성 목록 복사
+RUN pip install -r requirements.txt
+COPY . .                     # 소스 전체 복사
+CMD ["python", "main.py"]    # 실행 명령
+
+
+
+스프링부트 도커파일   예시)
+
+FROM eclipse-temurin:17-jre-alpine     # Temurin JRE (가볍고 빠름)
+WORKDIR /app
+COPY build/libs/*.jar app.jar          # 스프링부트 JAR 복사
+EXPOSE 8080
+ENTRYPOINT ["java","-jar","/app/app.jar"]
+
+[문]도커  이미지란 무엇인가?   
+컨테이너(실행되는 서버)의 설계도 + 실행에 필요한 모든 것
+= 코드, 라이브러리, OS 최소 구성, 설정이 묶여 있는 파일
+
+이미지는 실행하면 바뀌지 않고,
+이 이미지를 기반으로 만들어진 것이 컨테이너(실제로 돌아가는 것) 이다
+
+
+
+[문]
+Docker에서 볼륨(Volume)을 사용하는 주된 이유를 서술하시오.
+
+정답:
+컨테이너가 삭제되거나 재생성되어도 데이터를 유지하고 여러 컨테이너 간에 데이터를 공유하기 위해 사용한다.
+
+[문]
+Docker에서 컨테이너가 자동으로 재시작되도록 설정하는 옵션 이름을 쓰시오.
+
+정답:
+--restart
+
+[문]
+Dockerfile에서 COPY . /app 명령어가 하는 역할을 서술하시오.
+
+정답:
+현재 디렉터리의 모든 파일을 이미지 내 /app 디렉터리로 복사한다.
+
+[문]
+Docker에서 컨테이너 로그를 실시간으로 확인할 때 사용하는 명령어를 쓰시오.
+
+정답:
+docker logs -f <컨테이너ID>
+
+[문]
+Docker Compose 파일에서 여러 컨테이너가 동일한 네트워크를 공유하도록 설정하는 섹션 이름을 쓰시오.
+
+정답:
+networks
+
+[문]
+Docker Compose에서 depends_on 옵션의 역할을 서술하시오.
+
+정답:
+한 서비스가 다른 서비스가 시작된 후에 실행되도록 실행 순서를 지정한다.
+
+######################
+스프링부트 도커파일예시
+
+Dockerfile
+#  기본 이미지 설정 (OpenJDK)
+FROM openjdk:17-jdk-slim
+
+#  작업 디렉토리 설정
+WORKDIR /app
+
+#   로컬 JAR 파일을 Docker 이미지로 복사 (Gradle의 경우)
+COPY build/libs/*SNAPSHOT.jar app.jar
+
+#   애플리케이션 실행
+ENTRYPOINT ["java", "-jar", "/app/app.jar"]
+
+# 포트 설정 (애플리케이션이 사용하는 포트)
+EXPOSE 8080
+
+
+#########################
+ mysql 도커 컴포즈로 실행하기
+
+
+version: "3.8"
+
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: mysql-db
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: root1234
+      MYSQL_DATABASE: testdb
+      MYSQL_USER: scott
+      MYSQL_PASSWORD: tiger
+    ports:
+      - "3302:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./docker/mysql/init.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  mysql_data:  # 볼륨 정의
+
+
+################
+스프링부트 +mysql 도커 컴포즈로 함께 컨테이너로 띄우기
+
+version: '3.8'
+
+services:
+  mysql_container:
+    image: mysql:8
+    environment:
+      MYSQL_ROOT_PASSWORD: 1234
+      MYSQL_DATABASE: testdb
+      MYSQL_USER: scott
+      MYSQL_PASSWORD: tiger
+    volumes:
+      - db_data:/var/lib/mysql
+      - ./db/init.sql:/docker-entrypoint-initdb.d/init.sql
+    ports:
+      - "3303:3306"
+    networks:
+      - app-network
+
+  spring_app:
+    build: .
+    depends_on:
+      - mysql_container
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql_container:3306/testdb
+      SPRING_DATASOURCE_USERNAME: scott
+      SPRING_DATASOURCE_PASSWORD: tiger
+    ports:
+      - "8080:8080"
+    networks:
+      - app-network
+
+
+volumes:
+  db_data:
+
+networks:
+  app-network:
+    driver: bridge
+
+

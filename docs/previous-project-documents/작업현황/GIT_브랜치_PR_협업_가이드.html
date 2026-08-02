@@ -1,0 +1,831 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Git 브랜치 PR 협업 가이드</title>
+<style>
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0;
+    padding: 32px;
+    font-family: "Malgun Gothic", "Apple SD Gothic Neo", Arial, sans-serif;
+    background: #f4f6f8;
+    color: #1f2937;
+    line-height: 1.72;
+  }
+  .page {
+    max-width: 1240px;
+    margin: 0 auto 36px;
+    background: #fff;
+    border: 1px solid #d9dee5;
+    border-radius: 12px;
+    padding: 36px 42px;
+    box-shadow: 0 4px 20px rgba(0,0,0,.05);
+  }
+  h1 { margin: 0 0 8px; font-size: 31px; letter-spacing: 0; }
+  h2 {
+    margin: 44px 0 14px;
+    padding-left: 12px;
+    border-left: 7px solid #1f2937;
+    font-size: 23px;
+    scroll-margin-top: 20px;
+  }
+  h3 { margin: 30px 0 10px; font-size: 18px; scroll-margin-top: 20px; }
+  h4 { margin: 18px 0 8px; font-size: 15px; }
+  p { margin: 8px 0 14px; }
+  a { color: #1d4ed8; }
+  code {
+    background: #f1f5f9;
+    border: 1px solid #e2e8f0;
+    border-radius: 5px;
+    padding: 2px 5px;
+    font-family: Consolas, "Courier New", monospace;
+    font-size: 13px;
+  }
+  pre {
+    margin: 10px 0 18px;
+    background: #111827;
+    color: #e5e7eb;
+    padding: 16px 18px;
+    border-radius: 10px;
+    overflow-x: auto;
+    font-family: Consolas, "Courier New", monospace;
+    font-size: 13px;
+    line-height: 1.55;
+  }
+  pre code {
+    background: transparent;
+    border: 0;
+    border-radius: 0;
+    padding: 0;
+    color: inherit;
+    font-size: inherit;
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 14px 0 24px;
+    font-size: 14px;
+  }
+  th, td {
+    border: 1px solid #cbd5e1;
+    padding: 10px 12px;
+    vertical-align: top;
+  }
+  th { background: #e5e7eb; text-align: left; }
+  ul, ol { padding-left: 22px; }
+  li { margin: 5px 0; }
+  .subtitle { color: #555; margin-bottom: 22px; }
+  .badge {
+    display: inline-block;
+    padding: 3px 8px;
+    border-radius: 999px;
+    background: #eef2ff;
+    color: #3730a3;
+    font-weight: 700;
+    font-size: 12px;
+  }
+  .note, .warning, .success, .danger, .talk {
+    border-radius: 10px;
+    padding: 15px 17px;
+    margin: 18px 0;
+  }
+  .note { background: #eef7ff; border: 1px solid #9bc6ea; }
+  .warning { background: #fff7ed; border: 1px solid #fdba74; }
+  .success { background: #ecfdf5; border: 1px solid #86efac; }
+  .danger { background: #fef2f2; border: 1px solid #fca5a5; }
+  .talk { background: #f8fafc; border: 1px dashed #94a3b8; }
+  .grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+  }
+  .card {
+    border: 1px solid #dbe3ec;
+    border-radius: 8px;
+    padding: 16px;
+    background: #fbfdff;
+  }
+  .card h3, .card h4 { margin-top: 0; }
+  .role-title {
+    display: inline-block;
+    padding: 5px 10px;
+    border-radius: 8px;
+    background: #111827;
+    color: #fff;
+    font-weight: 800;
+  }
+  .toc {
+    columns: 2;
+    padding-left: 0;
+    list-style: none;
+    counter-reset: toc-item;
+  }
+  .toc li {
+    break-inside: avoid;
+    margin: 5px 0;
+    counter-increment: toc-item;
+  }
+  .toc li a {
+    display: block;
+    padding: 6px 8px;
+    border-radius: 8px;
+    color: #1d4ed8;
+    text-decoration: none;
+    font-weight: 700;
+  }
+  .toc li a::before {
+    content: counter(toc-item) ". ";
+    font-weight: 900;
+    color: #334155;
+  }
+  .toc li a:hover { background: #eff6ff; }
+  .flow, .cycle-map {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: center;
+    margin: 18px 0;
+    padding: 14px;
+    border: 1px solid #bfdbfe;
+    border-radius: 12px;
+    background: #eff6ff;
+  }
+  .node {
+    background: #fff;
+    border: 1px solid #93c5fd;
+    border-radius: 999px;
+    padding: 7px 11px;
+    font-weight: 800;
+    font-size: 13px;
+  }
+  .arrow { color: #2563eb; font-weight: 900; }
+  .method {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+    margin: 14px 0 24px;
+  }
+  .method-card {
+    border: 1px solid #dbe3ec;
+    border-radius: 8px;
+    padding: 14px;
+    background: #fff;
+  }
+  .method-card h4 {
+    margin: 0 0 10px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid #e5e7eb;
+  }
+  .small { color: #64748b; font-size: 12px; }
+  .kbd {
+    font-family: Consolas, "Courier New", monospace;
+    border: 1px solid #cbd5e1;
+    border-bottom-width: 2px;
+    border-radius: 5px;
+    padding: 1px 5px;
+    background: #fff;
+  }
+  @media print {
+    body { background: #fff; padding: 0; }
+    .page { box-shadow: none; border: 0; border-radius: 0; max-width: none; padding: 20px; }
+    pre { white-space: pre-wrap; }
+    .grid, .method { grid-template-columns: 1fr; }
+    a { color: #111827; text-decoration: none; }
+  }
+  @media (max-width: 850px) {
+    body { padding: 16px; }
+    .page { padding: 22px; }
+    .grid, .method { grid-template-columns: 1fr; }
+    .toc { columns: 1; }
+  }
+</style>
+</head>
+<body>
+<main class="page">
+  <span class="badge">팀 저장소 브랜치 PR 협업 기준</span>
+  <h1>Git 브랜치 PR 협업 가이드</h1>
+  <p class="subtitle">Fork 없이 팀 저장소에서 개인 작업 브랜치를 만들고, PR로 팀장에게 merge 요청하는 협업 방식</p>
+
+  <div class="danger">
+    <b>핵심 원칙</b><br>
+    <code>main</code>에는 직접 작업하지 않습니다. 모든 작업은 개인 작업 브랜치에서 진행하고, PR을 올린 뒤 팀장이 검토 후 <code>main</code>에 merge합니다. merge 이후 작업자는 다시 <code>main</code>을 pull하고, 계속 작업 중인 브랜치가 있으면 최신 <code>main</code>을 병합한 뒤 push합니다.
+  </div>
+
+  <h2 id="toc">목차</h2>
+  <ol class="toc">
+    <li><a href="#sec-01">협업 원칙</a></li>
+    <li><a href="#sec-02">역할 구분</a></li>
+    <li><a href="#sec-03">용어 정리</a></li>
+    <li><a href="#sec-04">전체 흐름</a></li>
+    <li><a href="#sec-05">상태 확인</a></li>
+    <li><a href="#sec-06">main 최신화</a></li>
+    <li><a href="#sec-07">브랜치 규칙</a></li>
+    <li><a href="#sec-08">브랜치 생성</a></li>
+    <li><a href="#sec-09">작업과 검증</a></li>
+    <li><a href="#sec-10">커밋 규칙</a></li>
+    <li><a href="#sec-11">push 규칙</a></li>
+    <li><a href="#sec-12">PR 작성 규칙</a></li>
+    <li><a href="#sec-13">PR 전 최신화</a></li>
+    <li><a href="#sec-14">다른 PR merge 대응</a></li>
+    <li><a href="#sec-15">내 PR merge 이후</a></li>
+    <li><a href="#sec-16">충돌 처리</a></li>
+    <li><a href="#sec-17">브랜치 정리</a></li>
+    <li><a href="#sec-18">자주 하는 실수</a></li>
+    <li><a href="#sec-19">근거 자료</a></li>
+  </ol>
+
+  <h2 id="sec-01">1. 협업 원칙</h2>
+  <table>
+    <thead><tr><th>원칙</th><th>내용</th><th>이유</th></tr></thead>
+    <tbody>
+      <tr><td><code>main</code> 직접 작업 금지</td><td>기능 개발, 버그 수정, 문서 수정은 모두 작업 브랜치에서 진행합니다.</td><td><code>main</code>은 팀 기준 코드이므로 승인된 변경만 들어가야 합니다.</td></tr>
+      <tr><td>작업 브랜치 사용</td><td>작업마다 <code>feature/...</code>, <code>fix/...</code> 같은 브랜치를 만듭니다.</td><td>GitHub Docs는 브랜치를 다른 작업에 영향 주지 않는 격리 공간으로 설명합니다.</td></tr>
+      <tr><td>PR로 merge 요청</td><td>작업 브랜치를 push한 뒤 GitHub에서 PR을 생성합니다.</td><td>팀장이 변경 내용을 검토하고 <code>main</code>에 반영할 수 있습니다.</td></tr>
+      <tr><td>merge 후 다시 최신화</td><td>팀장이 merge하면 작업자는 <code>main</code>을 pull합니다.</td><td>로컬 코드가 팀 저장소의 최신 상태를 따라가야 다음 충돌을 줄일 수 있습니다.</td></tr>
+      <tr><td>설치 문서 제외</td><td>Sourcetree 설치, GitHub 계정 연결, Fork 생성 설명은 이 문서에서 다루지 않습니다.</td><td>이 문서는 설치가 아니라 반복 협업 절차를 설명합니다.</td></tr>
+    </tbody>
+  </table>
+
+  <h2 id="sec-02">2. 역할 구분</h2>
+  <div class="grid">
+    <div class="card">
+      <h3><span class="role-title">팀장 / Git 관리자</span></h3>
+      <ul>
+        <li>팀 저장소와 <code>main</code> 브랜치 관리</li>
+        <li>PR 검토, 리뷰 요청, merge 수행</li>
+        <li>충돌 또는 규칙 위반 PR에 대한 수정 요청</li>
+        <li>팀원이 어느 브랜치에서 작업해야 하는지 안내</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3><span class="role-title">작업자 / 팀원</span></h3>
+      <ul>
+        <li><code>main</code> 최신화 후 작업 브랜치 생성</li>
+        <li>작업 브랜치에서 코드/문서 수정, 검증, commit</li>
+        <li>자기 작업 브랜치만 push</li>
+        <li>PR 제목/본문을 규칙에 맞게 작성</li>
+        <li>팀장 merge 후 <code>main</code> pull 및 진행 중 브랜치 최신화</li>
+      </ul>
+    </div>
+  </div>
+
+  <h2 id="sec-03">3. 용어 정리</h2>
+  <table>
+    <thead><tr><th>용어</th><th>의미</th><th>예시</th></tr></thead>
+    <tbody>
+      <tr><td><code>origin</code></td><td>내 로컬 저장소가 연결된 팀 GitHub 저장소입니다.</td><td><code>팀계정/프로젝트저장소</code></td></tr>
+      <tr><td><code>main</code></td><td>팀 기준 브랜치입니다. 승인된 코드만 들어갑니다.</td><td><code>origin/main</code>, <code>local main</code></td></tr>
+      <tr><td>작업 브랜치</td><td>개별 작업을 진행하는 브랜치입니다.</td><td><code>feature/member-login</code></td></tr>
+      <tr><td>head branch</td><td>PR에서 변경 내용을 담은 브랜치입니다.</td><td><code>feature/member-login</code></td></tr>
+      <tr><td>base branch</td><td>PR 변경이 들어갈 대상 브랜치입니다.</td><td><code>main</code></td></tr>
+      <tr><td>merge</td><td>한 브랜치의 변경을 다른 브랜치에 합치는 작업입니다.</td><td>작업 브랜치 -> <code>main</code></td></tr>
+      <tr><td>stash</td><td>아직 commit하지 않은 변경을 임시 보관하고 작업 폴더를 깨끗하게 만드는 기능입니다.</td><td><code>git stash push -m "작업명"</code></td></tr>
+    </tbody>
+  </table>
+
+  <h2 id="sec-04">4. 전체 흐름</h2>
+  <div class="flow" aria-label="전체 협업 흐름">
+    <span class="node">main 이동</span><span class="arrow">→</span>
+    <span class="node">main pull</span><span class="arrow">→</span>
+    <span class="node">브랜치 생성</span><span class="arrow">→</span>
+    <span class="node">작업</span><span class="arrow">→</span>
+    <span class="node">검증</span><span class="arrow">→</span>
+    <span class="node">commit</span><span class="arrow">→</span>
+    <span class="node">push</span><span class="arrow">→</span>
+    <span class="node">PR</span><span class="arrow">→</span>
+    <span class="node">팀장 merge</span><span class="arrow">→</span>
+    <span class="node">main pull</span><span class="arrow">→</span>
+    <span class="node">진행 브랜치에 main 병합</span><span class="arrow">→</span>
+    <span class="node">작업 브랜치 push</span>
+  </div>
+
+  <table>
+    <thead><tr><th>단계</th><th>작업자 행동</th><th>기준 브랜치</th><th>결과</th></tr></thead>
+    <tbody>
+      <tr><td>1</td><td><code>main</code>으로 이동</td><td><code>main</code></td><td>기준 브랜치 확인</td></tr>
+      <tr><td>2</td><td>최신 <code>main</code> pull</td><td><code>main</code></td><td>팀장이 merge한 최신 코드 반영</td></tr>
+      <tr><td>3</td><td>작업 브랜치 생성</td><td><code>feature/...</code>, <code>fix/...</code></td><td>내 작업 공간 분리</td></tr>
+      <tr><td>4</td><td>작업, 검증, commit</td><td>작업 브랜치</td><td>변경 이력 저장</td></tr>
+      <tr><td>5</td><td>작업 브랜치 push</td><td>작업 브랜치</td><td>GitHub에 작업 브랜치 업로드</td></tr>
+      <tr><td>6</td><td>PR 생성</td><td>작업 브랜치 -> <code>main</code></td><td>팀장에게 merge 요청</td></tr>
+      <tr><td>7</td><td>팀장 리뷰/merge</td><td><code>main</code></td><td>팀 저장소 <code>main</code> 반영</td></tr>
+      <tr><td>8</td><td>작업자 <code>main</code> pull</td><td><code>main</code></td><td>merge된 최신 내용 로컬 반영</td></tr>
+      <tr><td>9</td><td>계속 작업 중인 브랜치에 <code>main</code> 병합</td><td>작업 브랜치</td><td>다음 PR 충돌 가능성 감소</td></tr>
+      <tr><td>10</td><td>병합 결과를 작업 브랜치에 push</td><td>작업 브랜치</td><td>원격 작업 브랜치도 최신화</td></tr>
+    </tbody>
+  </table>
+
+  <h2 id="sec-05">5. 작업 시작 전 상태 확인</h2>
+  <div class="method">
+    <div class="method-card">
+      <h4>Sourcetree GUI</h4>
+      <ol>
+        <li>왼쪽 사이드바의 <b>브랜치</b> 목록을 봅니다.</li>
+        <li>굵게 표시되거나 선택된 브랜치가 현재 작업 중인 브랜치입니다. 작업 시작 전에는 보통 <code>main</code>이어야 합니다.</li>
+        <li>왼쪽 <b>파일 상태</b> 화면을 열어 아직 commit하지 않은 변경 파일이 있는지 확인합니다.</li>
+        <li>변경 파일이 있으면 먼저 내 작업인지 확인합니다. 내 작업이면 commit 또는 stash를 결정하고, 작업과 무관한 파일이면 commit하지 않습니다.</li>
+        <li><b>History</b> 화면에서는 <code>main</code>, <code>origin/main</code>, 내 작업 브랜치 위치가 어디인지 확인합니다.</li>
+        <li>로컬 설정 파일, secret 파일, 개인 PC 경로가 들어간 파일이 보이면 절대 commit하지 않습니다.</li>
+      </ol>
+      <p class="small">Sourcetree 버전에 따라 메뉴명은 조금 다를 수 있습니다. 핵심은 현재 브랜치와 변경 파일 목록 확인입니다.</p>
+    </div>
+    <div class="method-card">
+      <h4>터미널</h4>
+      <pre><code>git branch --show-current
+git status --short</code></pre>
+      <p>출력이 있으면 변경 파일을 확인하고, 작업과 무관한 파일은 commit 대상에서 제외합니다.</p>
+    </div>
+  </div>
+
+  <h2 id="sec-06">6. main 최신화</h2>
+  <div class="warning">
+    작업 브랜치를 만들기 전에는 항상 <code>main</code>을 최신화합니다. 오래된 <code>main</code>에서 브랜치를 만들면 PR 시점에 충돌 가능성이 커집니다.
+  </div>
+  <div class="method">
+    <div class="method-card">
+      <h4>Sourcetree GUI</h4>
+      <ol>
+        <li>왼쪽 <b>브랜치</b> 목록에서 <code>main</code>을 더블클릭해 이동합니다.</li>
+        <li>화면 상단의 <b>패치(Fetch)</b> 버튼을 누릅니다. Fetch는 원격 저장소의 최신 상태를 먼저 화면에 가져오는 작업입니다.</li>
+        <li>패치 창에서 <b>모든 원격 저장소에서 가져오기</b>를 체크합니다.</li>
+        <li><b>리모트에서 제거된 브랜치 정리하기</b>를 체크합니다. 이미 GitHub에서 삭제된 원격 브랜치 표시를 정리하기 위한 옵션입니다.</li>
+        <li><b>확인</b>을 눌러 Fetch를 실행합니다.</li>
+        <li>Fetch가 끝나면 History 그래프에서 <code>origin/main</code> 위치가 갱신되었는지 확인합니다.</li>
+        <li>상단의 <b>Pull</b> 버튼을 누릅니다.</li>
+        <li>Pull 창에서 원격 저장소가 <code>origin</code>인지 확인합니다.</li>
+        <li>가져오기 위한 원격 브랜치가 <code>main</code>인지 확인합니다.</li>
+        <li>가져온 뒤 병합될 현재 브랜치가 로컬 <code>main</code>인지 확인합니다.</li>
+        <li><b>충돌이 없으면 묶어서 바로 커밋</b> 옵션이 보이면 체크합니다.</li>
+        <li><b>Pull</b>을 눌러 원격 <code>main</code> 내용을 로컬 <code>main</code>에 반영합니다.</li>
+      </ol>
+    </div>
+    <div class="method-card">
+      <h4>터미널</h4>
+      <pre><code>git status --short
+git switch main
+git fetch --prune origin
+git pull origin main</code></pre>
+      <p><code>git pull</code>은 내부적으로 fetch 후 병합을 수행하지만, 초보자 문서에서는 Sourcetree 흐름과 맞추기 위해 <code>git fetch --prune origin</code>으로 원격 상태를 먼저 갱신하는 방식을 함께 안내합니다.</p>
+      <p><code>main</code> 이동 전에 변경 파일이 있으면 먼저 commit하거나 stash 처리합니다.</p>
+    </div>
+  </div>
+
+  <h2 id="sec-07">7. 브랜치 규칙</h2>
+  <p>브랜치는 <code>type/작업-내용</code> 형식을 사용합니다. 영문 소문자와 하이픈을 사용하고, 한글과 공백은 피합니다.</p>
+  <table>
+    <thead><tr><th>작업 내용</th><th>branch type</th><th>예시</th><th>사용 기준</th></tr></thead>
+    <tbody>
+      <tr><td>새 기능</td><td><code>feature</code></td><td><code>feature/member-login</code></td><td>회원가입, 로그인, 검색 등 기능 추가</td></tr>
+      <tr><td>버그 수정</td><td><code>fix</code></td><td><code>fix/reservation-seat-duplicate</code></td><td>오류, 검증 실패, 잘못된 응답 수정</td></tr>
+      <tr><td>문서 수정</td><td><code>docs</code></td><td><code>docs/git-guide</code></td><td>README, API 문서, ERD, 가이드 수정</td></tr>
+      <tr><td>구조 개선</td><td><code>refactor</code></td><td><code>refactor/movie-service</code></td><td>동작 유지, 중복 제거, 서비스 분리</td></tr>
+      <tr><td>테스트</td><td><code>test</code></td><td><code>test/member-validation</code></td><td>테스트 코드 추가/수정</td></tr>
+      <tr><td>설정/환경</td><td><code>chore</code></td><td><code>chore/gitignore-cleanup</code></td><td>빌드, 설정, 폴더 정리</td></tr>
+      <tr><td>화면 스타일</td><td><code>style</code></td><td><code>style/reservation-page</code></td><td>기능 변화 없는 CSS, 정렬, 포맷 수정</td></tr>
+    </tbody>
+  </table>
+
+  <h3>여러 작업이 있을 때 브랜치 분리 기준</h3>
+  <table>
+    <thead><tr><th>상황</th><th>권장</th><th>이유</th></tr></thead>
+    <tbody>
+      <tr><td>로그인 기능 추가 + 로그인 테스트 추가</td><td>한 브랜치 허용</td><td>같은 목적의 기능과 검증이므로 하나의 PR로 리뷰하기 쉽습니다.</td></tr>
+      <tr><td>로그인 기능 추가 + Git 가이드 문서 수정</td><td>브랜치 분리</td><td>기능과 문서는 목적이 다르므로 리뷰 기준이 다릅니다.</td></tr>
+      <tr><td>버그 수정 + 해당 버그 재발 방지 테스트</td><td>한 브랜치 허용</td><td>수정의 타당성을 테스트가 설명합니다.</td></tr>
+      <tr><td>회원 기능 + 예매 기능 동시 수정</td><td>브랜치 분리</td><td>변경 범위가 커지면 리뷰와 rollback이 어려워집니다.</td></tr>
+      <tr><td>리팩터링 + 기능 추가</td><td>가능하면 분리</td><td>동작 변화와 구조 변경을 섞으면 리뷰어가 실제 변경 의도를 파악하기 어렵습니다.</td></tr>
+    </tbody>
+  </table>
+  <div class="success">
+    판단 기준: “하나의 PR 제목으로 변경 목적을 정확히 설명할 수 있는가?”에 답하기 어렵다면 브랜치를 분리합니다. Git 공식 문서의 topic branch 설명처럼, 단일 기능 또는 관련 작업 단위로 짧게 유지하는 것이 좋습니다.
+  </div>
+
+  <h2 id="sec-08">8. 브랜치 생성</h2>
+  <div class="method">
+    <div class="method-card">
+      <h4>Sourcetree GUI</h4>
+      <ol>
+        <li>먼저 <code>main</code>으로 이동하고 Fetch/Pull까지 끝났는지 확인합니다.</li>
+        <li>상단 <b>브랜치(Branch)</b> 버튼을 누릅니다.</li>
+        <li>새 브랜치 이름에 <code>feature/member-login</code>처럼 입력합니다.</li>
+        <li>기준 브랜치가 최신 <code>main</code>인지 확인합니다.</li>
+        <li>생성 후 새 브랜치로 바로 이동하는 옵션이 보이면 체크합니다.</li>
+        <li>생성 후 왼쪽 브랜치 목록에서 새 브랜치가 굵게 표시되거나 선택되어 있는지 확인합니다.</li>
+      </ol>
+    </div>
+    <div class="method-card">
+      <h4>터미널</h4>
+      <pre><code>git switch main
+git fetch --prune origin
+git pull origin main
+git switch -c feature/member-login</code></pre>
+      <p>브랜치 생성 후 <code>git branch --show-current</code>로 현재 브랜치를 확인합니다.</p>
+    </div>
+  </div>
+
+  <h2 id="sec-09">9. 작업과 검증</h2>
+  <table>
+    <thead><tr><th>확인 항목</th><th>기준</th></tr></thead>
+    <tbody>
+      <tr><td>로컬 실행</td><td>수정한 화면 또는 API가 로컬에서 정상 동작하는지 확인합니다.</td></tr>
+      <tr><td>테스트</td><td>관련 단위 테스트 또는 통합 테스트를 실행합니다.</td></tr>
+      <tr><td>빌드</td><td>백엔드 변경이면 프로젝트 기준 빌드를 실행합니다.</td></tr>
+      <tr><td>변경 파일</td><td>작업과 무관한 파일이 섞이지 않았는지 확인합니다.</td></tr>
+      <tr><td>보안</td><td><code>.env</code>, token, auth 파일 원문, 개인 설정 파일을 올리지 않습니다.</td></tr>
+    </tbody>
+  </table>
+
+  <h2 id="sec-10">10. 커밋 규칙</h2>
+  <p>커밋 메시지는 Conventional Commits 형식을 팀 규칙에 맞게 한국어 summary로 사용합니다.</p>
+  <pre><code>type(scope): 한국어 요약</code></pre>
+  <p>scope가 애매하면 생략합니다.</p>
+  <pre><code>type: 한국어 요약</code></pre>
+
+  <table>
+    <thead><tr><th>type</th><th>의미</th><th>사용 상황</th><th>예시</th></tr></thead>
+    <tbody>
+      <tr><td><code>feat</code></td><td>새 기능</td><td>회원가입, 로그인, 검색 등 기능 추가</td><td><code>feat(member): 로그인 검증 로직 추가</code></td></tr>
+      <tr><td><code>fix</code></td><td>버그 수정</td><td>오류, 검증 실패, 잘못된 응답 수정</td><td><code>fix(reservation): 좌석 중복 예매 검증 오류 수정</code></td></tr>
+      <tr><td><code>docs</code></td><td>문서 수정</td><td>README, API 문서, 가이드 수정</td><td><code>docs(git): 브랜치 PR 협업 가이드 추가</code></td></tr>
+      <tr><td><code>style</code></td><td>기능 변화 없는 포맷/스타일</td><td>CSS, 정렬, 공백, 들여쓰기</td><td><code>style(view): 예약 화면 버튼 간격 조정</code></td></tr>
+      <tr><td><code>refactor</code></td><td>구조 개선</td><td>동작 유지, 중복 제거, 서비스 분리</td><td><code>refactor(movie): 검색 서비스 책임 분리</code></td></tr>
+      <tr><td><code>test</code></td><td>테스트</td><td>테스트 코드 추가/수정</td><td><code>test(member): 회원가입 검증 테스트 추가</code></td></tr>
+      <tr><td><code>chore</code></td><td>기타 설정/정리</td><td>빌드, 설정, 폴더 정리</td><td><code>chore(config): 로컬 설정 파일 추적 제외</code></td></tr>
+    </tbody>
+  </table>
+
+  <table>
+    <thead><tr><th>규칙</th><th>좋은 예</th><th>나쁜 예</th></tr></thead>
+    <tbody>
+      <tr><td>summary는 한국어</td><td><code>fix: 예매 좌석 중복 확인 오류 수정</code></td><td><code>fix: correct reservation error</code></td></tr>
+      <tr><td>마침표 생략</td><td><code>docs: Git 협업 가이드 보완</code></td><td><code>docs: Git 협업 가이드 보완.</code></td></tr>
+      <tr><td>모호한 표현 금지</td><td><code>feat: 회원가입 입력값 검증 추가</code></td><td><code>feat: 작업함</code></td></tr>
+      <tr><td>여러 목적이면 commit 분리</td><td><code>feat(member): 로그인 추가</code> + <code>docs(git): 가이드 보완</code></td><td><code>feat: 이것저것 수정</code></td></tr>
+    </tbody>
+  </table>
+
+  <div class="method">
+    <div class="method-card">
+      <h4>Sourcetree GUI</h4>
+      <ol>
+        <li>왼쪽 <b>파일 상태</b> 화면을 엽니다.</li>
+        <li>변경 파일 목록에서 이번 commit에 포함할 파일만 체크합니다.</li>
+        <li>오른쪽 diff 영역에서 각 파일의 변경 내용이 의도한 작업인지 확인합니다.</li>
+        <li>commit 메시지 입력칸에 <code>type(scope): 한국어 요약</code>을 작성합니다.</li>
+        <li>작업과 무관한 파일, 개인 설정 파일, secret 파일이 섞이지 않았는지 다시 확인합니다.</li>
+        <li><b>Commit</b>을 누릅니다.</li>
+      </ol>
+    </div>
+    <div class="method-card">
+      <h4>터미널</h4>
+      <pre><code>git status --short
+git add src/main/java/...
+git commit -m "feat(member): 로그인 검증 로직 추가"</code></pre>
+      <p><code>git add .</code>는 불필요한 파일까지 포함할 수 있으므로 변경 파일을 먼저 확인합니다.</p>
+    </div>
+  </div>
+
+  <h2 id="sec-11">11. push 규칙</h2>
+  <div class="warning">
+    push는 자기 작업 브랜치에만 합니다. <code>main</code>에 직접 push하지 않습니다.
+  </div>
+  <div class="method">
+    <div class="method-card">
+      <h4>Sourcetree GUI</h4>
+      <ol>
+        <li>왼쪽 브랜치 목록에서 현재 브랜치가 <code>main</code>이 아니라 내 작업 브랜치인지 확인합니다.</li>
+        <li>상단 <b>Push</b> 버튼을 누릅니다.</li>
+        <li>Push 창에서 원격 저장소가 <code>origin</code>인지 확인합니다.</li>
+        <li>로컬 브랜치와 원격 브랜치 이름이 내 작업 브랜치 이름과 같은지 확인합니다.</li>
+        <li><code>main</code>이 체크되어 있으면 체크를 해제하고, 내 작업 브랜치만 push합니다.</li>
+      </ol>
+    </div>
+    <div class="method-card">
+      <h4>터미널</h4>
+      <pre><code>git branch --show-current
+git push -u origin feature/member-login</code></pre>
+      <p>두 번째 push부터는 보통 <code>git push</code>만으로 충분합니다.</p>
+    </div>
+  </div>
+
+  <h2 id="sec-12">12. PR 작성 규칙</h2>
+  <h3>PR 제목</h3>
+  <pre><code>type(scope): 한국어 요약</code></pre>
+  <table>
+    <thead><tr><th>PR 내용</th><th>제목 type</th><th>예시</th></tr></thead>
+    <tbody>
+      <tr><td>새 기능 중심</td><td><code>feat</code></td><td><code>feat(member): 회원가입 입력값 검증 추가</code></td></tr>
+      <tr><td>버그 수정 중심</td><td><code>fix</code></td><td><code>fix(reservation): 좌석 중복 예매 검증 오류 수정</code></td></tr>
+      <tr><td>문서만 수정</td><td><code>docs</code></td><td><code>docs(git): 브랜치 PR 협업 가이드 추가</code></td></tr>
+      <tr><td>구조 개선 중심</td><td><code>refactor</code></td><td><code>refactor(movie): 검색 서비스 책임 분리</code></td></tr>
+      <tr><td>테스트 중심</td><td><code>test</code></td><td><code>test(review): 리뷰 작성 검증 테스트 추가</code></td></tr>
+    </tbody>
+  </table>
+
+  <h3>PR 본문</h3>
+  <p>GitHub Docs는 PR 본문에 목적, 변경 개요, 관련 이슈나 대화 링크 등 리뷰어가 이해할 수 있는 맥락을 제공하라고 안내합니다. 팀 문서에서는 아래 형식을 기본으로 사용합니다.</p>
+  <pre><code>### 1. 작업 내용
+- 
+
+### 2. 변경 이유
+- 
+
+### 3. 주요 변경 파일/영역
+| 파일/영역 | 변경 내용 |
+|---|---|
+
+### 4. 테스트/검증
+- [ ] 로컬 실행 확인
+- [ ] 단위 테스트 확인
+- [ ] 빌드 확인
+- [ ] 직접 화면/기능 확인
+
+### 5. 리뷰어 확인 요청
+- 
+
+### 6. 남은 문제/주의점
+- </code></pre>
+
+  <table>
+    <thead><tr><th>항목</th><th>작성 내용</th><th>예시</th></tr></thead>
+    <tbody>
+      <tr><td>작업 내용</td><td>무엇을 바꿨는지</td><td>회원가입 입력값 검증 로직을 추가했습니다.</td></tr>
+      <tr><td>변경 이유</td><td>왜 바꿨는지</td><td>잘못된 회원 정보가 저장 로직까지 전달되는 문제를 막기 위해 변경했습니다.</td></tr>
+      <tr><td>주요 변경 파일/영역</td><td>리뷰어가 봐야 할 범위</td><td><code>member</code>, <code>reservation</code>, <code>docs</code></td></tr>
+      <tr><td>테스트/검증</td><td>실제로 확인한 항목만 체크</td><td><code>[x] 빌드 확인</code></td></tr>
+      <tr><td>리뷰어 확인 요청</td><td>특히 봐야 할 부분</td><td>예매 실패 시 오류 메시지가 적절한지 확인 부탁드립니다.</td></tr>
+      <tr><td>남은 문제/주의점</td><td>이번 PR에서 제외한 범위</td><td>비밀번호 정책 강화는 별도 작업으로 분리합니다.</td></tr>
+    </tbody>
+  </table>
+
+  <div class="method">
+    <div class="method-card">
+      <h4>Sourcetree GUI</h4>
+      <ol>
+        <li>Sourcetree에서 작업 브랜치를 push합니다.</li>
+        <li>GitHub 저장소 페이지로 이동합니다.</li>
+        <li><b>Compare &amp; pull request</b>를 클릭합니다.</li>
+        <li>base가 <code>main</code>, compare가 작업 브랜치인지 확인합니다.</li>
+        <li>PR 제목과 본문을 규칙대로 작성합니다.</li>
+      </ol>
+    </div>
+    <div class="method-card">
+      <h4>터미널</h4>
+      <pre><code>git push -u origin feature/member-login</code></pre>
+      <p>터미널로 push한 뒤 GitHub 웹에서 PR을 생성합니다. GitHub CLI를 쓰는 팀이면 <code>gh pr create</code>를 별도 팀 규칙으로 정할 수 있습니다.</p>
+    </div>
+  </div>
+
+  <h2 id="sec-13">13. PR 올리기 전 최신 main 병합</h2>
+  <p>PR 생성 전 또는 리뷰 반영 전, 내 작업 브랜치가 최신 <code>main</code> 기준인지 확인합니다.</p>
+  <div class="method">
+    <div class="method-card">
+      <h4>Sourcetree GUI</h4>
+      <ol>
+        <li>먼저 작업 브랜치의 변경 파일을 확인합니다. 아직 commit하지 않은 변경이 있으면 commit하거나 stash로 임시 보관합니다.</li>
+        <li>왼쪽 브랜치 목록에서 <code>main</code>을 더블클릭해 이동합니다.</li>
+        <li>상단 <b>패치(Fetch)</b> 버튼을 누릅니다.</li>
+        <li>패치 창에서 <b>모든 원격 저장소에서 가져오기</b>와 <b>리모트에서 제거된 브랜치 정리하기</b>를 체크하고 <b>확인</b>을 누릅니다.</li>
+        <li>상단 <b>Pull</b> 버튼을 누릅니다.</li>
+        <li>Pull 창에서 원격 저장소가 <code>origin</code>, 원격 브랜치가 <code>main</code>, 현재 브랜치가 로컬 <code>main</code>인지 확인합니다.</li>
+        <li><b>충돌이 없으면 묶어서 바로 커밋</b> 옵션이 보이면 체크하고 Pull을 실행합니다.</li>
+        <li>왼쪽 브랜치 목록에서 내 작업 브랜치를 더블클릭해 다시 이동합니다.</li>
+        <li>왼쪽 <code>main</code> 브랜치를 우클릭하고 <b>Merge main into current branch</b> 또는 유사한 merge 메뉴를 선택합니다.</li>
+        <li>충돌이 없으면 테스트/빌드를 다시 실행합니다.</li>
+        <li>병합 결과 commit이 생겼거나 브랜치가 갱신되면 상단 <b>Push</b>로 작업 브랜치를 push합니다.</li>
+      </ol>
+    </div>
+    <div class="method-card">
+      <h4>터미널</h4>
+      <pre><code>git switch main
+git fetch --prune origin
+git pull origin main
+git switch feature/member-login
+git merge main
+# 테스트/빌드 후
+git push</code></pre>
+    </div>
+  </div>
+
+  <h2 id="sec-14">14. 다른 팀원 PR merge 전달을 받았을 때</h2>
+  <p>내가 아직 작업 중인데 다른 팀원의 PR이 <code>main</code>에 merge되었다는 전달을 받으면, 내 변경 상태를 먼저 정리한 뒤 최신 <code>main</code>을 받아야 합니다.</p>
+  <table>
+    <thead><tr><th>현재 내 상태</th><th>권장 처리</th><th>이유</th></tr></thead>
+    <tbody>
+      <tr><td>작업 파일이 아직 commit할 수준이 아님</td><td><code>stash</code></td><td>미완료 변경을 임시 보관하고 깨끗한 상태에서 최신 <code>main</code>을 받을 수 있습니다.</td></tr>
+      <tr><td>작업 단위가 의미 있고 테스트 전이라도 보존해야 함</td><td>WIP commit 검토</td><td>작업 이력을 브랜치에 남길 수 있지만, PR 전에는 메시지 정리나 추가 commit 정리가 필요할 수 있습니다.</td></tr>
+      <tr><td>이미 commit 완료</td><td>바로 <code>main</code> 최신화 후 작업 브랜치에 병합</td><td>내 변경이 브랜치 이력에 있으므로 merge 충돌만 확인하면 됩니다.</td></tr>
+    </tbody>
+  </table>
+  <div class="warning">
+    commit은 충돌을 없애는 기능이 아닙니다. 충돌은 최신 <code>main</code>을 내 작업 브랜치에 병합할 때 발생할 수 있습니다. commit은 내 변경을 이력으로 고정하는 것이고, stash는 아직 commit하지 않을 변경을 임시 보관하는 것입니다.
+  </div>
+
+  <h3>Sourcetree에서 stash에 넣기</h3>
+  <p>stash는 아직 commit하기 애매한 작업을 잠깐 치워 두는 기능입니다. Atlassian Git Tutorial 기준으로 stash는 staged/unstaged 변경을 저장한 뒤 작업 폴더를 깨끗한 상태로 되돌립니다. 단, 새로 만든 파일은 옵션을 켜지 않으면 stash에 포함되지 않을 수 있습니다.</p>
+  <table>
+    <thead><tr><th>순서</th><th>Sourcetree GUI 작업</th><th>확인할 것</th></tr></thead>
+    <tbody>
+      <tr><td>1</td><td>왼쪽 <b>파일 상태</b>를 클릭합니다.</td><td>아직 commit하지 않은 변경 파일이 있는지 확인합니다.</td></tr>
+      <tr><td>2</td><td>변경 파일 목록을 봅니다.</td><td>내가 임시 보관할 파일인지, 실수로 생긴 파일인지 구분합니다.</td></tr>
+      <tr><td>3</td><td>새 파일이 있다면 파일명이 회색/물음표/추적 안 됨 상태로 보이는지 확인합니다.</td><td>새 파일은 stash 옵션에 따라 포함되지 않을 수 있으므로 별도로 확인합니다.</td></tr>
+      <tr><td>4</td><td>상단의 <b>스태시(Stash)</b> 버튼을 누릅니다.</td><td>상단 버튼이 보이지 않으면 메뉴의 <b>액션</b> 또는 왼쪽 <b>스태시</b> 영역을 확인합니다.</td></tr>
+      <tr><td>5</td><td>stash 이름을 입력합니다.</td><td><code>WIP: member-login</code>, <code>WIP: reservation-ui</code>처럼 나중에 알아볼 수 있게 씁니다.</td></tr>
+      <tr><td>6</td><td>새 파일 포함 옵션이 보이면 필요한 경우 체크합니다.</td><td>새로 만든 파일까지 임시 보관해야 하면 untracked/new file 포함 옵션을 켭니다.</td></tr>
+      <tr><td>7</td><td><b>확인</b> 또는 <b>Stash</b>를 눌러 실행합니다.</td><td>실행 후 <b>파일 상태</b>가 깨끗해졌는지 확인합니다.</td></tr>
+      <tr><td>8</td><td>왼쪽 <b>스태시</b> 목록을 확인합니다.</td><td>방금 입력한 stash 이름이 목록에 보이면 정상입니다.</td></tr>
+    </tbody>
+  </table>
+
+  <div class="note">
+    <b>초보자 기준 권장:</b> stash 이름을 비워 두지 마세요. stash가 여러 개 쌓이면 기본 이름만 보고는 어떤 작업인지 구분하기 어렵습니다.
+  </div>
+
+  <h3>Sourcetree에서 stash 다시 꺼내기</h3>
+  <p>stash를 다시 꺼낼 때는 현재 브랜치가 맞는지 먼저 확인합니다. 다른 브랜치에서 꺼내면 예상하지 못한 파일 변경이나 충돌이 생길 수 있습니다.</p>
+  <table>
+    <thead><tr><th>순서</th><th>Sourcetree GUI 작업</th><th>확인할 것</th></tr></thead>
+    <tbody>
+      <tr><td>1</td><td>왼쪽 <b>브랜치</b> 목록에서 내 작업 브랜치로 이동합니다.</td><td>stash를 적용할 브랜치가 맞는지 확인합니다.</td></tr>
+      <tr><td>2</td><td>왼쪽 <b>스태시</b> 목록을 펼칩니다.</td><td>적용할 stash 이름과 생성 시점을 확인합니다.</td></tr>
+      <tr><td>3</td><td>적용할 stash를 선택합니다.</td><td>가능하면 diff 또는 변경 파일 목록을 보고 맞는 stash인지 확인합니다.</td></tr>
+      <tr><td>4</td><td><b>적용(Apply)</b> 또는 <b>적용 후 삭제(Pop)</b>에 해당하는 메뉴를 선택합니다.</td><td>처음에는 적용 후 목록에 남는 방식이 더 안전합니다.</td></tr>
+      <tr><td>5</td><td><b>파일 상태</b> 화면으로 이동합니다.</td><td>stash에 있던 변경 파일이 다시 나타났는지 확인합니다.</td></tr>
+      <tr><td>6</td><td>충돌 표시가 있는지 확인합니다.</td><td>충돌이 있으면 바로 commit하지 말고 충돌 파일을 먼저 해결합니다.</td></tr>
+      <tr><td>7</td><td>로컬 실행, 테스트, 빌드를 확인합니다.</td><td>복원된 변경이 최신 <code>main</code> 위에서도 정상인지 확인합니다.</td></tr>
+      <tr><td>8</td><td>문제가 없으면 commit합니다.</td><td>복원한 변경을 작업 브랜치 이력으로 저장합니다.</td></tr>
+      <tr><td>9</td><td>적용 후 남아 있는 stash가 더 이상 필요 없으면 삭제합니다.</td><td>삭제 전 변경 내용이 commit되었는지 확인합니다.</td></tr>
+    </tbody>
+  </table>
+
+  <h3>Apply와 Pop 선택 기준</h3>
+  <table>
+    <thead><tr><th>방식</th><th>의미</th><th>권장 상황</th></tr></thead>
+    <tbody>
+      <tr><td><b>Apply</b></td><td>stash 내용을 작업 폴더에 적용하지만 stash 목록에는 남깁니다.</td><td>초보자에게 우선 권장. 복원 중 문제가 생겨도 stash가 남아 있어 다시 시도할 수 있습니다.</td></tr>
+      <tr><td><b>Pop</b></td><td>stash 내용을 적용하고 성공하면 stash 목록에서 제거합니다.</td><td>stash 내용이 확실하고 바로 정리해도 되는 경우에 사용합니다.</td></tr>
+      <tr><td>충돌 발생</td><td>적용 중 충돌이 나면 파일을 수동으로 해결해야 합니다.</td><td>Git 공식 문서 기준으로 pop 적용이 충돌로 실패하면 stash가 목록에 남을 수 있으므로, 상태를 확인한 뒤 직접 삭제합니다.</td></tr>
+    </tbody>
+  </table>
+
+  <div class="method">
+    <div class="method-card">
+      <h4>Sourcetree GUI</h4>
+      <ol>
+        <li>왼쪽 브랜치 목록에서 현재 브랜치가 내 작업 브랜치인지 확인합니다.</li>
+        <li><b>파일 상태</b> 화면에서 아직 commit하지 않은 변경 파일이 있는지 확인합니다.</li>
+        <li>미완료 변경이면 상단 또는 메뉴의 <b>스태시(Stash)</b> 기능으로 임시 보관합니다. stash 이름에는 작업 내용을 짧게 적습니다.</li>
+        <li>새로 만든 파일까지 보관해야 하면 새 파일 포함 옵션이 있는지 확인합니다.</li>
+        <li><code>main</code>으로 이동합니다.</li>
+        <li><b>패치(Fetch)</b>를 실행하고 <b>모든 원격 저장소에서 가져오기</b>, <b>리모트에서 제거된 브랜치 정리하기</b>를 체크합니다.</li>
+        <li><b>Pull</b>을 실행합니다. 원격 저장소가 <code>origin</code>, 원격 브랜치가 <code>main</code>인지 확인합니다.</li>
+        <li>다시 내 작업 브랜치로 이동합니다.</li>
+        <li>최신 <code>main</code>을 현재 작업 브랜치에 merge합니다.</li>
+        <li>stash한 변경이 있으면 왼쪽 <b>스태시</b> 목록에서 해당 stash를 선택하고 먼저 <b>적용(Apply)</b> 방식으로 다시 적용합니다.</li>
+        <li>충돌 여부를 확인하고, 해결 후 테스트/빌드를 실행합니다.</li>
+        <li>검증 후 commit하고 작업 브랜치를 push합니다.</li>
+        <li>stash가 목록에 남아 있고 더 이상 필요 없으면 삭제합니다.</li>
+      </ol>
+    </div>
+    <div class="method-card">
+      <h4>터미널</h4>
+      <pre><code>git status --short
+git stash push -u -m "WIP: member-login"
+git switch main
+git fetch --prune origin
+git pull origin main
+git switch feature/member-login
+git merge main
+git stash apply
+# 충돌 확인, 테스트/빌드 후
+git add 수정한파일
+git commit -m "feat(member): 작업 내용 정리"
+git push</code></pre>
+      <p><code>-u</code>는 새로 만든 파일까지 stash에 포함하는 옵션입니다. <code>git stash apply</code>는 stash를 목록에 남깁니다. 복원과 검증이 끝난 뒤 더 이상 필요 없을 때 <code>git stash drop</code>을 사용합니다.</p>
+    </div>
+  </div>
+
+  <h2 id="sec-15">15. 내 PR merge 이후 작업자 동기화</h2>
+  <table>
+    <thead><tr><th>순서</th><th>작업</th><th>목적</th></tr></thead>
+    <tbody>
+      <tr><td>1</td><td>PR이 merge되었는지 확인</td><td>팀 저장소 <code>main</code> 반영 여부 확인</td></tr>
+      <tr><td>2</td><td><code>main</code>으로 이동</td><td>최신 기준 브랜치로 이동</td></tr>
+      <tr><td>3</td><td><code>main</code> pull</td><td>팀장이 merge한 내용 받기</td></tr>
+      <tr><td>4</td><td>완료된 작업 브랜치 정리</td><td>더 이상 필요 없는 브랜치 삭제</td></tr>
+      <tr><td>5</td><td>계속 작업 중인 브랜치로 이동</td><td>다음 작업 또는 이어지는 작업 진행</td></tr>
+      <tr><td>6</td><td>작업 브랜치에 최신 <code>main</code> 병합</td><td>다음 PR 충돌 가능성 감소</td></tr>
+      <tr><td>7</td><td>작업 브랜치 push</td><td>원격 작업 브랜치도 최신화</td></tr>
+    </tbody>
+  </table>
+  <div class="method">
+    <div class="method-card">
+      <h4>Sourcetree GUI</h4>
+      <ol>
+        <li>GitHub에서 내 PR이 merge되었는지 먼저 확인합니다.</li>
+        <li>Sourcetree에서 <code>main</code> 브랜치로 이동합니다.</li>
+        <li><b>패치(Fetch)</b>를 실행하고 원격 상태를 갱신합니다.</li>
+        <li><b>Pull</b>을 실행해 팀장이 merge한 내용을 로컬 <code>main</code>에 반영합니다.</li>
+        <li>완료된 작업 브랜치가 필요 없으면 삭제합니다. 삭제 전 <code>main</code>에 merge된 PR인지 확인합니다.</li>
+        <li>계속 작업 중인 브랜치가 있으면 그 브랜치로 이동합니다.</li>
+        <li>최신 <code>main</code>을 현재 작업 브랜치에 merge합니다.</li>
+        <li>충돌 해결과 검증 후 작업 브랜치를 push합니다.</li>
+      </ol>
+    </div>
+    <div class="method-card">
+      <h4>터미널</h4>
+      <pre><code>git switch main
+git fetch --prune origin
+git pull origin main
+git switch feature/next-work
+git merge main
+# 충돌 해결과 검증 후
+git push</code></pre>
+    </div>
+  </div>
+
+  <h2 id="sec-16">16. 충돌 처리</h2>
+  <table>
+    <thead><tr><th>상황</th><th>처리 기준</th></tr></thead>
+    <tbody>
+      <tr><td>같은 파일의 같은 부분 수정</td><td>두 변경 중 무엇이 맞는지 확인하고 하나로 정리합니다.</td></tr>
+      <tr><td>내 변경과 팀 변경 모두 필요</td><td>둘 다 유지되도록 코드를 수동 병합합니다.</td></tr>
+      <tr><td>어느 쪽이 맞는지 불명확</td><td>작성자 또는 팀장에게 확인합니다.</td></tr>
+      <tr><td>stash 적용 중 충돌</td><td>파일을 수동 해결하고 검증합니다. <code>stash pop</code> 실패 시 stash는 보통 목록에 남으므로 상태를 확인합니다.</td></tr>
+    </tbody>
+  </table>
+  <div class="method">
+    <div class="method-card">
+      <h4>Sourcetree GUI</h4>
+      <ol>
+        <li><b>파일 상태</b> 화면에서 충돌 표시가 붙은 파일 목록을 확인합니다.</li>
+        <li>충돌 파일을 더블클릭하거나 외부 편집기로 열어 <code>&lt;&lt;&lt;&lt;&lt;&lt;&lt;</code>, <code>=======</code>, <code>&gt;&gt;&gt;&gt;&gt;&gt;&gt;</code> 표시를 찾습니다.</li>
+        <li>내 변경과 팀원의 변경 중 무엇을 남길지 결정하고 최종 코드만 남깁니다.</li>
+        <li>어느 쪽이 맞는지 모르겠으면 임의로 고르지 말고 팀장 또는 해당 파일 작성자에게 확인합니다.</li>
+        <li>수정한 파일을 저장한 뒤 Sourcetree로 돌아와 해결한 파일을 stage합니다.</li>
+        <li>merge commit 또는 충돌 해결 commit을 완료합니다.</li>
+        <li>테스트/빌드를 다시 실행하고 문제가 없으면 push합니다.</li>
+      </ol>
+    </div>
+    <div class="method-card">
+      <h4>터미널</h4>
+      <pre><code>git status --short
+# 충돌 파일 수정
+git add 충돌파일
+git commit</code></pre>
+      <p>merge 중인 상태라면 <code>git commit</code>이 merge commit을 완료합니다.</p>
+    </div>
+  </div>
+
+  <h2 id="sec-17">17. 브랜치 정리</h2>
+  <p>PR이 merge된 작업 브랜치는 더 이상 필요 없으면 정리합니다. 단, 삭제 전 <code>main</code>에 merge된 것을 확인합니다.</p>
+  <div class="method">
+    <div class="method-card">
+      <h4>Sourcetree GUI</h4>
+      <ol>
+        <li><code>main</code>으로 이동합니다.</li>
+        <li>완료된 작업 브랜치를 우클릭합니다.</li>
+        <li><b>Delete</b> 또는 유사한 삭제 메뉴를 선택합니다.</li>
+        <li>원격 브랜치 삭제는 팀 규칙에 따라 GitHub 또는 Sourcetree에서 처리합니다.</li>
+      </ol>
+    </div>
+    <div class="method-card">
+      <h4>터미널</h4>
+      <pre><code>git switch main
+git branch -d feature/member-login
+# 원격 브랜치 삭제가 필요하고 팀 규칙상 허용된 경우
+git push origin --delete feature/member-login</code></pre>
+      <p>원격 브랜치 삭제는 팀 규칙에 맞게 진행합니다.</p>
+    </div>
+  </div>
+
+  <h2 id="sec-18">18. 자주 하는 실수</h2>
+  <table>
+    <thead><tr><th>실수</th><th>문제</th><th>예방</th></tr></thead>
+    <tbody>
+      <tr><td><code>main</code>에서 직접 commit</td><td>승인되지 않은 변경이 기준 브랜치에 섞입니다.</td><td>작업 전 현재 브랜치를 확인합니다.</td></tr>
+      <tr><td>관련 없는 작업을 한 PR에 포함</td><td>리뷰가 느려지고 merge 판단이 어려워집니다.</td><td>단일 목적 브랜치와 PR을 사용합니다.</td></tr>
+      <tr><td>PR 본문 없이 제목만 작성</td><td>리뷰어가 변경 이유와 검증 여부를 알기 어렵습니다.</td><td>본문 템플릿을 채웁니다.</td></tr>
+      <tr><td>팀장 merge 후 pull 누락</td><td>다음 작업이 오래된 코드 기준으로 진행됩니다.</td><td>merge 알림을 받으면 <code>main</code> pull부터 합니다.</td></tr>
+      <tr><td>stash 후 복원 누락</td><td>내 작업이 사라진 것처럼 보일 수 있습니다.</td><td><code>git stash list</code> 또는 Sourcetree stash 목록을 확인합니다.</td></tr>
+      <tr><td>검증하지 않고 PR 생성</td><td>빌드 실패나 기본 동작 오류가 리뷰 단계로 넘어갑니다.</td><td>PR 전 로컬 실행, 테스트, 빌드를 확인합니다.</td></tr>
+    </tbody>
+  </table>
+
+  <h2 id="sec-19">19. 근거 자료</h2>
+  <p>이 문서는 아래 자료를 조사해 팀 협업 문서용으로 재구성했습니다.</p>
+  <ul>
+    <li><a href="https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/proposing-changes-to-your-work-with-pull-requests/about-branches">GitHub Docs: About branches</a> - 브랜치를 작업 격리와 PR 병합 단위로 설명</li>
+    <li><a href="https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/proposing-changes-to-your-work-with-pull-requests/creating-a-pull-request">GitHub Docs: Creating a pull request</a> - base branch, compare/head branch, PR 제목/본문 입력 흐름 확인</li>
+    <li><a href="https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/getting-started/helping-others-review-your-changes">GitHub Docs: Helping others review your changes</a> - 작고 단일 목적의 PR, 명확한 제목과 설명, 자체 리뷰/테스트 권장 기준 확인</li>
+    <li><a href="https://www.conventionalcommits.org/en/v1.0.0/">Conventional Commits 1.0.0</a> - <code>type(scope): description</code>, <code>feat</code>, <code>fix</code>, optional scope 구조 확인</li>
+    <li><a href="https://git-scm.com/book/en/v2/Git-Branching-Branching-Workflows">Pro Git: Branching Workflows</a> - topic branch를 단일 기능 또는 관련 작업 단위로 사용하는 기준 확인</li>
+    <li><a href="https://www.atlassian.com/git/tutorials/saving-changes/git-stash">Atlassian Git Tutorial: Git stash</a> - stash가 staged/unstaged 변경을 임시 저장하고 작업 폴더를 깨끗하게 만드는 동작, untracked 파일 포함 옵션 확인</li>
+    <li><a href="https://git-scm.com/docs/git-stash">Git documentation: git-stash</a> - stash push/apply/pop 동작과 충돌 가능성 확인</li>
+  </ul>
+</main>
+</body>
+</html>
