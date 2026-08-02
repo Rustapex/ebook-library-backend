@@ -39,12 +39,12 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-      - name: Run tests
+      - name: Compile application and test sources
         if: steps.project.outputs.present == 'true'
         shell: bash
         run: |
           chmod +x gradlew
-          ./gradlew test --no-daemon
+          ./gradlew compileJava compileTestJava --no-daemon
 
       - name: Bootstrap confirmation
         if: steps.project.outputs.present != 'true'
