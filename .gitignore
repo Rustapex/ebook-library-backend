@@ -1,0 +1,47 @@
+# Build
+.gradle/
+build/
+out/
+bin/
+*.jar
+!gradle/wrapper/gradle-wrapper.jar
+*.war
+
+# Local environment and secrets
+.env
+.env.*
+!.env.example
+!.env.prod.example
+*.pem
+*.key
+*.p12
+*.pfx
+*.jks
+
+# IDE
+.idea/
+.vscode/
+.settings/
+.classpath
+.project
+.factorypath
+*.iml
+*.ipr
+*.iws
+
+# Local tool state
+.claude/
+.codex/
+.omc/
+.omx/
+.agents/
+
+# Local runtime files only
+/logs/
+/tmp/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Intentionally tracked: CLAUDE.md, AGENTS.md, docs/, api-test-results/
