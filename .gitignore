@@ -64,3 +64,35 @@ AGENTS.md
 # OS
 .DS_Store
 Thumbs.db
+
+# Local secrets and runtime configuration
+.env
+.env.*
+!.env.example
+/src/main/resources/application.properties
+/src/main/resources/application-*.properties
+/src/main/resources/application.yml
+/src/main/resources/application-*.yml
+/src/main/resources/application.yaml
+/src/main/resources/application-*.yaml
+*.pem
+*.key
+*.p12
+*.pfx
+*.jks
+*.keystore
+
+# Local AI and knowledge-tool metadata
+.codex/
+.claude/
+.obsidian/
+.omc/
+.omx/
+
+# Local database files and backups
+*.sqlite
+*.sqlite3
+*.db
+*.dump
+*.bak
+*.sql.gz
